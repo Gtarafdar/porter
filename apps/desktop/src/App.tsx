@@ -111,6 +111,8 @@ export function App() {
   const [peerPort, setPeerPort] = useState("47831");
   const [peerFallback, setPeerFallback] = useState("");
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
+  const [settingsTab, setSettingsTab] = useState<"connect" | "more">("connect");
+  const [showAdvancedPeer, setShowAdvancedPeer] = useState(false);
 
   const [left, setLeft] = useState<PaneState | null>(null);
   const [right, setRight] = useState<PaneState | null>(null);
@@ -315,6 +317,7 @@ export function App() {
             type="button"
             onClick={() => {
               setSettingsMsg(null);
+              setSettingsTab("connect");
               setShowSettings(true);
             }}
           >
@@ -341,6 +344,7 @@ export function App() {
             type="button"
             onClick={() => {
               setSettingsMsg(null);
+              setSettingsTab("more");
               setShowSettings(true);
             }}
           >
@@ -372,8 +376,8 @@ export function App() {
             </h3>
             {devices.filter((d) => !d.isLocal).length === 0 && (
               <div className="side-hint">
-                No other Mac yet. Same Wi‑Fi: click <strong>Add Mac</strong>, paste the other
-                Mac’s LAN IP (shown in its Settings). Same pair token required first.
+                No other Mac yet. Click <strong>Add Mac</strong> — 3 steps: copy your IP, match
+                the pair token, paste the other Mac’s IP.
               </div>
             )}
             {devices.map((d) => (
@@ -555,204 +559,250 @@ export function App() {
 
       {showSettings && settings && (
         <div className="modal-backdrop" onClick={() => setShowSettings(false)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <h2>Settings / Add Mac</h2>
-            <p>
-              Same pair token on both Macs, then each Mac adds the <em>other</em> Mac’s address.
-              Same Wi‑Fi: use the LAN IP below (not “localhost”).
-            </p>
-
-            <div className="callout ok">
-              <div>
-                <strong>This Mac’s LAN IP (tell the other Mac to add this):</strong>
-                <div className="path-row" style={{ marginTop: 8 }}>
-                  <input readOnly value={settings.lan || "—"} />
-                  <button
-                    className="btn"
-                    type="button"
-                    disabled={!settings.lan}
-                    onClick={() => {
-                      if (!settings.lan) return;
-                      void navigator.clipboard.writeText(settings.lan);
-                      setSettingsMsg("LAN IP copied — paste it in Add Mac on the other computer.");
-                      showToast("LAN IP copied");
-                    }}
-                  >
-                    Copy IP
-                  </button>
-                </div>
+          <div className="sheet sheet-fit" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-top">
+              <h2>{settingsTab === "connect" ? "Add another Mac" : "Settings"}</h2>
+              <div className="sheet-tabs" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  className={settingsTab === "connect" ? "active" : ""}
+                  aria-selected={settingsTab === "connect"}
+                  onClick={() => setSettingsTab("connect")}
+                >
+                  Connect
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  className={settingsTab === "more" ? "active" : ""}
+                  aria-selected={settingsTab === "more"}
+                  onClick={() => setSettingsTab("more")}
+                >
+                  This Mac
+                </button>
               </div>
             </div>
 
-            <div className="field">
-              <label>Device name</label>
-              <input
-                defaultValue={settings.name}
-                id="deviceName"
-                onBlur={(e) => {
-                  void porter.updateDevice({ deviceName: e.target.value }).then(refreshMeta);
-                }}
-              />
+            <div className="sheet-body">
+              {settingsTab === "connect" && (
+                <>
+                  <ol className="connect-steps">
+                    <li>
+                      <strong>Share this Mac’s IP</strong> with the other computer
+                      <div className="path-row" style={{ marginTop: 8 }}>
+                        <input readOnly value={settings.lan || "—"} />
+                        <button
+                          className="btn"
+                          type="button"
+                          disabled={!settings.lan}
+                          onClick={() => {
+                            if (!settings.lan) return;
+                            void navigator.clipboard.writeText(settings.lan);
+                            setSettingsMsg("IP copied — paste it under “Other Mac’s IP” on the other computer.");
+                            showToast("IP copied");
+                          }}
+                        >
+                          Copy IP
+                        </button>
+                      </div>
+                    </li>
+                    <li>
+                      <strong>Same pair token</strong> on both Macs
+                      <div className="path-row" style={{ marginTop: 8 }}>
+                        <input
+                          value={pairToken}
+                          onChange={(e) => setPairToken(e.target.value)}
+                          spellCheck={false}
+                        />
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(pairToken);
+                            setSettingsMsg("Token copied — paste & Save on the other Mac.");
+                            showToast("Token copied");
+                          }}
+                        >
+                          Copy
+                        </button>
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => {
+                            void porter.setToken(pairToken).then(() => {
+                              setSettingsMsg("Token saved.");
+                              showToast("Token saved");
+                              void refreshMeta();
+                            });
+                          }}
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </li>
+                    <li>
+                      <strong>Paste the other Mac’s IP</strong> (from its Add Mac → Copy IP)
+                      <div className="path-row" style={{ marginTop: 8 }}>
+                        <input
+                          value={peerHost}
+                          onChange={(e) => {
+                            setPeerHost(e.target.value);
+                            setSettingsMsg(null);
+                          }}
+                          placeholder="192.168.x.x"
+                          autoFocus
+                        />
+                      </div>
+                    </li>
+                  </ol>
+
+                  <button
+                    className="btn linkish"
+                    type="button"
+                    onClick={() => setShowAdvancedPeer((v) => !v)}
+                  >
+                    {showAdvancedPeer ? "Hide" : "Show"} travel options (Cloudflare / Tailscale)
+                  </button>
+                  {showAdvancedPeer && (
+                    <div className="field" style={{ marginTop: 8 }}>
+                      <label>Port (LAN only)</label>
+                      <input
+                        value={peerPort}
+                        onChange={(e) => setPeerPort(e.target.value)}
+                        placeholder="47831"
+                      />
+                      <label style={{ marginTop: 8 }}>Or Cloudflare / Tailscale address</label>
+                      <input
+                        value={peerHost}
+                        onChange={(e) => setPeerHost(e.target.value)}
+                        placeholder="https://….trycloudflare.com or 100.x.x.x"
+                      />
+                      <label style={{ marginTop: 8 }}>Fallback Tailscale IP</label>
+                      <input
+                        value={peerFallback}
+                        onChange={(e) => setPeerFallback(e.target.value)}
+                        placeholder="100.x.x.x:47831"
+                      />
+                    </div>
+                  )}
+
+                  {settingsMsg && (
+                    <p
+                      className={
+                        /enter|required|fail|mismatch|refused|don’t|could not|timed/i.test(
+                          settingsMsg,
+                        )
+                          ? "error-text"
+                          : "ok-text"
+                      }
+                    >
+                      {settingsMsg}
+                    </p>
+                  )}
+                </>
+              )}
+
+              {settingsTab === "more" && (
+                <>
+                  <div className="field">
+                    <label>Device name</label>
+                    <input
+                      defaultValue={settings.name}
+                      id="deviceName"
+                      onBlur={(e) => {
+                        void porter.updateDevice({ deviceName: e.target.value }).then(refreshMeta);
+                      }}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Chrome extensions (optional)</label>
+                    <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: 13 }}>
+                      Everyday file copy never needs quitting Chrome. Only for syncing extension
+                      folders: quit Chrome → share → copy → reopen.
+                    </p>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => {
+                        void porter
+                          .shareChromeExtensions()
+                          .then((r) => {
+                            showToast(
+                              r.added.length
+                                ? `Shared ${r.added.length} Chrome folder(s)`
+                                : "Nothing new to share",
+                            );
+                            setError(r.warning ?? null);
+                            void refreshMeta();
+                          })
+                          .catch((e) =>
+                            setError(friendlyError(e instanceof Error ? e.message : String(e))),
+                          );
+                      }}
+                    >
+                      Share Chrome extensions folders
+                    </button>
+                  </div>
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={settings.allowSecretFiles}
+                      onChange={(e) => {
+                        void porter
+                          .updateDevice({ allowSecretFiles: e.target.checked })
+                          .then(refreshMeta);
+                      }}
+                    />
+                    Allow secret-like files (.env, keys)
+                  </label>
+                </>
+              )}
             </div>
-            <div className="field">
-              <label>1. Pair token (must match on both Macs)</label>
-              <textarea
-                rows={3}
-                value={pairToken}
-                onChange={(e) => setPairToken(e.target.value)}
-              />
-              <div className="row" style={{ justifyContent: "flex-start", marginTop: 8 }}>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(pairToken);
-                    setSettingsMsg("Token copied — paste & Save token on the other Mac.");
-                    showToast("Token copied");
-                  }}
-                >
-                  Copy token
-                </button>
+
+            <div className="sheet-foot">
+              <button className="btn" type="button" onClick={() => setShowSettings(false)}>
+                Close
+              </button>
+              {settingsTab === "connect" && (
                 <button
                   className="btn primary"
                   type="button"
                   onClick={() => {
-                    void porter.setToken(pairToken).then(() => {
-                      setSettingsMsg("Pair token saved on this Mac.");
-                      showToast("Pair token saved");
-                      void refreshMeta();
-                    });
+                    const host = peerHost.trim();
+                    if (!host) {
+                      setSettingsMsg("Paste the other Mac’s IP first (step 3).");
+                      return;
+                    }
+                    if (host === "127.0.0.1" || host === "localhost") {
+                      setSettingsMsg("Use the other Mac’s LAN IP — not localhost.");
+                      return;
+                    }
+                    setSettingsMsg("Connecting…");
+                    void porter
+                      .addPeer(
+                        host,
+                        Number(peerPort) || 47831,
+                        undefined,
+                        peerFallback.trim() || undefined,
+                      )
+                      .then((d) => {
+                        setSettingsMsg(`Connected to ${d.name}`);
+                        showToast(`Connected to ${d.name}`);
+                        setPeerHost("");
+                        setPeerFallback("");
+                        void refreshMeta();
+                        setShowSettings(false);
+                      })
+                      .catch((e) => {
+                        const raw = e instanceof Error ? e.message : String(e);
+                        setSettingsMsg(friendlyError(raw));
+                      });
                   }}
                 >
-                  Save token
+                  Connect
                 </button>
-              </div>
-            </div>
-            <div className="field">
-              <label>2. Other Mac’s address (required to Add Mac)</label>
-              <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: 13 }}>
-                Paste the <strong>other</strong> computer’s LAN IP from its Settings (example{" "}
-                {settings.lan ? settings.lan.replace(/\d+$/, "42") : "192.168.0.42"}
-                ). Leave empty and click Add → you’ll get an error — fill this first.
-              </p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  value={peerHost}
-                  onChange={(e) => {
-                    setPeerHost(e.target.value);
-                    setSettingsMsg(null);
-                  }}
-                  placeholder={`e.g. ${settings.lan || "192.168.0.42"} or https://….trycloudflare.com`}
-                  style={{ flex: 1 }}
-                />
-                <input
-                  value={peerPort}
-                  onChange={(e) => setPeerPort(e.target.value)}
-                  style={{ width: 80 }}
-                  placeholder="47831"
-                  title="Ignored when pasting a full https:// URL"
-                />
-              </div>
-            </div>
-            <div className="field">
-              <label>Fallback (optional — Tailscale IP if primary is Cloudflare)</label>
-              <input
-                value={peerFallback}
-                onChange={(e) => setPeerFallback(e.target.value)}
-                placeholder="100.x.x.x:47831"
-              />
-            </div>
-            {settingsMsg && (
-              <p className={settingsMsg.toLowerCase().includes("enter") || settingsMsg.toLowerCase().includes("required") || settingsMsg.toLowerCase().includes("fail") || settingsMsg.toLowerCase().includes("mismatch") || settingsMsg.toLowerCase().includes("refused") ? "error-text" : "ok-text"}>
-                {settingsMsg}
-              </p>
-            )}
-            <div className="field">
-              <label>Chrome extensions (optional sync)</label>
-              <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: 13 }}>
-                Everyday file sharing never needs quitting Chrome. Only this optional step does:
-                quit Chrome on both Macs → share Extensions + Local Extension Settings → copy to the
-                other Mac → reopen Chrome. Passwords/cookies stay blocked.
-              </p>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => {
-                  void porter
-                    .shareChromeExtensions()
-                    .then((r) => {
-                      showToast(
-                        r.added.length
-                          ? `Shared ${r.added.length} Chrome folder(s)`
-                          : "Nothing new to share",
-                      );
-                      setError(r.warning ?? null);
-                      void refreshMeta();
-                    })
-                    .catch((e) =>
-                      setError(friendlyError(e instanceof Error ? e.message : String(e))),
-                    );
-                }}
-              >
-                Share Chrome extensions folders
-              </button>
-            </div>
-            <label style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
-              <input
-                type="checkbox"
-                checked={settings.allowSecretFiles}
-                onChange={(e) => {
-                  void porter
-                    .updateDevice({ allowSecretFiles: e.target.checked })
-                    .then(refreshMeta);
-                }}
-              />
-              Allow secret-like files (.env, keys) — off by default
-            </label>
-            <div className="row">
-              <button className="btn" type="button" onClick={() => setShowSettings(false)}>
-                Close
-              </button>
-              <button
-                className="btn primary"
-                type="button"
-                onClick={() => {
-                  const host = peerHost.trim();
-                  if (!host) {
-                    setSettingsMsg(
-                      "Enter the other Mac’s LAN IP (or Cloudflare URL) above, then click Add Mac.",
-                    );
-                    return;
-                  }
-                  if (host === "127.0.0.1" || host === "localhost") {
-                    setSettingsMsg(
-                      "Don’t use localhost — paste the other Mac’s LAN IP from its Settings.",
-                    );
-                    return;
-                  }
-                  setSettingsMsg("Connecting…");
-                  void porter
-                    .addPeer(
-                      host,
-                      Number(peerPort) || 47831,
-                      undefined,
-                      peerFallback.trim() || undefined,
-                    )
-                    .then((d) => {
-                      setSettingsMsg(`Connected to ${d.name}`);
-                      showToast(`Connected to ${d.name}`);
-                      setPeerHost("");
-                      setPeerFallback("");
-                      void refreshMeta();
-                    })
-                    .catch((e) => {
-                      const raw = e instanceof Error ? e.message : String(e);
-                      setSettingsMsg(friendlyError(raw));
-                    });
-                }}
-              >
-                Add Mac
-              </button>
+              )}
             </div>
           </div>
         </div>
