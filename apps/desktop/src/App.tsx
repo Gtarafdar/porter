@@ -112,7 +112,13 @@ export function App() {
   const [peerFallback, setPeerFallback] = useState("");
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
   const [settingsTab, setSettingsTab] = useState<"connect" | "more">("connect");
-  const [showAdvancedPeer, setShowAdvancedPeer] = useState(false);
+  const [shareLinks, setShareLinks] = useState<{
+    lan: string | null;
+    tailscale: string | null;
+    cloudflare: string | null;
+    port: number;
+  } | null>(null);
+  const [linksBusy, setLinksBusy] = useState(false);
 
   const [left, setLeft] = useState<PaneState | null>(null);
   const [right, setRight] = useState<PaneState | null>(null);
@@ -230,6 +236,36 @@ export function App() {
     () => devices.find((d) => d.isLocal) ?? null,
     [devices],
   );
+
+  const refreshShareLinks = useCallback(async () => {
+    try {
+      const [n, tunnel, travel] = await Promise.all([
+        porter.network(),
+        porter.tunnelStatus(),
+        porter.travelReady(),
+      ]);
+      setShareLinks({
+        lan: travel.lanIp || n.primaryLan || null,
+        tailscale: travel.tailscaleIp || n.tailscale.selfIp || null,
+        cloudflare: travel.cloudflareUrl || tunnel.publicUrl || null,
+        port: travel.port || 47831,
+      });
+    } catch {
+      // ignore — LAN from settings still shown
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showSettings && settingsTab === "connect") {
+      void refreshShareLinks();
+    }
+  }, [showSettings, settingsTab, refreshShareLinks]);
+
+  function copyShareValue(label: string, value: string) {
+    void navigator.clipboard.writeText(value);
+    setSettingsMsg(`Copied ${label} — paste it on the other Mac under “Paste from other Mac”.`);
+    showToast(`${label} copied`);
+  }
 
   async function onAddShare() {
     try {
@@ -587,29 +623,170 @@ export function App() {
             <div className="sheet-body">
               {settingsTab === "connect" && (
                 <>
-                  <ol className="connect-steps">
-                    <li>
-                      <strong>Share this Mac’s IP</strong> with the other computer
-                      <div className="path-row" style={{ marginTop: 8 }}>
-                        <input readOnly value={settings.lan || "—"} />
+                  <div className="connect-block">
+                    <h3>1. Give these to the other Mac</h3>
+                    <p className="connect-hint">
+                      On the other computer, open <strong>Add Mac</strong> and paste into{" "}
+                      <em>Paste from other Mac</em> below (same screen there).
+                    </p>
+                    <div className="share-rows">
+                      <div className="share-row">
+                        <div>
+                          <span className="share-label">LAN IP (same Wi‑Fi)</span>
+                          <code>{shareLinks?.lan || settings.lan || "—"}</code>
+                        </div>
                         <button
                           className="btn"
                           type="button"
-                          disabled={!settings.lan}
-                          onClick={() => {
-                            if (!settings.lan) return;
-                            void navigator.clipboard.writeText(settings.lan);
-                            setSettingsMsg("IP copied — paste it under “Other Mac’s IP” on the other computer.");
-                            showToast("IP copied");
-                          }}
+                          disabled={!(shareLinks?.lan || settings.lan)}
+                          onClick={() =>
+                            copyShareValue("LAN IP", shareLinks?.lan || settings.lan || "")
+                          }
                         >
-                          Copy IP
+                          Copy
                         </button>
                       </div>
-                    </li>
-                    <li>
-                      <strong>Same pair token</strong> on both Macs
-                      <div className="path-row" style={{ marginTop: 8 }}>
+                      <div className="share-row">
+                        <div>
+                          <span className="share-label">Tailscale IP (travel backup)</span>
+                          <code>{shareLinks?.tailscale || "Not connected"}</code>
+                        </div>
+                        {shareLinks?.tailscale ? (
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() =>
+                              copyShareValue(
+                                "Tailscale",
+                                `${shareLinks.tailscale}:${shareLinks.port}`,
+                              )
+                            }
+                          >
+                            Copy
+                          </button>
+                        ) : (
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() => {
+                              void porter.openTailscaleDownload().then((r) => {
+                                window.open(r.url, "_blank");
+                                setSettingsMsg(r.note);
+                              });
+                            }}
+                          >
+                            Get Tailscale
+                          </button>
+                        )}
+                      </div>
+                      <div className="share-row">
+                        <div>
+                          <span className="share-label">Cloudflare URL (travel)</span>
+                          <code className="share-url">
+                            {shareLinks?.cloudflare || "Not started yet"}
+                          </code>
+                        </div>
+                        {shareLinks?.cloudflare ? (
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() =>
+                              copyShareValue("Cloudflare URL", shareLinks.cloudflare!)
+                            }
+                          >
+                            Copy
+                          </button>
+                        ) : (
+                          <button
+                            className="btn primary"
+                            type="button"
+                            disabled={linksBusy}
+                            onClick={() => {
+                              setLinksBusy(true);
+                              setSettingsMsg("Starting Cloudflare tunnel…");
+                              void porter
+                                .startTunnel()
+                                .then(async (r) => {
+                                  if (r.publicUrl) {
+                                    setSettingsMsg("Tunnel ready — Copy and send to the other Mac.");
+                                    showToast("Cloudflare URL ready");
+                                  } else {
+                                    setSettingsMsg(
+                                      r.cloudflaredInstalled === false
+                                        ? "cloudflared missing — use Travel Ready or reinstall Porter.app"
+                                        : "Tunnel started but no URL yet — try again in a few seconds.",
+                                    );
+                                  }
+                                  await refreshShareLinks();
+                                })
+                                .catch((e) =>
+                                  setSettingsMsg(
+                                    friendlyError(e instanceof Error ? e.message : String(e)),
+                                  ),
+                                )
+                                .finally(() => setLinksBusy(false));
+                            }}
+                          >
+                            Start tunnel
+                          </button>
+                        )}
+                      </div>
+                      <div className="share-row">
+                        <div>
+                          <span className="share-label">Pair token (must match)</span>
+                          <code className="share-url">{pairToken || "—"}</code>
+                        </div>
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => copyShareValue("pair token", pairToken)}
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      className="btn linkish"
+                      type="button"
+                      onClick={() => {
+                        setShowSettings(false);
+                        setShowTravel(true);
+                      }}
+                    >
+                      Need unattended travel? Open Travel Ready →
+                    </button>
+                  </div>
+
+                  <div className="connect-block">
+                    <h3>2. Paste from the other Mac</h3>
+                    <p className="connect-hint">
+                      Paste what you copied on the other Mac (its LAN IP, Cloudflare URL, or
+                      Tailscale IP). Same Wi‑Fi → use LAN. Away → use Cloudflare, with Tailscale as
+                      fallback.
+                    </p>
+                    <div className="field">
+                      <label>Other Mac address</label>
+                      <input
+                        value={peerHost}
+                        onChange={(e) => {
+                          setPeerHost(e.target.value);
+                          setSettingsMsg(null);
+                        }}
+                        placeholder="192.168.x.x or https://….trycloudflare.com"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="field">
+                      <label>Fallback (optional Tailscale from other Mac)</label>
+                      <input
+                        value={peerFallback}
+                        onChange={(e) => setPeerFallback(e.target.value)}
+                        placeholder="100.x.x.x:47831"
+                      />
+                    </div>
+                    <div className="field">
+                      <label>Pair token on this Mac</label>
+                      <div className="path-row">
                         <input
                           value={pairToken}
                           onChange={(e) => setPairToken(e.target.value)}
@@ -619,19 +796,8 @@ export function App() {
                           className="btn"
                           type="button"
                           onClick={() => {
-                            void navigator.clipboard.writeText(pairToken);
-                            setSettingsMsg("Token copied — paste & Save on the other Mac.");
-                            showToast("Token copied");
-                          }}
-                        >
-                          Copy
-                        </button>
-                        <button
-                          className="btn"
-                          type="button"
-                          onClick={() => {
                             void porter.setToken(pairToken).then(() => {
-                              setSettingsMsg("Token saved.");
+                              setSettingsMsg("Token saved on this Mac.");
                               showToast("Token saved");
                               void refreshMeta();
                             });
@@ -640,57 +806,13 @@ export function App() {
                           Save
                         </button>
                       </div>
-                    </li>
-                    <li>
-                      <strong>Paste the other Mac’s IP</strong> (from its Add Mac → Copy IP)
-                      <div className="path-row" style={{ marginTop: 8 }}>
-                        <input
-                          value={peerHost}
-                          onChange={(e) => {
-                            setPeerHost(e.target.value);
-                            setSettingsMsg(null);
-                          }}
-                          placeholder="192.168.x.x"
-                          autoFocus
-                        />
-                      </div>
-                    </li>
-                  </ol>
-
-                  <button
-                    className="btn linkish"
-                    type="button"
-                    onClick={() => setShowAdvancedPeer((v) => !v)}
-                  >
-                    {showAdvancedPeer ? "Hide" : "Show"} travel options (Cloudflare / Tailscale)
-                  </button>
-                  {showAdvancedPeer && (
-                    <div className="field" style={{ marginTop: 8 }}>
-                      <label>Port (LAN only)</label>
-                      <input
-                        value={peerPort}
-                        onChange={(e) => setPeerPort(e.target.value)}
-                        placeholder="47831"
-                      />
-                      <label style={{ marginTop: 8 }}>Or Cloudflare / Tailscale address</label>
-                      <input
-                        value={peerHost}
-                        onChange={(e) => setPeerHost(e.target.value)}
-                        placeholder="https://….trycloudflare.com or 100.x.x.x"
-                      />
-                      <label style={{ marginTop: 8 }}>Fallback Tailscale IP</label>
-                      <input
-                        value={peerFallback}
-                        onChange={(e) => setPeerFallback(e.target.value)}
-                        placeholder="100.x.x.x:47831"
-                      />
                     </div>
-                  )}
+                  </div>
 
                   {settingsMsg && (
                     <p
                       className={
-                        /enter|required|fail|mismatch|refused|don’t|could not|timed/i.test(
+                        /enter|required|fail|mismatch|refused|don’t|could not|timed|missing|paste/i.test(
                           settingsMsg,
                         )
                           ? "error-text"
