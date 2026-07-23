@@ -30,6 +30,13 @@ function pathLabel(d: DeviceInfo): { badge: string; detail: string; kind: string
   if (d.isLocal) {
     return { badge: "This Mac", detail: "Local", kind: "local" };
   }
+  if (d.host === "inbound" || (!d.online && d.host === "inbound")) {
+    return {
+      badge: "Seen",
+      detail: "Connected once — Add Mac with its Tailscale IP to browse from Home",
+      kind: "off",
+    };
+  }
   const active = d.activeVia || d.via;
   if (!d.online) {
     return {
@@ -556,6 +563,13 @@ export function App() {
                 No other Mac listed yet. On <strong>both</strong> Macs: same pair token, then{" "}
                 <strong>Add Mac</strong> and paste the other side’s Cloudflare URL + Tailscale
                 fallback. After travel connects once, Home should show it here automatically.
+              </div>
+            )}
+            {devices.some((d) => !d.isLocal && d.host === "inbound") && (
+              <div className="side-hint">
+                Travel Mac was seen, but Home has no return address yet. Click{" "}
+                <strong>Add Mac</strong> and paste the travel Mac’s{" "}
+                <strong>Tailscale IP</strong> (e.g. 100.x.x.x:47831) from its Add Mac panel.
               </div>
             )}
             {devices.map((d) => (

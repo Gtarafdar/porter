@@ -190,47 +190,77 @@ export function noteSeenPeer(input: {
   const config = loadConfig();
   if (!input.id || input.id === config.deviceId) return;
   const existing = remoteDevices.get(input.id);
+  const ts = getTailscaleStatus();
+  const nameHint = (input.name?.trim() || existing?.name || "").toLowerCase();
+
+  // Match Tailscale peer by hostname when reply headers are missing (older travel builds)
+  let tsFromStatus: string | undefined;
+  if (nameHint && ts.peerIps.size) {
+    tsFromStatus = [...ts.peerIps.entries()].find(
+      ([h]) => nameHint.includes(h) || h.includes(nameHint) || nameHint.replace(/[^a-z0-9]/g, "").includes(h.replace(/[^a-z0-9]/g, "")),
+    )?.[1];
+  }
+  if (!tsFromStatus && ts.peerIps.size === 1 && (!existing || existing.host === "inbound")) {
+    tsFromStatus = [...ts.peerIps.values()][0];
+  }
+
   const reply =
     (input.replyTailscale && input.replyTailscale.startsWith("100.")
       ? input.replyTailscale
       : null) ||
+    tsFromStatus ||
     (input.replyLan && /^\d+\.\d+\.\d+\.\d+$/.test(input.replyLan) ? input.replyLan : null);
-  const host =
+
+  let host =
     reply ||
-    existing?.host ||
-    (existing?.baseUrl ? existing.host : "inbound");
-  if (host === "inbound" && !existing) {
-    // Still show the Mac so Home isn't empty — user can Add Mac with a real address later.
-  }
+    (existing?.host && existing.host !== "inbound" ? existing.host : null) ||
+    (existing?.baseUrl ? existing.host : null) ||
+    "inbound";
+
   const via: Exclude<DeviceInfo["via"], "local"> = host.startsWith("100.")
     ? "tailscale"
     : host.endsWith(".trycloudflare.com") || existing?.via === "cloudflare"
-      ? (existing?.via === "cloudflare" ? "cloudflare" : "lan")
-      : "lan";
+      ? existing?.via === "cloudflare"
+        ? "cloudflare"
+        : "lan"
+      : host === "inbound"
+        ? "lan"
+        : "lan";
+
+  const displayName =
+    input.name?.trim() ||
+    existing?.name ||
+    (tsFromStatus
+      ? [...ts.peerIps.entries()].find(([, ip]) => ip === tsFromStatus)?.[0] || "Travel Mac"
+      : null) ||
+    "Travel Mac";
+
+  const reachable = host !== "inbound";
   const device: DeviceInfo = {
     id: input.id,
-    name: input.name?.trim() || existing?.name || input.id.slice(0, 8),
-    host: existing?.baseUrl ? existing.host : host === "inbound" ? existing?.host || host : host,
+    name: displayName.length === 8 && /^[a-f0-9]+$/i.test(displayName) ? "Travel Mac" : displayName,
+    host,
     port: existing?.port || 47831,
-    online: true,
+    online: reachable,
     isLocal: false,
     via: existing?.baseUrl ? existing.via : via,
     baseUrl: existing?.baseUrl,
     fallbackHost:
       existing?.fallbackHost ||
-      (input.replyTailscale?.startsWith("100.") ? input.replyTailscale : undefined),
-    fallbackPort: existing?.fallbackPort || (input.replyTailscale ? 47831 : undefined),
+      (input.replyTailscale?.startsWith("100.")
+        ? input.replyTailscale
+        : tsFromStatus && host !== tsFromStatus
+          ? tsFromStatus
+          : undefined),
+    fallbackPort: existing?.fallbackPort || 47831,
     fallbackBaseUrl: existing?.fallbackBaseUrl,
-    activeVia: existing?.activeVia || via,
+    activeVia: reachable ? via : existing?.activeVia,
   };
-  // If we learned a Tailscale IP and primary was placeholder inbound, promote it
-  if (reply && (device.host === "inbound" || !existing)) {
+  if (reply && (device.host === "inbound" || device.host === "inbound")) {
     device.host = reply;
     device.via = reply.startsWith("100.") ? "tailscale" : "lan";
     device.activeVia = device.via;
-  } else if (reply && reply.startsWith("100.") && !device.fallbackHost) {
-    device.fallbackHost = reply;
-    device.fallbackPort = 47831;
+    device.online = true;
   }
   remoteDevices.set(input.id, device);
   persistManualPeers();
