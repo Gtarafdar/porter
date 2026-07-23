@@ -71,7 +71,13 @@ function pathLabel(d: DeviceInfo): { badge: string; detail: string; kind: string
 
 function friendlyError(msg: string): string {
   if (msg.includes("Unauthorized") || msg.includes("pair token")) {
-    return "Pair token mismatch — paste the same token on both Macs (Settings).";
+    return "Pair token mismatch — paste the same token on both Macs (Settings → Save token).";
+  }
+  if (msg.includes("host required")) {
+    return "Enter the other Mac’s LAN IP (or Cloudflare URL) before clicking Add Mac.";
+  }
+  if (msg.includes("ECONNREFUSED") || msg.includes("fetch failed") || msg.includes("Failed to fetch")) {
+    return "Could not reach that Mac — check Wi‑Fi, that Porter is open there, and you used its LAN IP (not localhost).";
   }
   if (msg.includes("ENOTFOUND") || msg.includes("getaddrinfo")) {
     return "Could not reach the other Mac. Check Cloudflare/Tailscale path under Devices.";
@@ -118,6 +124,7 @@ export function App() {
   const [peerHost, setPeerHost] = useState("");
   const [peerPort, setPeerPort] = useState("47831");
   const [peerFallback, setPeerFallback] = useState("");
+  const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
 
   const [left, setLeft] = useState<PaneState | null>(null);
   const [right, setRight] = useState<PaneState | null>(null);
@@ -427,6 +434,16 @@ export function App() {
             Share folder
           </button>
           <button
+            className="btn primary"
+            type="button"
+            onClick={() => {
+              setSettingsMsg(null);
+              setShowSettings(true);
+            }}
+          >
+            <IconDevices size={16} /> Add Mac
+          </button>
+          <button
             className="btn"
             type="button"
             onClick={() => {
@@ -442,7 +459,14 @@ export function App() {
           <button className="btn" type="button" onClick={() => setShowActivity(true)}>
             <IconActivity size={16} /> Activity
           </button>
-          <button className="btn" type="button" onClick={() => setShowSettings(true)}>
+          <button
+            className="btn"
+            type="button"
+            onClick={() => {
+              setSettingsMsg(null);
+              setShowSettings(true);
+            }}
+          >
             <IconSettings size={16} /> Settings
           </button>
           <button
@@ -469,6 +493,12 @@ export function App() {
             <h3>
               <IconDevices size={12} /> Devices
             </h3>
+            {devices.filter((d) => !d.isLocal).length === 0 && (
+              <div className="side-hint">
+                No other Mac yet. Same Wi‑Fi: click <strong>Add Mac</strong>, paste the other
+                Mac’s LAN IP (shown in its Settings). Same pair token required first.
+              </div>
+            )}
             {devices.map((d) => (
               <button
                 key={d.id}
@@ -622,13 +652,34 @@ export function App() {
       {showSettings && settings && (
         <div className="modal-backdrop" onClick={() => setShowSettings(false)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <h2>Settings</h2>
+            <h2>Settings / Add Mac</h2>
             <p>
-              No Porter account and no Apple ID linking. Pick one Mac as{" "}
-              <strong>Home</strong> — copy its pair token. On the other Mac paste that{" "}
-              <strong>same</strong> token, then add Home’s address below (LAN IP, Tailscale, or
-              Cloudflare URL).
+              Same pair token on both Macs, then each Mac adds the <em>other</em> Mac’s address.
+              Same Wi‑Fi: use the LAN IP below (not “localhost”).
             </p>
+
+            <div className="callout ok">
+              <div>
+                <strong>This Mac’s LAN IP (tell the other Mac to add this):</strong>
+                <div className="path-row" style={{ marginTop: 8 }}>
+                  <input readOnly value={settings.lan || "—"} />
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled={!settings.lan}
+                    onClick={() => {
+                      if (!settings.lan) return;
+                      void navigator.clipboard.writeText(settings.lan);
+                      setSettingsMsg("LAN IP copied — paste it in Add Mac on the other computer.");
+                      showToast("LAN IP copied");
+                    }}
+                  >
+                    Copy IP
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div className="field">
               <label>Device name</label>
               <input
@@ -640,7 +691,7 @@ export function App() {
               />
             </div>
             <div className="field">
-              <label>Pair token (must be identical on every Mac you link)</label>
+              <label>1. Pair token (must match on both Macs)</label>
               <textarea
                 rows={3}
                 value={pairToken}
@@ -652,20 +703,42 @@ export function App() {
                   type="button"
                   onClick={() => {
                     void navigator.clipboard.writeText(pairToken);
-                    showToast("Token copied — paste on the other Mac");
+                    setSettingsMsg("Token copied — paste & Save token on the other Mac.");
+                    showToast("Token copied");
                   }}
                 >
                   Copy token
                 </button>
+                <button
+                  className="btn primary"
+                  type="button"
+                  onClick={() => {
+                    void porter.setToken(pairToken).then(() => {
+                      setSettingsMsg("Pair token saved on this Mac.");
+                      showToast("Pair token saved");
+                      void refreshMeta();
+                    });
+                  }}
+                >
+                  Save token
+                </button>
               </div>
             </div>
             <div className="field">
-              <label>Add other Mac (its LAN IP, Tailscale IP, or Cloudflare HTTPS URL)</label>
+              <label>2. Other Mac’s address (required to Add Mac)</label>
+              <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: 13 }}>
+                Paste the <strong>other</strong> computer’s LAN IP from its Settings (example{" "}
+                {settings.lan ? settings.lan.replace(/\d+$/, "42") : "192.168.0.42"}
+                ). Leave empty and click Add → you’ll get an error — fill this first.
+              </p>
               <div style={{ display: "flex", gap: 8 }}>
                 <input
                   value={peerHost}
-                  onChange={(e) => setPeerHost(e.target.value)}
-                  placeholder="https://….trycloudflare.com or 100.x.x.x"
+                  onChange={(e) => {
+                    setPeerHost(e.target.value);
+                    setSettingsMsg(null);
+                  }}
+                  placeholder={`e.g. ${settings.lan || "192.168.0.42"} or https://….trycloudflare.com`}
                   style={{ flex: 1 }}
                 />
                 <input
@@ -685,6 +758,11 @@ export function App() {
                 placeholder="100.x.x.x:47831"
               />
             </div>
+            {settingsMsg && (
+              <p className={settingsMsg.toLowerCase().includes("enter") || settingsMsg.toLowerCase().includes("required") || settingsMsg.toLowerCase().includes("fail") || settingsMsg.toLowerCase().includes("mismatch") || settingsMsg.toLowerCase().includes("refused") ? "error-text" : "ok-text"}>
+                {settingsMsg}
+              </p>
+            )}
             <div className="field">
               <label>Chrome extensions (optional sync)</label>
               <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: 13 }}>
@@ -704,7 +782,7 @@ export function App() {
                           ? `Shared ${r.added.length} Chrome folder(s)`
                           : "Nothing new to share",
                       );
-                      setError(r.warning);
+                      setError(r.warning ?? null);
                       void refreshMeta();
                     })
                     .catch((e) =>
@@ -732,38 +810,44 @@ export function App() {
                 Close
               </button>
               <button
-                className="btn"
+                className="btn primary"
                 type="button"
                 onClick={() => {
+                  const host = peerHost.trim();
+                  if (!host) {
+                    setSettingsMsg(
+                      "Enter the other Mac’s LAN IP (or Cloudflare URL) above, then click Add Mac.",
+                    );
+                    return;
+                  }
+                  if (host === "127.0.0.1" || host === "localhost") {
+                    setSettingsMsg(
+                      "Don’t use localhost — paste the other Mac’s LAN IP from its Settings.",
+                    );
+                    return;
+                  }
+                  setSettingsMsg("Connecting…");
                   void porter
                     .addPeer(
-                      peerHost.trim(),
+                      host,
                       Number(peerPort) || 47831,
                       undefined,
                       peerFallback.trim() || undefined,
                     )
                     .then((d) => {
+                      setSettingsMsg(`Connected to ${d.name}`);
                       showToast(`Connected to ${d.name}`);
                       setPeerHost("");
                       setPeerFallback("");
                       void refreshMeta();
                     })
-                    .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+                    .catch((e) => {
+                      const raw = e instanceof Error ? e.message : String(e);
+                      setSettingsMsg(friendlyError(raw));
+                    });
                 }}
               >
-                Add peer
-              </button>
-              <button
-                className="btn primary"
-                type="button"
-                onClick={() => {
-                  void porter.setToken(pairToken).then(() => {
-                    showToast("Pair token saved");
-                    void refreshMeta();
-                  });
-                }}
-              >
-                Save token
+                Add Mac
               </button>
             </div>
           </div>

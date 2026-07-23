@@ -79,7 +79,7 @@ set -euo pipefail
 export HOME="${home}"
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:\${PATH}"
 export PORTER_OPEN_BROWSER="0"
-export PORTER_NO_BONJOUR="1"
+export PORTER_NO_BONJOUR="0"
 ${resources ? `export PORTER_RESOURCES="${resources}"` : ""}
 ${process.env.PORTER_UI_DIR ? `export PORTER_UI_DIR="${process.env.PORTER_UI_DIR}"` : resources ? `export PORTER_UI_DIR="${resources}/ui"` : ""}
 LOG="${logsDir()}/Porter.log"
@@ -124,7 +124,7 @@ exec "${nodeBin}" "${cliJs}" serve >>"$LOG" 2>&1
     <key>PORTER_OPEN_BROWSER</key>
     <string>0</string>
     <key>PORTER_NO_BONJOUR</key>
-    <string>1</string>
+    <string>0</string>
   </dict>
 </dict>
 </plist>

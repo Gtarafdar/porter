@@ -1,6 +1,6 @@
 {
   "name": "porter",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "private": true,
   "description": "Private local AI + Finder-like file bridge across your Macs — no cloud, no paid servers",
   "workspaces": [

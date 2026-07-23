@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${PORTER_VERSION:-0.2.8}"
+VERSION="${PORTER_VERSION:-0.2.9}"
 OUT="${ROOT}/dist/release"
 CACHE="${ROOT}/dist/cache"
 NODE_VER="${PORTER_NODE_VERSION:-20.18.2}"
@@ -148,7 +148,8 @@ CONTENTS="$(cd "$(dirname "$0")/.." && pwd)"
 RES="${CONTENTS}/Resources"
 export PORTER_UI_DIR="${RES}/ui"
 export PORTER_RESOURCES="${RES}"
-export PORTER_NO_BONJOUR="${PORTER_NO_BONJOUR:-1}"
+# LAN discovery on (Bonjour). Set PORTER_NO_BONJOUR=1 only if it misbehaves.
+export PORTER_NO_BONJOUR="${PORTER_NO_BONJOUR:-0}"
 export PORTER_OPEN_BROWSER="0"
 
 NODE="${RES}/node"

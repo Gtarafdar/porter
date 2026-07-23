@@ -728,4 +728,22 @@ input {
 .error-text {
   color: var(--danger);
   font-size: 13px;
+  margin: 8px 0;
+}
+
+.ok-text {
+  color: #166534;
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+.side-hint {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px dashed var(--line);
 }

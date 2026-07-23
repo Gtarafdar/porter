@@ -433,7 +433,7 @@ Log file: \(logPath)
             script = """
             \(pathPrefix)\
             export PORTER_OPEN_BROWSER=0; \
-            export PORTER_NO_BONJOUR=1; \
+            export PORTER_NO_BONJOUR=0; \
             export PORTER_UI_DIR="\(uiDir)"; \
             \(resExport)\
             cd "\(appDir)"; \
