@@ -554,6 +554,26 @@ input {
   background: #fff;
 }
 
+.path-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.path-row input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+}
+
+.path-row .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .row {
   display: flex;
   gap: 8px;

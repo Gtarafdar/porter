@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { porter, type SetupSnapshot } from "./api";
+import { porter, canPickFolderNative, type SetupSnapshot } from "./api";
 import { IconCheck, IconPorterMark, IconShield } from "./Icons";
 
 const STEPS = [
@@ -23,6 +23,7 @@ export function SetupWizard({
   const [token, setToken] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [nativePicker, setNativePicker] = useState(false);
 
   async function refresh() {
     const s = await porter.setup();
@@ -33,6 +34,7 @@ export function SetupWizard({
   }
 
   useEffect(() => {
+    setNativePicker(canPickFolderNative());
     void refresh().catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
   }, []);
 
@@ -169,12 +171,27 @@ export function SetupWizard({
               ) : (
                 <>
                   <div className="field">
-                    <label>Folder to share (absolute path)</label>
-                    <input
-                      value={folderPath}
-                      onChange={(e) => setFolderPath(e.target.value)}
-                      placeholder="/Users/you/Projects"
-                    />
+                    <label>Folder to share</label>
+                    <div className="path-row">
+                      <input
+                        value={folderPath}
+                        onChange={(e) => setFolderPath(e.target.value)}
+                        placeholder={nativePicker ? "Choose a folder…" : "/Users/you/Projects"}
+                      />
+                      {nativePicker ? (
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => {
+                            void porter.pickFolder().then((p) => {
+                              if (p) setFolderPath(p);
+                            });
+                          }}
+                        >
+                          Choose folder…
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                   <label className="check">
                     <input type="checkbox" checked={write} onChange={(e) => setWrite(e.target.checked)} />

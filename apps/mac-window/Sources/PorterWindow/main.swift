@@ -16,7 +16,7 @@ enum PorterWindowMain {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKScriptMessageHandler {
     private var window: NSWindow!
     private var webView: WKWebView!
     private var statusStack: NSStackView!
@@ -34,10 +34,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     private var logPath: String { NSHomeDirectory() + "/Library/Logs/Porter/porter.log" }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        clearQuarantineOnSelf()
         buildMenu()
         buildWindow()
         ensureCoreThenLoad()
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Free/local apps are not Apple-notarized; Downloads often quarantine the whole .app.
+    private func clearQuarantineOnSelf() {
+        let appPath = Bundle.main.bundlePath
+        _ = shell("xattr -dr com.apple.quarantine \(shellQuote(appPath)) 2>/dev/null || true")
+    }
+
+    private func shellQuote(_ s: String) -> String {
+        "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -111,6 +122,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
 
         let config = WKWebViewConfiguration()
         config.preferences.isElementFullscreenEnabled = true
+        config.userContentController.add(self, name: "porter")
+        // Mark native shell so the UI can show “Choose folder…” (Finder picker).
+        let bridgeJS = """
+        window.__porterNative = true;
+        window.__porterPickFolder = function () {
+          return new Promise(function (resolve) {
+            window.__porterPickFolderResolve = resolve;
+            try {
+              window.webkit.messageHandlers.porter.postMessage({ type: 'pickFolder' });
+            } catch (e) {
+              resolve(null);
+            }
+          });
+        };
+        """
+        config.userContentController.addUserScript(
+            WKUserScript(source: bridgeJS, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        )
         webView = WKWebView(frame: .zero, configuration: config)
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.navigationDelegate = self
@@ -154,6 +183,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         fileMenuItem.submenu = fileMenu
         fileMenu.addItem(withTitle: "Show Window", action: #selector(showWindow), keyEquivalent: "0")
         fileMenu.addItem(withTitle: "Reload", action: #selector(reloadUI), keyEquivalent: "r")
+        fileMenu.addItem(withTitle: "Choose Folder to Share…", action: #selector(menuPickFolder), keyEquivalent: "o")
         fileMenu.addItem(withTitle: "Show Log Folder", action: #selector(revealLog), keyEquivalent: "l")
         fileMenu.addItem(NSMenuItem.separator())
         fileMenu.addItem(withTitle: "Open in Browser…", action: #selector(openInBrowser), keyEquivalent: "")
@@ -176,6 +206,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         windowMenu.addItem(NSMenuItem.separator())
         windowMenu.addItem(withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
         NSApp.windowsMenu = windowMenu
+
+        let helpMenuItem = NSMenuItem()
+        mainMenu.addItem(helpMenuItem)
+        let helpMenu = NSMenu(title: "Help")
+        helpMenuItem.submenu = helpMenu
+        helpMenu.addItem(withTitle: "If Mac says “malware”…", action: #selector(showMalwareHelp), keyEquivalent: "")
 
         NSApp.mainMenu = mainMenu
     }
@@ -322,8 +358,7 @@ Log file: \(logPath)
             uiDir = resources.appendingPathComponent("ui").path
             porterResources = resources.path
             appDir = resources.appendingPathComponent("app").path
-            // Clear Gatekeeper quarantine on nested binaries (common after GitHub zip download).
-            _ = shell("xattr -dr com.apple.quarantine \"\(bundledNode)\" \"\(resources.appendingPathComponent("cloudflared").path)\" \"\(resources.appendingPathComponent("node-arm64").path)\" \"\(resources.appendingPathComponent("node-x64").path)\" 2>/dev/null || true")
+            clearQuarantineOnSelf()
         } else {
             let home = ProcessInfo.processInfo.environment["PORTER_HOME"]
                 ?? (NSHomeDirectory() + "/Downloads/porter")
@@ -455,6 +490,101 @@ Log file: \(logPath)
         alert.informativeText = "Private file bridge for your Macs.\nUI loads from the local Porter agent (port \(port)).\nClosing this window does not stop the agent."
         alert.alertStyle = .informational
         alert.runModal()
+    }
+
+    @objc private func showMalwareHelp() {
+        let alert = NSAlert()
+        alert.messageText = "Mac “malware” warning"
+        alert.informativeText = """
+Porter is a free local app and is not paid Apple notarized, so macOS often warns on first open.
+
+What to do:
+1. Right-click Porter.app → Open → Open
+2. Or: System Settings → Privacy & Security → Open Anyway
+3. Porter also clears quarantine on launch when it can
+
+This is Gatekeeper — not a virus scan finding malware inside Porter.
+"""
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Clear quarantine now")
+        if alert.runModal() == .alertSecondButtonReturn {
+            clearQuarantineOnSelf()
+            statusLabel.isHidden = false
+            statusStack.isHidden = false
+            statusLabel.stringValue = "Quarantine cleared. Try opening again if it was blocked."
+        }
+    }
+
+    @objc private func menuPickFolder() {
+        presentFolderPicker { path in
+            guard let path else { return }
+            // Fill the web UI if a callback is waiting; otherwise POST to the API.
+            self.deliverPickedPath(path)
+        }
+    }
+
+    // MARK: - Native bridge (Finder folder picker)
+
+    nonisolated func userContentController(
+        _ userContentController: WKUserContentController,
+        didReceive message: WKScriptMessage
+    ) {
+        Task { @MainActor in
+            guard message.name == "porter" else { return }
+            let type: String?
+            if let dict = message.body as? [String: Any] {
+                type = dict["type"] as? String
+            } else if let s = message.body as? String {
+                type = s
+            } else {
+                type = nil
+            }
+            if type == "pickFolder" {
+                self.presentFolderPicker { path in
+                    self.deliverPickedPath(path)
+                }
+            }
+        }
+    }
+
+    private func presentFolderPicker(completion: @escaping (String?) -> Void) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
+        panel.prompt = "Choose"
+        panel.message = "Choose a folder Porter can share with Cursor and your other Macs"
+        panel.beginSheetModal(for: window) { response in
+            if response == .OK, let url = panel.url {
+                completion(url.path)
+            } else {
+                completion(nil)
+            }
+        }
+    }
+
+    private func deliverPickedPath(_ path: String?) {
+        let obj: [String: Any] = ["path": path ?? NSNull()]
+        guard let data = try? JSONSerialization.data(withJSONObject: obj, options: []),
+              let json = String(data: data, encoding: .utf8) else {
+            webView.evaluateJavaScript("window.__porterPickFolderResolve && window.__porterPickFolderResolve(null)")
+            return
+        }
+        let js = """
+        (function () {
+          var data = \(json);
+          var p = data.path;
+          if (typeof window.__porterPickFolderResolve === 'function') {
+            window.__porterPickFolderResolve(p);
+            window.__porterPickFolderResolve = null;
+          }
+          window.dispatchEvent(new CustomEvent('porter-folder-picked', { detail: p }));
+        })();
+        """
+        webView.evaluateJavaScript(js, completionHandler: nil)
     }
 
     // MARK: - Window delegate

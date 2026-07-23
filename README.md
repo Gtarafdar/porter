@@ -6,24 +6,37 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 
 ## Download (Mac — no git)
 
-> **Easy download:** [⬇ Porter-0.2.4-mac.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.4-mac.zip)  
-> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.4 · [All releases](https://github.com/Gtarafdar/porter/releases)
+Pick your Mac chip (smaller downloads — about half the old universal zip):
 
-1. Unzip → double‑click **Porter.app** (first time: right‑click → **Open**) — opens a **normal Mac window** (Dock icon, close/minimize/zoom), not a browser tab
-2. Follow the setup wizard inside the app
-3. For travel: **Travel Ready → Set & forget** (Cloudflare bundled). Install Tailscale from the in-app **official** button if you want the stable backup path.
+> **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.5-mac-arm64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.5-mac-arm64.zip)  
+> **Intel Mac:** [⬇ Porter-0.2.5-mac-x64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.5-mac-x64.zip)  
+> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.5 · [All releases](https://github.com/Gtarafdar/porter/releases)
 
-**Bundled:** Node (Apple Silicon + Intel) + Porter native window + Finder UI + `cloudflared`  
-**Not bundled:** Tailscale (VPN app — must install from [tailscale.com/download/mac](https://tailscale.com/download/mac); one-click button inside Porter)
+Not sure which chip?  menu → About This Mac → look for “Chip” (Apple) or “Processor” (Intel).
+
+1. Unzip → drag **Porter.app** to Applications
+2. **First open:** right‑click → **Open** → Open (macOS warns because Porter is not paid Apple-notarized — this is normal for free local apps)
+3. If still blocked: System Settings → Privacy & Security → **Open Anyway**
+4. Share folders with **Choose folder…** (Finder picker) — no typing paths
+5. Travel: **Travel Ready → Set & forget** (Cloudflare bundled). Tailscale optional via the official in-app button.
+
+**Bundled:** Node + native Mac window + Finder UI + `cloudflared` (for that chip only)  
+**Not bundled:** Tailscale
 
 **Chrome:** Everyday file copy never requires quitting Chrome. Optional Chrome-extension sync only: quit Chrome → share/copy folders → reopen (see Settings).
 
 **Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Roadmap:** [PLAN.md](PLAN.md)
 
+## What’s new in 0.2.5
+
+- **Smaller downloads** — separate Apple Silicon / Intel zips (no duplicate Node/cloudflared)
+- **Choose folder…** — native Finder folder picker (no typing absolute paths)
+- Clearer help when macOS shows a “malware” / Gatekeeper warning (Help menu + install notes)
+
 ## What’s new in 0.2.4
 
-- **Works on Intel + Apple Silicon** — official Node (and cloudflared) for both chips in one zip
-- If the engine fails to start: **error text shown in the window** + Copy error / Show log folder (no Terminal hunting)
+- Official Node (and cloudflared) that actually runs on the other Mac
+- Engine start errors shown in the window + Copy error / Show log folder
 - Clears Gatekeeper quarantine on nested binaries after GitHub download
 
 ## What’s new in 0.2.3

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   porter,
+  canPickFolderNative,
   type ActivityEvent,
   type DeviceInfo,
   type DeviceSettings,
@@ -103,6 +104,7 @@ export function App() {
   const [showActivity, setShowActivity] = useState(false);
   const [sharePath, setSharePath] = useState("");
   const [shareWrite, setShareWrite] = useState(false);
+  const [nativePicker, setNativePicker] = useState(false);
   const [confirmCopy, setConfirmCopy] = useState<{
     source: FileEntry;
     sourceDeviceId: string;
@@ -189,6 +191,19 @@ export function App() {
   );
 
   useEffect(() => {
+    setNativePicker(canPickFolderNative());
+    const onPick = (e: Event) => {
+      const path = (e as CustomEvent<string | null>).detail;
+      if (typeof path === "string" && path.length > 0) {
+        setSharePath(path);
+        setShowShare(true);
+      }
+    };
+    window.addEventListener("porter-folder-picked", onPick);
+    return () => window.removeEventListener("porter-folder-picked", onPick);
+  }, []);
+
+  useEffect(() => {
     refreshMeta()
       .then(async ({ d, f, s }) => {
         setSelectedDeviceId(s.id);
@@ -234,6 +249,11 @@ export function App() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
+  }
+
+  async function onBrowseShareFolder() {
+    const path = await porter.pickFolder();
+    if (path) setSharePath(path);
   }
 
   async function requestCopyToRight() {
@@ -554,16 +574,25 @@ export function App() {
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <h2>Share a folder</h2>
             <p>
-              Only paths you approve are visible to Cursor or the other Mac. Paste an absolute
-              path (example: /Users/you/Projects).
+              Only folders you approve are visible to Cursor or the other Mac.
+              {nativePicker
+                ? " Use Choose folder… to pick from Finder."
+                : " Paste an absolute path (example: /Users/you/Projects)."}
             </p>
             <div className="field">
-              <label>Folder path</label>
-              <input
-                value={sharePath}
-                onChange={(e) => setSharePath(e.target.value)}
-                placeholder="/Users/you/Projects"
-              />
+              <label>Folder</label>
+              <div className="path-row">
+                <input
+                  value={sharePath}
+                  onChange={(e) => setSharePath(e.target.value)}
+                  placeholder={nativePicker ? "Choose a folder…" : "/Users/you/Projects"}
+                />
+                {nativePicker ? (
+                  <button className="btn primary" type="button" onClick={() => void onBrowseShareFolder()}>
+                    Choose folder…
+                  </button>
+                ) : null}
+              </div>
             </div>
             <label style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
               <input
@@ -577,7 +606,12 @@ export function App() {
               <button className="btn" type="button" onClick={() => setShowShare(false)}>
                 Cancel
               </button>
-              <button className="btn primary" type="button" onClick={() => void onAddShare()}>
+              <button
+                className="btn primary"
+                type="button"
+                disabled={!sharePath.trim()}
+                onClick={() => void onAddShare()}
+              >
                 Approve
               </button>
             </div>

@@ -103,6 +103,9 @@ export const porter = {
     }),
   removeFolder: (id: string) =>
     api<{ ok: boolean }>(`/api/folders/${id}`, { method: "DELETE" }),
+  /** Native Mac window Finder folder picker (falls back to null in plain browser). */
+  pickFolder: () => pickFolderNative(),
+  canPickFolder: () => canPickFolderNative(),
   list: (deviceId: string, path: string) =>
     api<FileEntry[]>(
       `/api/files/list?deviceId=${encodeURIComponent(deviceId)}&path=${encodeURIComponent(path)}`,
@@ -231,3 +234,30 @@ export const porter = {
       body: "{}",
     }),
 };
+
+type PorterNativeWindow = Window & {
+  __porterNative?: boolean;
+  __porterPickFolder?: () => Promise<string | null>;
+  __porterPickFolderResolve?: ((path: string | null) => void) | null;
+  webkit?: { messageHandlers?: { porter?: { postMessage: (msg: unknown) => void } } };
+};
+
+export function canPickFolderNative(): boolean {
+  const w = window as PorterNativeWindow;
+  return Boolean(w.__porterNative || w.webkit?.messageHandlers?.porter || w.__porterPickFolder);
+}
+
+/** Opens the Mac Finder folder chooser when running inside Porter.app. */
+export function pickFolderNative(): Promise<string | null> {
+  const w = window as PorterNativeWindow;
+  if (typeof w.__porterPickFolder === "function") {
+    return w.__porterPickFolder();
+  }
+  if (w.webkit?.messageHandlers?.porter) {
+    return new Promise((resolve) => {
+      w.__porterPickFolderResolve = resolve;
+      w.webkit!.messageHandlers!.porter!.postMessage({ type: "pickFolder" });
+    });
+  }
+  return Promise.resolve(null);
+}
