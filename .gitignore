@@ -2,6 +2,7 @@ node_modules/
 dist/
 apps/desktop/dist/
 apps/mac-menubar/.build/
+apps/mac-window/.build/
 apps/mac-menubar/dist/
 apps/mac-menubar/.swiftpm/
 **/*.iconset/
