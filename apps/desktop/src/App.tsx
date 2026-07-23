@@ -101,8 +101,12 @@ export function App() {
   const [confirmCopy, setConfirmCopy] = useState<{
     sources: FileEntry[];
     sourceDeviceId: string;
+    destDeviceId: string;
     destDir: string;
   } | null>(null);
+  const [copyBusy, setCopyBusy] = useState(false);
+  const [copyProgress, setCopyProgress] = useState<string | null>(null);
+  const [copyModalError, setCopyModalError] = useState<string | null>(null);
   const [pairToken, setPairToken] = useState("");
   const [showWizard, setShowWizard] = useState(false);
   const [showTravel, setShowTravel] = useState(false);
@@ -289,28 +293,49 @@ export function App() {
   }
 
   async function requestCopyToRight() {
-    if (!left?.selected.length || !right || !localDevice) return;
+    if (!left?.selected.length || !right) {
+      setError("Select files on the left and open a destination folder on the right.");
+      return;
+    }
+    const destId = right.deviceId || localDevice?.id;
+    if (!destId) {
+      setError("Destination Mac not ready — wait a second and try again.");
+      return;
+    }
+    setCopyModalError(null);
+    setCopyProgress(null);
     setConfirmCopy({
-      sources: left.selected,
+      sources: [...left.selected],
       sourceDeviceId: left.deviceId,
+      destDeviceId: destId,
       destDir: right.path.replace(/\/$/, ""),
     });
   }
 
   async function doCopy() {
-    if (!confirmCopy || !localDevice) return;
+    if (!confirmCopy) {
+      setError("Nothing to copy.");
+      return;
+    }
+    if (copyBusy) return;
     const batch = confirmCopy;
+    setCopyBusy(true);
+    setCopyModalError(null);
+    setError(null);
     try {
       let files = 0;
       let lastMbps: number | undefined;
       let lastMs: number | undefined;
       const warnings: string[] = [];
-      for (const source of batch.sources) {
+      const total = batch.sources.length;
+      for (let i = 0; i < total; i++) {
+        const source = batch.sources[i]!;
+        setCopyProgress(`Copying ${i + 1} of ${total}: ${source.name}…`);
         const destPath = `${batch.destDir}/${source.name}`;
         const res = await porter.copy({
           sourceDeviceId: batch.sourceDeviceId,
           sourcePath: source.path,
-          destDeviceId: localDevice.id,
+          destDeviceId: batch.destDeviceId,
           destPath,
           isDirectory: source.isDirectory,
         });
@@ -320,6 +345,7 @@ export function App() {
         if (res.warning) warnings.push(res.warning);
       }
       setConfirmCopy(null);
+      setCopyProgress(null);
       if (left) setLeft({ ...left, selected: [] });
       if (right) await navigate("right", right.path);
       await refreshMeta();
@@ -334,7 +360,12 @@ export function App() {
       );
       if (warnings[0]) setError(friendlyError(warnings[0]));
     } catch (e) {
-      setError(friendlyError(e instanceof Error ? e.message : String(e)));
+      const msg = friendlyError(e instanceof Error ? e.message : String(e));
+      setCopyModalError(msg);
+      setError(msg);
+      setCopyProgress(null);
+    } finally {
+      setCopyBusy(false);
     }
   }
 
@@ -1019,47 +1050,66 @@ export function App() {
       )}
 
       {confirmCopy && (
-        <div className="modal-backdrop" onClick={() => setConfirmCopy(null)}>
-          <div className="sheet sheet-fit" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-top">
-              <h2>Confirm copy</h2>
-            </div>
-            <div className="sheet-body">
-              {confirmCopy.sources.length === 1 ? (
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            if (!copyBusy) setConfirmCopy(null);
+          }}
+        >
+          <div
+            className="sheet"
+            style={{ width: "min(420px, 100%)", maxHeight: "80vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ marginTop: 0 }}>Confirm copy</h2>
+            {confirmCopy.sources.length === 1 ? (
+              <p>
+                Copy <strong>{confirmCopy.sources[0].name}</strong> to:
+                <br />
+                <code>
+                  {confirmCopy.destDir}/{confirmCopy.sources[0].name}
+                </code>
+              </p>
+            ) : (
+              <>
                 <p>
-                  Copy <strong>{confirmCopy.sources[0].name}</strong> to:
+                  Copy <strong>{confirmCopy.sources.length} items</strong> into:
                   <br />
-                  <code>
-                    {confirmCopy.destDir}/{confirmCopy.sources[0].name}
-                  </code>
+                  <code>{confirmCopy.destDir}</code>
                 </p>
-              ) : (
-                <>
-                  <p>
-                    Copy <strong>{confirmCopy.sources.length} items</strong> into:
-                    <br />
-                    <code>{confirmCopy.destDir}</code>
-                  </p>
-                  <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 13 }}>
-                    {confirmCopy.sources.slice(0, 12).map((s) => (
-                      <li key={s.path}>
-                        {s.name}
-                        {s.isDirectory ? " (folder)" : ""}
-                      </li>
-                    ))}
-                    {confirmCopy.sources.length > 12 ? (
-                      <li>…and {confirmCopy.sources.length - 12} more</li>
-                    ) : null}
-                  </ul>
-                </>
-              )}
-            </div>
-            <div className="sheet-foot">
-              <button className="btn" type="button" onClick={() => setConfirmCopy(null)}>
+                <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 13 }}>
+                  {confirmCopy.sources.slice(0, 12).map((s) => (
+                    <li key={s.path}>
+                      {s.name}
+                      {s.isDirectory ? " (folder)" : ""}
+                    </li>
+                  ))}
+                  {confirmCopy.sources.length > 12 ? (
+                    <li>…and {confirmCopy.sources.length - 12} more</li>
+                  ) : null}
+                </ul>
+              </>
+            )}
+            {copyProgress && <p className="ok-text">{copyProgress}</p>}
+            {copyModalError && <p className="error-text">{copyModalError}</p>}
+            <div className="row" style={{ marginTop: 16 }}>
+              <button
+                className="btn"
+                type="button"
+                disabled={copyBusy}
+                onClick={() => {
+                  if (!copyBusy) setConfirmCopy(null);
+                }}
+              >
                 Cancel
               </button>
-              <button className="btn primary" type="button" onClick={() => void doCopy()}>
-                Copy now
+              <button
+                className="btn primary"
+                type="button"
+                disabled={copyBusy}
+                onClick={() => void doCopy()}
+              >
+                {copyBusy ? "Copying…" : copyModalError ? "Retry copy" : "Copy now"}
               </button>
             </div>
           </div>

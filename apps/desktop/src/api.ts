@@ -80,8 +80,19 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
       ...(init?.headers ?? {}),
     },
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || res.statusText);
+  const text = await res.text();
+  let data: { error?: string } & Record<string, unknown> = {};
+  try {
+    data = text ? (JSON.parse(text) as typeof data) : {};
+  } catch {
+    const clipped = text.replace(/\s+/g, " ").trim().slice(0, 200);
+    throw new Error(
+      res.ok
+        ? `Bad response from Porter (${clipped || "empty"})`
+        : clipped || res.statusText || `HTTP ${res.status}`,
+    );
+  }
+  if (!res.ok) throw new Error(String(data.error || res.statusText || `HTTP ${res.status}`));
   return data as T;
 }
 

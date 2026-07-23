@@ -8,9 +8,9 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 
 Pick your Mac chip (smaller downloads — about half the old universal zip):
 
-> **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.17-mac-arm64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.17-mac-arm64.zip)  
-> **Intel Mac:** [⬇ Porter-0.2.17-mac-x64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.17-mac-x64.zip)  
-> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.17 · [All releases](https://github.com/Gtarafdar/porter/releases)
+> **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.18-mac-arm64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.18-mac-arm64.zip)  
+> **Intel Mac:** [⬇ Porter-0.2.18-mac-x64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.18-mac-x64.zip)  
+> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.18 · [All releases](https://github.com/Gtarafdar/porter/releases)
 
 Not sure which chip?  menu → About This Mac → look for “Chip” (Apple) or “Processor” (Intel).
 
@@ -26,6 +26,11 @@ Not sure which chip?  menu → About This Mac → look for “Chip” (Apple)
 **Chrome:** Everyday file copy never requires quitting Chrome. Optional Chrome-extension sync only: quit Chrome → share/copy folders → reopen (see Settings).
 
 **Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Roadmap:** [PLAN.md](PLAN.md)
+
+## What’s new in 0.2.18
+
+- Copy now shows live progress (“Copying 1 of 3…”) and errors inside the dialog (no more silent stuck)
+- Safer multi-select copy path
 
 ## What’s new in 0.2.17
 

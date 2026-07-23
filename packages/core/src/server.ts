@@ -126,7 +126,7 @@ export async function startServer(opts?: {
       deviceId: c.deviceId,
       deviceName: c.deviceName,
       sleeping: c.sleeping,
-      version: "0.2.17",
+      version: "0.2.18",
       // Do not leak LAN details to remote/tunnel clients
       ...(local ? { lan: localLanHint() } : {}),
     });
