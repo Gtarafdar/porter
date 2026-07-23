@@ -233,7 +233,7 @@ async function pingPeerUrl(
   const config = loadConfig();
   const root = baseUrl.replace(/\/$/, "");
   const res = await fetch(`${root}/api/health`, {
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(4000),
   });
   if (!res.ok) return { ok: false };
   const data = (await res.json()) as {
@@ -247,7 +247,7 @@ async function pingPeerUrl(
       "X-Porter-Device": config.deviceId,
       "X-Porter-Pair": config.token,
     },
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(4000),
   });
   if (!folders.ok) {
     throw new Error(
@@ -274,38 +274,48 @@ export async function addPeerByAddress(
   label?: string,
   fallback?: string,
 ): Promise<DeviceInfo> {
+  const cleaned = host
+    .trim()
+    .replace(/^primary:\s*/i, "")
+    .replace(/^fallback:\s*/i, "")
+    .replace(/^["']|["']$/g, "");
   const parsed = parsePeerAddress(
-    host.includes("://") || host.includes(".trycloudflare.com")
-      ? host
-      : `${host}:${port}`,
+    cleaned.includes("://") || cleaned.includes(".trycloudflare.com")
+      ? cleaned
+      : `${cleaned}:${port}`,
     port,
   );
-  const ping = await pingPeerUrl(
-    parsed.baseUrl ?? `http://${parsed.host}:${parsed.port}`,
-  );
-  if (!ping.ok || !ping.deviceId) throw new Error("Could not reach peer health endpoint");
+  let ping: { ok: boolean; deviceId?: string; deviceName?: string } = { ok: false };
+  try {
+    ping = await pingPeerUrl(
+      parsed.baseUrl ?? `http://${parsed.host}:${parsed.port}`,
+    );
+  } catch {
+    ping = { ok: false };
+  }
 
   let fallbackHost: string | undefined;
   let fallbackPort: number | undefined;
   let fallbackBaseUrl: string | undefined;
   if (fallback?.trim()) {
     const fb = parsePeerAddress(fallback.trim(), 47831);
-    // Verify fallback is reachable (best-effort — don't fail add if only primary works)
     try {
       await pingPeerUrl(fb.baseUrl ?? `http://${fb.host}:${fb.port}`);
-      fallbackHost = fb.host;
-      fallbackPort = fb.port;
-      fallbackBaseUrl = fb.baseUrl;
     } catch {
-      // still store it — may come online later (Tailscale)
-      fallbackHost = fb.host;
-      fallbackPort = fb.port;
-      fallbackBaseUrl = fb.baseUrl;
+      // still store — may come online later
     }
+    fallbackHost = fb.host;
+    fallbackPort = fb.port;
+    fallbackBaseUrl = fb.baseUrl;
   }
 
+  const reachable = Boolean(ping.ok && ping.deviceId);
+  const id =
+    ping.deviceId ||
+    `pending-${parsed.via}-${parsed.host}`.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 96);
+
   const device = registerManualPeer({
-    id: ping.deviceId,
+    id,
     name: label || ping.deviceName || parsed.host,
     host: parsed.host,
     port: parsed.port,
@@ -320,9 +330,14 @@ export async function addPeerByAddress(
     "peer_add",
     `${device.name} @ ${device.baseUrl || `${parsed.host}:${parsed.port}`}${
       fallbackHost ? ` (fallback ${fallbackBaseUrl || fallbackHost})` : ""
-    }`,
-    true,
+    }${reachable ? "" : " (saved offline — not reachable yet)"}`,
+    reachable,
     "ui",
+    {
+      humanMessage: reachable
+        ? `Connected to ${device.name}`
+        : `Saved ${device.name} but could not reach it yet — check Home is online / URL is current`,
+    },
   );
   return device;
 }

@@ -127,9 +127,22 @@ input {
 }
 
 .sheet.wizard {
-  width: min(640px, 100%);
-  max-height: min(90vh, 820px);
-  overflow: auto;
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(88vh, 820px);
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet.wizard .wizard-body h3 {
+  margin-top: 0;
+}
+
+.wizard-actions {
+  margin: 0;
+  justify-content: flex-end;
+  width: 100%;
 }
 
 .wizard-brand {

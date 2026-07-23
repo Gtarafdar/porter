@@ -94,15 +94,59 @@ export function SetupWizard({
           setBusy(false);
           return;
         }
-        if (pairRole === "join" && t === homeTokenSnapshot) {
-          setMsg("Paste the pair token from your Home Mac (not this Mac’s generated token).");
+        if (pairRole === "join" && !t) {
+          setMsg("Paste the pair token from your Home Mac.");
+          setBusy(false);
+          return;
+        }
+        // Soft warn only — don't block if tokens already match from a prior save
+        if (
+          pairRole === "join" &&
+          t === homeTokenSnapshot &&
+          !peerAddress.trim()
+        ) {
+          setMsg(
+            "Paste Home’s pair token (Copy token on Home), and optionally Home’s Cloudflare URL or LAN IP.",
+          );
           setBusy(false);
           return;
         }
         await porter.setToken(t);
+
+        let joinNote: string | null = null;
         if (pairRole === "join" && peerAddress.trim()) {
-          await porter.addPeer(peerAddress.trim());
+          const addr = peerAddress
+            .trim()
+            .replace(/^primary:\s*/i, "")
+            .replace(/^fallback:\s*/i, "")
+            .replace(/^["']|["']$/g, "");
+          try {
+            const d = await porter.addPeer(addr);
+            joinNote = `Linked to ${d.name}.`;
+          } catch (e) {
+            const raw = e instanceof Error ? e.message : String(e);
+            // Still continue — token is saved; user can retry in Add Mac
+            if (/pair token rejected|Unauthorized/i.test(raw)) {
+              joinNote =
+                "Token may not match Home yet. Continue, then fix token in Add Mac.";
+            } else {
+              joinNote =
+                "Home not reachable right now (check Cloudflare URL). Token saved — retry Connect in Add Mac.";
+            }
+          }
+        } else if (pairRole === "join") {
+          joinNote = "Token saved. Add Home’s address later via Add Mac.";
         }
+
+        if (snap!.step >= STEPS.length - 1) {
+          await porter.updateSetup({ completed: true, agentLinkAcknowledged: true });
+          onDone();
+          return;
+        }
+        await setStep(snap!.step + 1);
+        await refresh();
+        if (joinNote) setMsg(joinNote);
+        return;
       }
       if (snap!.step === 4) {
         // allow continue after install or acknowledge
@@ -145,29 +189,31 @@ export function SetupWizard({
 
   return (
     <div className="modal-backdrop wizard-backdrop">
-      <div className="sheet wizard" role="dialog" aria-labelledby="wizard-title">
-        <div className="wizard-brand">
-          <IconPorterMark size={52} />
-          <div>
-            <h2 id="wizard-title">Porter setup</h2>
-            <p className="wizard-sub">Private bridge · same ease as Slack Agent Bridge</p>
+      <div className="sheet wizard sheet-fit" role="dialog" aria-labelledby="wizard-title">
+        <div className="sheet-top">
+          <div className="wizard-brand">
+            <IconPorterMark size={52} />
+            <div>
+              <h2 id="wizard-title">Porter setup</h2>
+              <p className="wizard-sub">Private bridge · same ease as Slack Agent Bridge</p>
+            </div>
           </div>
+
+          <ol className="wizard-steps">
+            {STEPS.map((s) => {
+              const done = s.id < snap.step || (s.id === snap.step && snap.completed);
+              const active = s.id === snap.step;
+              return (
+                <li key={s.id} className={`${active ? "active" : ""} ${done && !active ? "done" : ""}`}>
+                  <span className="wiz-dot">{done && !active ? <IconCheck size={12} /> : s.id + 1}</span>
+                  <span className="wiz-label">{s.title}</span>
+                </li>
+              );
+            })}
+          </ol>
         </div>
 
-        <ol className="wizard-steps">
-          {STEPS.map((s) => {
-            const done = s.id < snap.step || (s.id === snap.step && snap.completed);
-            const active = s.id === snap.step;
-            return (
-              <li key={s.id} className={`${active ? "active" : ""} ${done && !active ? "done" : ""}`}>
-                <span className="wiz-dot">{done && !active ? <IconCheck size={12} /> : s.id + 1}</span>
-                <span className="wiz-label">{s.title}</span>
-              </li>
-            );
-          })}
-        </ol>
-
-        <div className="wizard-body">
+        <div className="sheet-body wizard-body">
           <h3>{step.title}</h3>
           <p>{step.blurb}</p>
 
@@ -293,12 +339,16 @@ export function SetupWizard({
                     />
                   </div>
                   <div className="field">
-                    <label>Home Mac address (optional now — can add later in Settings)</label>
+                    <label>Home Mac address (LAN IP or Cloudflare https://… URL)</label>
                     <input
                       value={peerAddress}
                       onChange={(e) => setPeerAddress(e.target.value)}
-                      placeholder="192.168.x.x · 100.x.x.x · https://….trycloudflare.com"
+                      placeholder="https://….trycloudflare.com or 192.168.x.x"
                     />
+                  </div>
+                  <div className="callout">
+                    Copy these from Home’s <strong>Add Mac</strong> panel (Copy buttons). If Home
+                    isn’t online yet, Continue still works — you can Connect later.
                   </div>
                 </>
               )}
@@ -336,18 +386,22 @@ export function SetupWizard({
             </div>
           )}
 
-          {msg && <p className="error-text">{msg}</p>}
+          {msg && (
+            <p className={/could not|must|paste|fail|reject|not match|reachable/i.test(msg) && !/saved|linked|token saved/i.test(msg) ? "error-text" : "ok-text"}>
+              {msg}
+            </p>
+          )}
         </div>
 
-        <div className="row wizard-actions">
+        <div className="sheet-foot wizard-actions">
           <button className="btn" type="button" disabled={snap.step === 0 || busy} onClick={() => void back()}>
             Back
           </button>
-          <button className="btn" type="button" onClick={() => onDone()}>
+          <button className="btn" type="button" disabled={busy} onClick={() => onDone()}>
             Skip for now
           </button>
           <button className="btn primary" type="button" disabled={busy} onClick={() => void next()}>
-            {snap.step >= STEPS.length - 1 ? "Open Porter" : "Continue"}
+            {busy ? "Working…" : snap.step >= STEPS.length - 1 ? "Open Porter" : "Continue"}
           </button>
         </div>
       </div>
