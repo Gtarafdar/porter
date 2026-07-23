@@ -258,7 +258,7 @@ Then the engine can start reliably.
             Task { @MainActor in
                 guard let self else { return }
                 self.loadAttempts += 1
-                if self.loadAttempts > 40 {
+                if self.loadAttempts > 75 {
                     self.healthTimer?.invalidate()
                     self.showStartupFailure()
                     return
@@ -301,7 +301,10 @@ Log file: \(logPath)
             return "Don’t run Porter from Downloads. Drag Porter.app into Applications, then open it from there (right‑click → Open)."
         }
         if lower.contains("libuv") || lower.contains("/opt/homebrew/") || lower.contains("library not loaded") {
-            return "This Porter.app has a broken Node binary (needs Homebrew). Delete it, download Porter 0.2.6+, put it in Applications, then right‑click → Open."
+            return "This Porter.app has a broken Node binary (needs Homebrew). Delete it, download Porter 0.2.7+, put it in Applications, then right‑click → Open."
+        }
+        if lower.contains("node-ok") && !lower.contains("awake") && !lower.contains("starting serve") {
+            return "Node works, but Porter got stuck before starting the server (often a stuck process on port 47831). Quit Porter fully, download 0.2.7+, replace the app, then reopen."
         }
         if lower.contains("bad cpu type") || (lower.contains("mach-o") && lower.contains("architecture")) {
             return "Wrong Mac chip for this zip (this Mac is \(arch)). Download the arm64 (Apple Silicon) or x64 (Intel) build."
@@ -310,7 +313,7 @@ Log file: \(logPath)
             return "macOS blocked Porter’s engine. Right‑click Porter.app → Open, then try again."
         }
         if lower.contains("eaddrinuse") || lower.contains("address already in use") {
-            return "Port 47831 is already in use. Quit any other Porter, then Try again."
+            return "Port 47831 is already in use. Quit any other Porter (Activity Monitor → node), then Try again."
         }
         if lower.contains("cannot find module") || lower.contains("err_module_not_found") {
             return "Porter app package is incomplete. Re-download the zip and replace Porter.app."

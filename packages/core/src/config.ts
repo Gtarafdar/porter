@@ -172,9 +172,13 @@ export function appendActivity(
     via: meta?.via,
   };
   events.unshift(event);
-  fs.writeFileSync(ACTIVITY_PATH, JSON.stringify(events.slice(0, 500), null, 2), {
-    mode: 0o600,
-  });
+  try {
+    fs.writeFileSync(ACTIVITY_PATH, JSON.stringify(events.slice(0, 500), null, 2), {
+      mode: 0o600,
+    });
+  } catch (err) {
+    console.warn("[porter] could not write activity log:", err instanceof Error ? err.message : err);
+  }
   return event;
 }
 

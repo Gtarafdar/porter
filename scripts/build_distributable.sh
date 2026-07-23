@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${PORTER_VERSION:-0.2.6}"
+VERSION="${PORTER_VERSION:-0.2.7}"
 OUT="${ROOT}/dist/release"
 CACHE="${ROOT}/dist/cache"
 NODE_VER="${PORTER_NODE_VERSION:-20.18.2}"
@@ -159,22 +159,22 @@ xattr -dr com.apple.quarantine "${CONTENTS}" 2>/dev/null || true
 
 LOG_DIR="${HOME}/Library/Logs/Porter"
 mkdir -p "${LOG_DIR}" "${HOME}/Library/Application Support/Porter" 2>/dev/null || mkdir -p "${LOG_DIR}"
-{
-  echo "---- $(date -u +%Y-%m-%dT%H:%M:%SZ) porter-core start arch=$(uname -m) node=${NODE} bundle=${CONTENTS} ----"
-  if [[ "${CONTENTS}" == *AppTranslocation* ]]; then
-    echo "warning: running under App Translocation — move Porter.app to /Applications and open from there"
-  fi
-} >>"${LOG_DIR}/porter.log"
+log() { echo "---- $(date -u +%Y-%m-%dT%H:%M:%SZ) $*" >>"${LOG_DIR}/porter.log"; }
+
+log "porter-core start arch=$(uname -m) node=${NODE} bundle=${CONTENTS}"
+if [[ "${CONTENTS}" == *AppTranslocation* ]]; then
+  log "warning: App Translocation — move Porter.app to /Applications"
+fi
 
 if [[ ! -x "${NODE}" ]]; then
-  echo "error: bundled Node missing or not executable at ${NODE}" >>"${LOG_DIR}/porter.log"
+  log "error: bundled Node missing or not executable at ${NODE}"
   exit 1
 fi
 
 # Catch old broken packages that shipped Homebrew Node (needs libuv.dylib).
 if command -v otool >/dev/null 2>&1; then
   if otool -L "${NODE}" 2>/dev/null | grep -qE '/opt/homebrew/|/usr/local/opt/'; then
-    echo "error: bundled Node is linked to Homebrew (e.g. libuv). Delete this Porter.app and download a fresh release from GitHub (0.2.6+)." >>"${LOG_DIR}/porter.log"
+    log "error: bundled Node is linked to Homebrew (e.g. libuv). Delete this Porter.app and download 0.2.7+."
     exit 1
   fi
 fi
@@ -186,15 +186,41 @@ fi
 
 # Prove Node can actually exec (surfaces dyld errors into the log).
 if ! "${NODE}" -e "process.stdout.write('node-ok '+process.version+'\n')" >>"${LOG_DIR}/porter.log" 2>&1; then
-  echo "error: Node cannot run on this Mac — if you see libuv/homebrew above, re-download Porter 0.2.6+ and install to Applications." >>"${LOG_DIR}/porter.log"
+  log "error: Node cannot run — re-download Porter for your Mac chip"
   exit 1
 fi
 
-if curl -sf "http://127.0.0.1:47831/api/health" >/dev/null 2>&1; then
+# CRITICAL: always bound curl — a half-open listener on 47831 used to hang forever here
+# (log stopped at node-ok; window timed out before serve started).
+health_ok() {
+  curl -sf -m 1 --connect-timeout 1 "http://127.0.0.1:47831/api/health" >/dev/null 2>&1
+}
+
+if health_ok; then
+  log "already healthy — nothing to start"
   exit 0
 fi
+
+# Port held by a dead/stuck Porter? Free it so we can bind.
+if lsof -nP -iTCP:47831 -sTCP:LISTEN >/dev/null 2>&1; then
+  log "warning: port 47831 is listening but /api/health failed — stopping stale Porter"
+  pkill -f 'packages/core/dist/cli.js serve' 2>/dev/null || true
+  pkill -f 'Porter.app/Contents/Resources/node' 2>/dev/null || true
+  sleep 0.6
+  if health_ok; then
+    log "became healthy after clearing stale process"
+    exit 0
+  fi
+fi
+
+if [[ ! -d "${RES}/app" ]]; then
+  log "error: missing ${RES}/app — reinstall Porter.app"
+  exit 1
+fi
+
+log "starting serve…"
 cd "${RES}/app"
-# Line-buffer-ish: reopen stdout as append fd so logs appear during start
+# Replace this process with Node; keep logging.
 exec "${NODE}" "${RES}/app/packages/core/dist/cli.js" serve >>"${LOG_DIR}/porter.log" 2>&1
 CORE
   chmod +x "${macos}/porter-core"

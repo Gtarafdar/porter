@@ -85,7 +85,7 @@ ${process.env.PORTER_UI_DIR ? `export PORTER_UI_DIR="${process.env.PORTER_UI_DIR
 LOG="${logsDir()}/Porter.log"
 mkdir -p "$(dirname "$LOG")" "${support}"
 
-if curl -sf "http://127.0.0.1:47831/api/health" >/dev/null 2>&1; then
+if curl -sf -m 1 --connect-timeout 1 "http://127.0.0.1:47831/api/health" >/dev/null 2>&1; then
   exit 0
 fi
 
