@@ -111,7 +111,15 @@ export const porter = {
       `/api/files/list?deviceId=${encodeURIComponent(deviceId)}&path=${encodeURIComponent(path)}`,
     ),
   search: (deviceId: string, q: string) =>
-    api<unknown[]>(
+    api<
+      {
+        path: string;
+        relativePath: string;
+        name: string;
+        isDirectory: boolean;
+        folderId?: string;
+      }[]
+    >(
       `/api/files/search?deviceId=${encodeURIComponent(deviceId)}&q=${encodeURIComponent(q)}`,
     ),
   copy: (body: {

@@ -10,25 +10,15 @@ import {
 } from "./api";
 import {
   IconActivity,
-  IconCopy,
   IconDevices,
-  IconFile,
-  IconFolder,
   IconPorterMark,
   IconSettings,
   IconSleep,
   IconWake,
 } from "./Icons";
+import { PaneView, type PaneState } from "./PaneView";
 import { SetupWizard } from "./SetupWizard";
 import { TravelReadyPanel } from "./TravelReady";
-
-type PaneState = {
-  deviceId: string;
-  rootPath: string;
-  path: string;
-  entries: FileEntry[];
-  selected: FileEntry | null;
-};
 
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -89,10 +79,6 @@ function friendlyError(msg: string): string {
     return "Timed out. Open Devices and see if Cloudflare or Tailscale is the active link.";
   }
   return msg;
-}
-
-function FileGlyph({ entry }: { entry: FileEntry }) {
-  return entry.isDirectory ? <IconFolder size={28} /> : <IconFile size={28} />;
 }
 
 export function App() {
@@ -297,115 +283,6 @@ export function App() {
     }
   }
 
-  function PaneView({
-    title,
-    pane,
-    side,
-  }: {
-    title: string;
-    pane: PaneState | null;
-    side: "left" | "right";
-  }) {
-    const crumbs = pane
-      ? pane.path
-          .replace(pane.rootPath, "")
-          .split("/")
-          .filter(Boolean)
-      : [];
-
-    return (
-      <section className={`pane ${side === "right" ? "dest" : "source"}`}>
-        <div className="pane-head">
-          <h2>{title}</h2>
-          <div className="top-actions">
-            <button className="btn" type="button" onClick={() => setView(view === "icons" ? "list" : "icons")}>
-              {view === "icons" ? "List" : "Icons"}
-            </button>
-            {pane && (
-              <button
-                className="btn"
-                type="button"
-                onClick={() => navigate(side, pane.rootPath)}
-              >
-                Root
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="crumbs">
-          {pane ? (
-            <>
-              <button type="button" onClick={() => navigate(side, pane.rootPath)}>
-                {pane.rootPath.split("/").pop()}
-              </button>
-              {crumbs.map((c, i) => {
-                const partial =
-                  pane.rootPath + "/" + crumbs.slice(0, i + 1).join("/");
-                return (
-                  <span key={partial}>
-                    /{" "}
-                    <button type="button" onClick={() => navigate(side, partial)}>
-                      {c}
-                    </button>
-                  </span>
-                );
-              })}
-            </>
-          ) : (
-            <span>Select a device folder</span>
-          )}
-        </div>
-        <div className={`files ${view}`}>
-          {!pane && (
-            <div className="empty">
-              Approve a folder, then click it in the sidebar — like Finder on the other Mac.
-            </div>
-          )}
-          {pane?.entries.map((entry) => (
-            <button
-              key={entry.path}
-              type="button"
-              className={`file ${pane.selected?.path === entry.path ? "selected" : ""}`}
-              onClick={() => {
-                const next = { ...pane, selected: entry };
-                if (side === "left") setLeft(next);
-                else setRight(next);
-              }}
-              onDoubleClick={() => {
-                if (entry.isDirectory) void navigate(side, entry.path);
-              }}
-            >
-              <div className="icon">
-                <FileGlyph entry={entry} />
-              </div>
-              <div className="fname">{entry.name}</div>
-              <div className="fmeta">
-                {entry.isDirectory ? "Folder" : formatBytes(entry.size)}
-              </div>
-            </button>
-          ))}
-        </div>
-        <div className="pane-foot">
-          <span>
-            {pane
-              ? `${pane.entries.length} items · ${devices.find((d) => d.id === pane.deviceId)?.name ?? ""}`
-              : "—"}
-          </span>
-          {side === "left" && (
-            <button
-              className="btn primary"
-              type="button"
-              disabled={!left?.selected || !right}
-              onClick={() => void requestCopyToRight()}
-            >
-              <IconCopy size={14} /> Copy to other pane
-            </button>
-          )}
-        </div>
-      </section>
-    );
-  }
-
   return (
     <div className="app">
       <header className="topbar">
@@ -595,8 +472,35 @@ export function App() {
           </div>
         </aside>
 
-        <PaneView title="Browse" pane={left} side="left" />
-        <PaneView title="Drop here (this Mac)" pane={right} side="right" />
+        <PaneView
+          pane={left}
+          side="left"
+          devices={devices}
+          fallbackDeviceName={localDevice?.name}
+          otherPane={right}
+          view={view}
+          setView={setView}
+          onNavigate={(s, p) => void navigate(s, p)}
+          onSelect={(s, next) => {
+            if (s === "left") setLeft(next);
+            else setRight(next);
+          }}
+          onCopy={() => void requestCopyToRight()}
+        />
+        <PaneView
+          pane={right}
+          side="right"
+          devices={devices}
+          fallbackDeviceName={localDevice?.name}
+          otherPane={left}
+          view={view}
+          setView={setView}
+          onNavigate={(s, p) => void navigate(s, p)}
+          onSelect={(s, next) => {
+            if (s === "left") setLeft(next);
+            else setRight(next);
+          }}
+        />
       </div>
 
       {showShare && (
