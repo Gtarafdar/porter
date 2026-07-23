@@ -7,6 +7,18 @@ import {
   type FileEntry,
   type SharedFolder,
 } from "./api";
+import {
+  IconActivity,
+  IconCopy,
+  IconDevices,
+  IconFile,
+  IconFolder,
+  IconPorterMark,
+  IconSettings,
+  IconSleep,
+  IconWake,
+} from "./Icons";
+import { SetupWizard } from "./SetupWizard";
 
 type PaneState = {
   deviceId: string;
@@ -22,14 +34,8 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function fileIcon(entry: FileEntry): string {
-  if (entry.isDirectory) return "📁";
-  const ext = (entry.extension || "").toLowerCase();
-  if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) return "🖼️";
-  if (["ts", "tsx", "js", "jsx", "py", "go", "rs", "swift"].includes(ext)) return "📄";
-  if (["zip", "tar", "gz", "7z"].includes(ext)) return "📦";
-  if (["md", "txt", "json", "yml", "yaml"].includes(ext)) return "📝";
-  return "📃";
+function FileGlyph({ entry }: { entry: FileEntry }) {
+  return entry.isDirectory ? <IconFolder size={28} /> : <IconFile size={28} />;
 }
 
 export function App() {
@@ -53,6 +59,8 @@ export function App() {
     destPath: string;
   } | null>(null);
   const [pairToken, setPairToken] = useState("");
+  const [showWizard, setShowWizard] = useState(false);
+  const [wizardChecked, setWizardChecked] = useState(false);
 
   const [left, setLeft] = useState<PaneState | null>(null);
   const [right, setRight] = useState<PaneState | null>(null);
@@ -116,11 +124,22 @@ export function App() {
 
   useEffect(() => {
     refreshMeta()
-      .then(({ d, f }) => {
+      .then(async ({ d, f, s }) => {
+        setSelectedDeviceId(s.id);
         const local = d.find((x) => x.isLocal) ?? d[0];
         if (local && f[0]) {
           void openFolder(local.id, f[0].path, "left");
           void openFolder(local.id, f[0].path, "right");
+        }
+        try {
+          const setup = await porter.setup();
+          const params = new URLSearchParams(window.location.search);
+          if (!setup.completed || params.get("wizard") === "1") setShowWizard(true);
+          if (params.get("settings") === "1") setShowSettings(true);
+        } catch {
+          // ignore
+        } finally {
+          setWizardChecked(true);
         }
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
@@ -257,7 +276,9 @@ export function App() {
                 if (entry.isDirectory) void navigate(side, entry.path);
               }}
             >
-              <div className="icon">{fileIcon(entry)}</div>
+              <div className="icon">
+                <FileGlyph entry={entry} />
+              </div>
               <div className="fname">{entry.name}</div>
               <div className="fmeta">
                 {entry.isDirectory ? "Folder" : formatBytes(entry.size)}
@@ -278,7 +299,7 @@ export function App() {
               disabled={!left?.selected || !right}
               onClick={() => void requestCopyToRight()}
             >
-              Copy to other pane
+              <IconCopy size={14} /> Copy to other pane
             </button>
           )}
         </div>
@@ -290,21 +311,43 @@ export function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <strong>Porter</strong>
-          <span>
-            Private bridge across your Macs · {settings?.name ?? "…"}
-            {settings ? ` · ${settings.lan}` : ""}
-          </span>
+          <div className="brand-row">
+            <IconPorterMark size={40} />
+            <div>
+              <strong>Porter</strong>
+              <span>
+                Private bridge · {settings?.name ?? "…"}
+                {settings ? ` · ${settings.lan}` : ""}
+                {settings?.sleeping ? " · sleeping" : ""}
+              </span>
+            </div>
+          </div>
         </div>
         <div className="top-actions">
+          <button className="btn" type="button" onClick={() => setShowWizard(true)}>
+            Setup
+          </button>
           <button className="btn" type="button" onClick={() => setShowShare(true)}>
             Share folder
           </button>
+          <button
+            className="btn"
+            type="button"
+            onClick={() => {
+              void (settings?.sleeping ? porter.wake() : porter.sleep()).then(() => {
+                showToast(settings?.sleeping ? "Porter awake" : "Porter sleeping");
+                void refreshMeta();
+              });
+            }}
+          >
+            {settings?.sleeping ? <IconWake size={16} /> : <IconSleep size={16} />}
+            {settings?.sleeping ? " Wake" : " Sleep"}
+          </button>
           <button className="btn" type="button" onClick={() => setShowActivity(true)}>
-            Activity
+            <IconActivity size={16} /> Activity
           </button>
           <button className="btn" type="button" onClick={() => setShowSettings(true)}>
-            Settings
+            <IconSettings size={16} /> Settings
           </button>
           <button
             className="btn danger"
@@ -327,7 +370,9 @@ export function App() {
       <div className="shell">
         <aside className="sidebar">
           <div className="side-section">
-            <h3>Devices</h3>
+            <h3>
+              <IconDevices size={12} /> Devices
+            </h3>
             {devices.map((d) => (
               <button
                 key={d.id}
@@ -563,6 +608,15 @@ export function App() {
       )}
 
       {toast && <div className="toast">{toast}</div>}
+      {wizardChecked && showWizard && (
+        <SetupWizard
+          onDone={() => {
+            setShowWizard(false);
+            void refreshMeta();
+            showToast("Setup ready");
+          }}
+        />
+      )}
     </div>
   );
 }

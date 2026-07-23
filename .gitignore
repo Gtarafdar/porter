@@ -1,6 +1,10 @@
 node_modules/
 dist/
 apps/desktop/dist/
+apps/mac-menubar/.build/
+apps/mac-menubar/dist/
+apps/mac-menubar/.swiftpm/
+**/*.iconset/
 .DS_Store
 *.log
 .env

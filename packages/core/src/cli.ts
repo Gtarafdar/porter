@@ -7,6 +7,18 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+process.on("uncaughtException", (err: NodeJS.ErrnoException) => {
+  if (
+    err?.code === "ERR_SYSTEM_ERROR" ||
+    String(err?.message ?? "").includes("uv_interface_addresses")
+  ) {
+    console.warn("[porter] Ignoring network interface error (Bonjour):", err.message);
+    return;
+  }
+  console.error(err);
+  process.exit(1);
+});
+
 async function main(): Promise<void> {
   const [, , cmd, ...rest] = process.argv;
   const config = loadConfig();

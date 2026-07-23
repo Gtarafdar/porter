@@ -43,6 +43,23 @@ export interface DeviceSettings {
   requireConfirmWrites: boolean;
   token: string;
   lan: string;
+  sleeping?: boolean;
+  wizardCompleted?: boolean;
+}
+
+export interface SetupSnapshot {
+  completed: boolean;
+  step: number;
+  deviceName: string;
+  deviceId: string;
+  hasSharedFolder: boolean;
+  hasWriteFolder: boolean;
+  token: string;
+  agentLinkAcknowledged: boolean;
+  mcpInstalled: boolean;
+  sleeping: boolean;
+  mcpEntryPath: string;
+  mcpSnippet: string;
 }
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -98,4 +115,18 @@ export const porter = {
       method: "POST",
       body: JSON.stringify({ token }),
     }),
+  setup: () => api<SetupSnapshot>("/api/setup"),
+  updateSetup: (body: {
+    step?: number;
+    completed?: boolean;
+    agentLinkAcknowledged?: boolean;
+  }) =>
+    api<SetupSnapshot>("/api/setup", { method: "PATCH", body: JSON.stringify(body) }),
+  installCursorMcp: () =>
+    api<{ ok: boolean; path: string; alreadyPresent: boolean; merged: boolean }>(
+      "/api/mcp/install-cursor",
+      { method: "POST", body: "{}" },
+    ),
+  sleep: () => api<{ ok: boolean }>("/api/sleep", { method: "POST", body: "{}" }),
+  wake: () => api<{ ok: boolean }>("/api/wake", { method: "POST", body: "{}" }),
 };

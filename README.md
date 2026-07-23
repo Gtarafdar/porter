@@ -6,7 +6,15 @@ Private **AI + Finder-like** file bridge across your Macs. No cloud. No paid ser
 
 **Full roadmap & status:** see [PLAN.md](PLAN.md) (use this when iterating from phone or another Mac).
 
-## What you get
+## What’s new in 0.2
+
+- Setup wizard (Cursor MCP one-click install — keeps Slack Agent Bridge entries)
+- Professional Porter icons + Finder SVG icons (no emoji)
+- Menu bar app: `npm run menubar:build` → `open apps/mac-menubar/dist/Porter.app`
+- Sleep / Wake, Tailscale IP preference, chunked copy + SHA-256
+- `npm run test:e2e` — 10 automated checks
+
+## Requirements
 
 - **Finder-style UI** — browse approved folders on this Mac (and paired Macs) with icons/list, breadcrumbs, dual-pane copy
 - **Cursor MCP** — `list_devices`, `list_directory`, `search_files`, `read_file`, `copy_file`, `copy_folder`, …

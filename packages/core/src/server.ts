@@ -13,7 +13,6 @@ import {
 } from "./config.js";
 import {
   assertAllowed,
-  copyFileLocal,
   copyFolderLocal,
   listDirectory,
   readFileLimited,
@@ -29,6 +28,13 @@ import {
   remoteSearch,
   setSharedToken,
 } from "./peer.js";
+import {
+  buildMcpSnippet,
+  installCursorMcp,
+  updateWizard,
+  wizardSnapshot,
+} from "./setup.js";
+import { copyFileResumable } from "./transfer.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -52,11 +58,15 @@ export async function startServer(opts?: {
   app.use(cors({ origin: true }));
   app.use(express.json({ limit: "2mb" }));
 
-  // Peer auth for non-localhost
+  // Peer auth for non-localhost; refuse work while sleeping (except health/wake)
   app.use((req, res, next) => {
     if (isLocalRequest(req)) return next();
     if (req.path === "/api/health") return next();
     if (!req.path.startsWith("/api/")) return next();
+    if (loadConfig().sleeping) {
+      res.status(503).json({ error: "Porter is sleeping on this Mac. Wake it from the menu bar." });
+      return;
+    }
     const ok = authorizePeer(
       req.header("authorization") ?? undefined,
       req.header("x-porter-device") ?? undefined,
@@ -70,13 +80,79 @@ export async function startServer(opts?: {
   });
 
   app.get("/api/health", (_req, res) => {
+    const c = loadConfig();
     res.json({
       ok: true,
       name: "porter",
-      deviceId: config.deviceId,
-      deviceName: loadConfig().deviceName,
+      deviceId: c.deviceId,
+      deviceName: c.deviceName,
       lan: localLanHint(),
+      sleeping: c.sleeping,
+      version: "0.2.0",
     });
+  });
+
+  app.get("/api/setup", (_req, res) => {
+    res.json(wizardSnapshot());
+  });
+
+  app.patch("/api/setup", (req, res) => {
+    if (!isLocalRequest(req)) {
+      res.status(403).json({ error: "Setup is local only" });
+      return;
+    }
+    res.json(
+      updateWizard({
+        step: typeof req.body.step === "number" ? req.body.step : undefined,
+        completed:
+          typeof req.body.completed === "boolean" ? req.body.completed : undefined,
+        agentLinkAcknowledged:
+          typeof req.body.agentLinkAcknowledged === "boolean"
+            ? req.body.agentLinkAcknowledged
+            : undefined,
+      }),
+    );
+  });
+
+  app.get("/api/mcp/snippet", (_req, res) => {
+    res.json(buildMcpSnippet());
+  });
+
+  app.post("/api/mcp/install-cursor", (req, res) => {
+    if (!isLocalRequest(req)) {
+      res.status(403).json({ error: "MCP install is local only" });
+      return;
+    }
+    try {
+      const result = installCursorMcp();
+      res.json({ ok: true, ...result, snapshot: wizardSnapshot() });
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  app.post("/api/sleep", (req, res) => {
+    if (!isLocalRequest(req)) {
+      res.status(403).json({ error: "Sleep is local only" });
+      return;
+    }
+    const c = loadConfig();
+    c.sleeping = true;
+    saveConfig(c);
+    appendActivity("sleep", "agent sleeping — peers paused", true, "ui");
+    res.json({ ok: true, sleeping: true });
+  });
+
+  app.post("/api/wake", (req, res) => {
+    if (!isLocalRequest(req)) {
+      res.status(403).json({ error: "Wake is local only" });
+      return;
+    }
+    const c = loadConfig();
+    c.sleeping = false;
+    saveConfig(c);
+    appendActivity("wake", "agent awake", true, "ui");
+    res.json({ ok: true, sleeping: false });
   });
 
   app.get("/api/device", (_req, res) => {
@@ -90,6 +166,8 @@ export async function startServer(opts?: {
       requireConfirmWrites: c.requireConfirmWrites,
       token: c.token,
       lan: localLanHint(),
+      sleeping: c.sleeping,
+      wizardCompleted: c.wizard.completed,
     });
   });
 
@@ -259,7 +337,7 @@ export async function startServer(opts?: {
       if (srcLocal && destLocal) {
         const result = isDirectory
           ? copyFolderLocal(sourcePath, destPath)
-          : copyFileLocal(sourcePath, destPath);
+          : copyFileResumable(sourcePath, destPath);
         appendActivity("copy", `${sourcePath} → ${destPath}`, true, "ui");
         res.json({ ok: true, result });
         return;
