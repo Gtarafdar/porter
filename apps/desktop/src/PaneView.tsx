@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { porter, type DeviceInfo, type FileEntry } from "./api";
 import { IconCopy, IconFile, IconFolder } from "./Icons";
 
@@ -7,7 +7,7 @@ export type PaneState = {
   rootPath: string;
   path: string;
   entries: FileEntry[];
-  selected: FileEntry | null;
+  selected: FileEntry[];
 };
 
 function formatBytes(n: number): string {
@@ -18,6 +18,17 @@ function formatBytes(n: number): string {
 
 function FileGlyph({ entry }: { entry: FileEntry }) {
   return entry.isDirectory ? <IconFolder size={28} /> : <IconFile size={28} />;
+}
+
+function toggleSelected(
+  current: FileEntry[],
+  entry: FileEntry,
+  additive: boolean,
+): FileEntry[] {
+  if (!additive) return [entry];
+  const exists = current.some((e) => e.path === entry.path);
+  if (exists) return current.filter((e) => e.path !== entry.path);
+  return [...current, entry];
 }
 
 export function PaneView({
@@ -53,7 +64,9 @@ export function PaneView({
     "Mac";
   const title = side === "left" ? `From · ${deviceName}` : `To · ${deviceName}`;
   const subtitle =
-    side === "left" ? "Pick files to copy" : "Copies land in the folder open here";
+    side === "left"
+      ? "Click to select · ⌘/Ctrl-click for multi-select"
+      : "Copies land in the folder open here";
 
   const crumbs = pane
     ? pane.path.replace(pane.rootPath, "").split("/").filter(Boolean)
@@ -99,6 +112,16 @@ export function PaneView({
   const showingSearch = Boolean(searchHits);
   const otherName =
     (otherPane && devices.find((d) => d.id === otherPane.deviceId)?.name) || "destination";
+  const selectedCount = pane?.selected.length ?? 0;
+
+  function selectEntry(entry: FileEntry, e: MouseEvent) {
+    if (!pane) return;
+    const additive = e.metaKey || e.ctrlKey;
+    onSelect(side, {
+      ...pane,
+      selected: toggleSelected(pane.selected, entry, additive),
+    });
+  }
 
   return (
     <section className={`pane ${side === "right" ? "dest" : "source"}`}>
@@ -181,48 +204,57 @@ export function PaneView({
         {pane && displayEntries.length === 0 && (
           <div className="empty">{query.trim() ? "No matches" : "This folder is empty"}</div>
         )}
-        {displayEntries.map((entry) => (
-          <button
-            key={entry.path}
-            type="button"
-            className={`file ${pane?.selected?.path === entry.path ? "selected" : ""}`}
-            onClick={() => {
-              if (!pane) return;
-              onSelect(side, { ...pane, selected: entry });
-            }}
-            onDoubleClick={() => {
-              if (entry.isDirectory) {
-                setQuery("");
-                setSearchHits(null);
-                onNavigate(side, entry.path);
-              }
-            }}
-            title={showingSearch ? entry.path : entry.name}
-          >
-            <div className="icon">
-              <FileGlyph entry={entry} />
-            </div>
-            <div className="fname">{entry.name}</div>
-            <div className="fmeta">
-              {showingSearch
-                ? entry.relativePath || entry.path
-                : entry.isDirectory
-                  ? "Folder"
-                  : formatBytes(entry.size)}
-            </div>
-          </button>
-        ))}
+        {displayEntries.map((entry) => {
+          const isSelected = pane?.selected.some((s) => s.path === entry.path);
+          return (
+            <button
+              key={entry.path}
+              type="button"
+              className={`file ${isSelected ? "selected" : ""}`}
+              onClick={(e) => selectEntry(entry, e)}
+              onDoubleClick={() => {
+                if (entry.isDirectory) {
+                  setQuery("");
+                  setSearchHits(null);
+                  onNavigate(side, entry.path);
+                }
+              }}
+              title={showingSearch ? entry.path : entry.name}
+            >
+              <div className="icon">
+                <FileGlyph entry={entry} />
+              </div>
+              <div className="fname">{entry.name}</div>
+              <div className="fmeta">
+                {showingSearch
+                  ? entry.relativePath || entry.path
+                  : entry.isDirectory
+                    ? "Folder"
+                    : formatBytes(entry.size)}
+              </div>
+            </button>
+          );
+        })}
       </div>
       <div className="pane-foot">
-        <span>{pane ? `${displayEntries.length} items · ${deviceName}` : "—"}</span>
+        <span>
+          {pane
+            ? `${displayEntries.length} items${
+                selectedCount ? ` · ${selectedCount} selected` : ""
+              } · ${deviceName}`
+            : "—"}
+        </span>
         {side === "left" && onCopy && (
           <button
             className="btn primary"
             type="button"
-            disabled={!pane?.selected || !otherPane}
+            disabled={!selectedCount || !otherPane}
             onClick={() => onCopy()}
           >
-            <IconCopy size={14} /> Copy to {otherName}
+            <IconCopy size={14} />{" "}
+            {selectedCount > 1
+              ? `Copy ${selectedCount} to ${otherName}`
+              : `Copy to ${otherName}`}
           </button>
         )}
       </div>

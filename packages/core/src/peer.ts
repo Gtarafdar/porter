@@ -41,18 +41,27 @@ export function deviceFallbackBaseUrl(device: DeviceInfo): string | null {
   return null;
 }
 
-/** Ordered bases to try: prefer last-known-good, then primary, then fallback. */
+/** Ordered bases: Tailscale first (reliable), then LAN, Cloudflare last (Quick Tunnel URLs die often). */
 export function peerBases(device: DeviceInfo): string[] {
   const primary = deviceBaseUrl(device);
   const fallback = deviceFallbackBaseUrl(device);
-  const ordered: string[] = [];
-  if (device.activeVia === "tailscale" && fallback) {
-    ordered.push(fallback, primary);
-  } else {
-    ordered.push(primary);
-    if (fallback) ordered.push(fallback);
+  const all = [...new Set([primary, fallback].filter(Boolean) as string[])];
+
+  const isTs = (b: string) => /(?:^|\/\/|@)100\.\d+\.\d+\.\d+/.test(b) || b.includes("100.");
+  const isCf = (b: string) =>
+    b.startsWith("https://") ||
+    b.includes(".trycloudflare.com") ||
+    b.includes(".cfargotunnel.com");
+
+  const ts = all.filter(isTs);
+  const lan = all.filter((b) => !isTs(b) && !isCf(b));
+  const cf = all.filter(isCf);
+
+  // If last success was LAN and we're on same network, try LAN before Tailscale
+  if (device.activeVia === "lan" && lan.length) {
+    return [...new Set([...lan, ...ts, ...cf])];
   }
-  return [...new Set(ordered)];
+  return [...new Set([...ts, ...lan, ...cf])];
 }
 
 export function parsePeerAddress(input: string, defaultPort = 47831): {
@@ -131,14 +140,21 @@ async function peerFetch(
   const bases = peerBases(device);
   let lastErr: unknown;
   for (const base of bases) {
+    const isCf = base.startsWith("https://") || base.includes("trycloudflare");
     try {
       const res = await fetch(`${base}${apiPath}`, {
         ...init,
         headers,
-        signal: AbortSignal.timeout(120_000),
+        // Cloudflare Quick Tunnels often hang; fail over to Tailscale faster
+        signal: AbortSignal.timeout(isCf ? 20_000 : 120_000),
       });
-      if (res.ok || res.status < 500) {
-        // Mark which path worked (even 401 is "reachable")
+      const ct = res.headers.get("content-type") || "";
+      // Never treat HTML error pages as a successful API response
+      if (ct.includes("text/html") && apiPath.startsWith("/api/")) {
+        lastErr = new Error(sanitizePeerBody(await res.text()));
+        continue;
+      }
+      if (res.ok || (res.status < 500 && res.status !== 404)) {
         updatePeerActivePath(device.id, viaForBase(base, device) || "lan", base);
         return res;
       }
@@ -215,7 +231,9 @@ export async function remoteDownloadToLocal(
     device,
     `/api/files/download?path=${encodeURIComponent(remotePath)}`,
   );
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    throw new Error(humanError(new Error(sanitizePeerBody(await res.text()))));
+  }
   const buf = Buffer.from(await res.arrayBuffer());
   const { assertAllowed } = await import("./files.js");
   assertAllowed(path.dirname(localDest), "write");
@@ -244,7 +262,9 @@ export async function remoteUploadFromLocal(
       body: buf,
     },
   );
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    throw new Error(humanError(new Error(sanitizePeerBody(await res.text()))));
+  }
   return { bytes: buf.length };
 }
 

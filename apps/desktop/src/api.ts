@@ -131,7 +131,15 @@ export const porter = {
   }) =>
     api<{
       ok: boolean;
-      result?: { bytes?: number; mbps?: number; ms?: number; files?: number; sha256?: string };
+      warning?: string;
+      result?: {
+        bytes?: number;
+        mbps?: number;
+        ms?: number;
+        files?: number;
+        sha256?: string;
+        skipped?: number;
+      };
     }>("/api/files/copy", { method: "POST", body: JSON.stringify(body) }),
   network: () =>
     api<{

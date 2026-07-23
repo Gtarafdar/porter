@@ -99,9 +99,9 @@ export function App() {
   const [shareWrite, setShareWrite] = useState(false);
   const [nativePicker, setNativePicker] = useState(false);
   const [confirmCopy, setConfirmCopy] = useState<{
-    source: FileEntry;
+    sources: FileEntry[];
     sourceDeviceId: string;
-    destPath: string;
+    destDir: string;
   } | null>(null);
   const [pairToken, setPairToken] = useState("");
   const [showWizard, setShowWizard] = useState(false);
@@ -165,7 +165,7 @@ export function App() {
           rootPath: folderPath,
           path: folderPath,
           entries,
-          selected: null,
+          selected: [],
         };
         if (side === "left") setLeft(pane);
         else setRight(pane);
@@ -182,7 +182,7 @@ export function App() {
       if (!pane) return;
       try {
         const entries = await porter.list(pane.deviceId, nextPath);
-        const next = { ...pane, path: nextPath, entries, selected: null };
+        const next = { ...pane, path: nextPath, entries, selected: [] };
         if (side === "left") setLeft(next);
         else setRight(next);
       } catch (e) {
@@ -289,36 +289,52 @@ export function App() {
   }
 
   async function requestCopyToRight() {
-    if (!left?.selected || !right || !localDevice) return;
-    const destPath = `${right.path.replace(/\/$/, "")}/${left.selected.name}`;
+    if (!left?.selected.length || !right || !localDevice) return;
     setConfirmCopy({
-      source: left.selected,
+      sources: left.selected,
       sourceDeviceId: left.deviceId,
-      destPath,
+      destDir: right.path.replace(/\/$/, ""),
     });
   }
 
   async function doCopy() {
     if (!confirmCopy || !localDevice) return;
+    const batch = confirmCopy;
     try {
-      const res = await porter.copy({
-        sourceDeviceId: confirmCopy.sourceDeviceId,
-        sourcePath: confirmCopy.source.path,
-        destDeviceId: localDevice.id,
-        destPath: confirmCopy.destPath,
-        isDirectory: confirmCopy.source.isDirectory,
-      });
+      let files = 0;
+      let lastMbps: number | undefined;
+      let lastMs: number | undefined;
+      const warnings: string[] = [];
+      for (const source of batch.sources) {
+        const destPath = `${batch.destDir}/${source.name}`;
+        const res = await porter.copy({
+          sourceDeviceId: batch.sourceDeviceId,
+          sourcePath: source.path,
+          destDeviceId: localDevice.id,
+          destPath,
+          isDirectory: source.isDirectory,
+        });
+        files += res.result?.files ?? 1;
+        if (res.result?.mbps != null) lastMbps = res.result.mbps;
+        if (res.result?.ms != null) lastMs = res.result.ms;
+        if (res.warning) warnings.push(res.warning);
+      }
       setConfirmCopy(null);
+      if (left) setLeft({ ...left, selected: [] });
       if (right) await navigate("right", right.path);
       await refreshMeta();
-      const r = res.result;
       const speed =
-        r?.mbps != null
-          ? ` · ${r.mbps} Mbps` + (r.ms != null ? ` · ${r.ms} ms` : "")
+        lastMbps != null
+          ? ` · ${lastMbps} Mbps` + (lastMs != null ? ` · ${lastMs} ms` : "")
           : "";
-      showToast(`Copy complete${speed}`);
+      showToast(
+        `Copied ${batch.sources.length} item(s)${
+          files > batch.sources.length ? ` (${files} files)` : ""
+        }${speed}`,
+      );
+      if (warnings[0]) setError(friendlyError(warnings[0]));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyError(e instanceof Error ? e.message : String(e)));
     }
   }
 
@@ -1004,14 +1020,41 @@ export function App() {
 
       {confirmCopy && (
         <div className="modal-backdrop" onClick={() => setConfirmCopy(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <h2>Confirm copy</h2>
-            <p>
-              Copy <strong>{confirmCopy.source.name}</strong> to:
-              <br />
-              <code>{confirmCopy.destPath}</code>
-            </p>
-            <div className="row">
+          <div className="sheet sheet-fit" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-top">
+              <h2>Confirm copy</h2>
+            </div>
+            <div className="sheet-body">
+              {confirmCopy.sources.length === 1 ? (
+                <p>
+                  Copy <strong>{confirmCopy.sources[0].name}</strong> to:
+                  <br />
+                  <code>
+                    {confirmCopy.destDir}/{confirmCopy.sources[0].name}
+                  </code>
+                </p>
+              ) : (
+                <>
+                  <p>
+                    Copy <strong>{confirmCopy.sources.length} items</strong> into:
+                    <br />
+                    <code>{confirmCopy.destDir}</code>
+                  </p>
+                  <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 13 }}>
+                    {confirmCopy.sources.slice(0, 12).map((s) => (
+                      <li key={s.path}>
+                        {s.name}
+                        {s.isDirectory ? " (folder)" : ""}
+                      </li>
+                    ))}
+                    {confirmCopy.sources.length > 12 ? (
+                      <li>…and {confirmCopy.sources.length - 12} more</li>
+                    ) : null}
+                  </ul>
+                </>
+              )}
+            </div>
+            <div className="sheet-foot">
               <button className="btn" type="button" onClick={() => setConfirmCopy(null)}>
                 Cancel
               </button>

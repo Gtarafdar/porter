@@ -72,20 +72,25 @@ async function probePeer(
   return folders.ok;
 }
 
-/** Re-ping saved peers and mark online/offline (call on a timer). Tries primary then fallback. */
+/** Re-ping saved peers and mark online/offline (call on a timer). Prefer Tailscale over Cloudflare. */
 export async function refreshPeerHealth(): Promise<void> {
   const config = loadConfig();
   for (const [id, device] of remoteDevices) {
     if (device.isLocal) continue;
-    const roots: { root: string; via: DeviceInfo["activeVia"] }[] = [
-      {
-        root: peerRoot(device),
-        via: device.via === "local" ? "lan" : device.via,
-      },
-    ];
+    const roots: { root: string; via: DeviceInfo["activeVia"] }[] = [];
+    const primary = peerRoot(device);
     const fb = peerFallbackRoot(device);
+    const pushUnique = (root: string, via: DeviceInfo["activeVia"]) => {
+      if (!roots.some((r) => r.root === root)) roots.push({ root, via });
+    };
+    const isTs = (r: string) => r.includes("100.");
+    const isCf = (r: string) => r.startsWith("https");
+    // Order: Tailscale → LAN → Cloudflare (unless last success was LAN)
+    const candidates: { root: string; via: DeviceInfo["activeVia"] }[] = [
+      { root: primary, via: device.via === "local" ? "lan" : device.via },
+    ];
     if (fb) {
-      roots.push({
+      candidates.push({
         root: fb,
         via: fb.startsWith("https")
           ? "cloudflare"
@@ -94,10 +99,15 @@ export async function refreshPeerHealth(): Promise<void> {
             : "lan",
       });
     }
-    // Prefer last active path first
-    if (device.activeVia === "tailscale" && roots.length > 1) {
-      roots.reverse();
-    }
+    const ts = candidates.filter((c) => isTs(c.root));
+    const lan = candidates.filter((c) => !isTs(c.root) && !isCf(c.root));
+    const cf = candidates.filter((c) => isCf(c.root));
+    const ordered =
+      device.activeVia === "lan" && lan.length
+        ? [...lan, ...ts, ...cf]
+        : [...ts, ...lan, ...cf];
+    for (const c of ordered) pushUnique(c.root, c.via);
+
     let online = false;
     let activeVia = device.activeVia;
     for (const r of roots) {

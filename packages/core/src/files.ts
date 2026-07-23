@@ -106,15 +106,34 @@ export function listDirectory(dirPath: string): FileEntry[] {
     const full = path.join(resolved, entry.name);
     try {
       if (isDangerousPath(full) && !config.allowSecretFiles) continue;
-      const stat = fs.statSync(full);
+      // Prefer lstat so broken symlinks are skipped instead of crashing downloads
+      const lstat = fs.lstatSync(full);
+      if (lstat.isSymbolicLink()) {
+        try {
+          const stat = fs.statSync(full);
+          result.push({
+            name: entry.name,
+            path: full,
+            relativePath: path.relative(folder.path, full),
+            isDirectory: stat.isDirectory(),
+            size: stat.isDirectory() ? 0 : stat.size,
+            modifiedAt: stat.mtime.toISOString(),
+            extension: stat.isDirectory() ? undefined : path.extname(entry.name).slice(1),
+          });
+        } catch {
+          // broken symlink — skip
+        }
+        continue;
+      }
+      if (!lstat.isFile() && !lstat.isDirectory()) continue;
       result.push({
         name: entry.name,
         path: full,
         relativePath: path.relative(folder.path, full),
-        isDirectory: entry.isDirectory(),
-        size: entry.isDirectory() ? 0 : stat.size,
-        modifiedAt: stat.mtime.toISOString(),
-        extension: entry.isDirectory() ? undefined : path.extname(entry.name).slice(1),
+        isDirectory: lstat.isDirectory(),
+        size: lstat.isDirectory() ? 0 : lstat.size,
+        modifiedAt: lstat.mtime.toISOString(),
+        extension: lstat.isDirectory() ? undefined : path.extname(entry.name).slice(1),
       });
     } catch {
       // skip unreadable

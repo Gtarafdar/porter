@@ -126,7 +126,7 @@ export async function startServer(opts?: {
       deviceId: c.deviceId,
       deviceName: c.deviceName,
       sleeping: c.sleeping,
-      version: "0.2.16",
+      version: "0.2.17",
       // Do not leak LAN details to remote/tunnel clients
       ...(local ? { lan: localLanHint() } : {}),
     });
@@ -444,14 +444,37 @@ export async function startServer(opts?: {
       const filePath = String(req.query.path ?? "");
       assertAllowed(filePath, "copy");
       const resolved = path.resolve(filePath);
-      if (!fs.existsSync(resolved) || fs.statSync(resolved).isDirectory()) {
-        res.status(400).json({ error: "Not a file" });
+      let st: fs.Stats;
+      try {
+        st = fs.statSync(resolved);
+      } catch {
+        res.status(404).json({ error: `File not found: ${resolved}` });
+        return;
+      }
+      if (!st.isFile()) {
+        res.status(400).json({ error: "Not a regular file" });
         return;
       }
       appendActivity("download", resolved, true, "peer");
-      res.download(resolved);
+      res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${path.basename(resolved).replace(/"/g, "")}"`,
+      );
+      res.setHeader("Content-Length", String(st.size));
+      const stream = fs.createReadStream(resolved);
+      stream.on("error", (err) => {
+        if (!res.headersSent) {
+          res.status(404).json({
+            error: humanError(err),
+          });
+        } else {
+          res.destroy(err);
+        }
+      });
+      stream.pipe(res);
     } catch (e) {
-      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+      res.status(400).json({ error: humanError(e) });
     }
   });
 
@@ -592,6 +615,7 @@ export async function startServer(opts?: {
         if (isDirectory) {
           type Job = { remote: string; local: string };
           const jobs: Job[] = [];
+          const skipped: string[] = [];
           async function collect(remoteDir: string, localDir: string): Promise<void> {
             const items = await remoteListDirectory(sourceDeviceId, remoteDir);
             fs.mkdirSync(localDir, { recursive: true });
@@ -605,10 +629,22 @@ export async function startServer(opts?: {
           }
           await collect(sourcePath, destPath);
           let bytes = 0;
+          let okFiles = 0;
           await mapPool(jobs, 4, async (job) => {
-            const r = await remoteDownloadToLocal(sourceDeviceId, job.remote, job.local);
-            bytes += r.bytes;
+            try {
+              const r = await remoteDownloadToLocal(sourceDeviceId, job.remote, job.local);
+              bytes += r.bytes;
+              okFiles += 1;
+            } catch (e) {
+              skipped.push(`${job.remote}: ${humanError(e)}`);
+            }
           });
+          if (okFiles === 0 && jobs.length > 0) {
+            throw new Error(
+              skipped[0] ||
+                "Could not copy any files from that folder (check Tailscale path / permissions).",
+            );
+          }
           const ms = Math.max(1, Math.round(performance.now() - started));
           const mbps = Number(((bytes * 8) / (ms / 1000) / 1_000_000).toFixed(2));
           appendActivity(
@@ -620,10 +656,18 @@ export async function startServer(opts?: {
               durationMs: ms,
               bytes,
               mbps,
-              humanMessage: `Pulled folder (${jobs.length} files) in ${(ms / 1000).toFixed(1)}s · ${mbps} Mbps`,
+              humanMessage: `Pulled folder (${okFiles}/${jobs.length} files)${
+                skipped.length ? ` · skipped ${skipped.length}` : ""
+              } in ${(ms / 1000).toFixed(1)}s · ${mbps} Mbps`,
             },
           );
-          res.json({ ok: true, result: { files: jobs.length, bytes, ms, mbps } });
+          res.json({
+            ok: true,
+            result: { files: okFiles, bytes, ms, mbps, skipped: skipped.length },
+            warning: skipped.length
+              ? `Copied ${okFiles} files; skipped ${skipped.length} unreadable/missing files.`
+              : undefined,
+          });
           return;
         }
         const r = await remoteDownloadToLocal(sourceDeviceId, sourcePath, destPath);
