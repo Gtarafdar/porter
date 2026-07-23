@@ -44,11 +44,23 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
     return () => clearInterval(t);
   }, [refresh]);
 
+  function copy(label: string, value: string) {
+    void navigator.clipboard.writeText(value);
+    setMsg(`${label} copied — paste on the travel Mac in Add Mac`);
+  }
+
   if (!status) {
     return (
-      <div className="modal-backdrop">
-        <div className="sheet wizard">
-          <p>Checking travel readiness…</p>
+      <div className="modal-backdrop wizard-backdrop">
+        <div className="sheet sheet-fit travel-sheet">
+          <div className="sheet-body">
+            <p>Checking travel readiness…</p>
+          </div>
+          <div className="sheet-foot">
+            <button className="btn" type="button" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -60,121 +72,136 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
     (status.tailscaleIp
       ? `${status.tailscaleIp}:${status.port}`
       : `${status.lanIp || "…"}:${status.port}`);
+  const fallback =
+    status.fallbackAddress ||
+    (status.tailscaleIp ? `${status.tailscaleIp}:${status.port}` : "");
 
   return (
     <div className="modal-backdrop wizard-backdrop">
-      <div className="sheet wizard" style={{ width: "min(720px, 100%)" }}>
-        <div className="wizard-brand">
-          <IconPorterMark size={52} />
-          <div>
-            <h2>Travel Ready</h2>
-            <p className="wizard-sub">
-              {status.unattendedReady
-                ? "Safe to leave — Porter will keep itself online"
-                : status.ready
-                  ? "Reachable today — finish Set & forget before you leave"
-                  : "Finish the checklist before you leave"}
-            </p>
+      <div className="sheet sheet-fit travel-sheet" role="dialog" aria-labelledby="travel-title">
+        <div className="sheet-top">
+          <div className="wizard-brand">
+            <IconPorterMark size={44} />
+            <div>
+              <h2 id="travel-title">Travel Ready</h2>
+              <p className="wizard-sub">
+                {status.unattendedReady
+                  ? "Safe to leave — Porter will keep itself online"
+                  : status.ready
+                    ? "Reachable today — finish Set & forget before you leave"
+                    : "Finish the checklist before you leave"}
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className={`callout ${status.unattendedReady ? "ok" : ""}`}>
-          <IconShield size={18} />
-          <div>{status.safetyNote}</div>
-        </div>
+        <div className="sheet-body">
+          <div className={`callout ${status.unattendedReady ? "ok" : ""}`}>
+            <IconShield size={18} />
+            <div>{status.safetyNote}</div>
+          </div>
 
-        <div className="travel-checks">
-          {status.checks.map((c) => (
-            <div key={c.id} className={`travel-check ${c.ok ? "ok" : "bad"}`}>
-              <span className="wiz-dot">{c.ok ? <IconCheck size={12} /> : "!"}</span>
-              <div>
-                <strong>{c.label}</strong>
-                <div className="fmeta">{c.detail}</div>
+          <div className="travel-checks">
+            {status.checks.map((c) => (
+              <div key={c.id} className={`travel-check ${c.ok ? "ok" : "bad"}`}>
+                <span className="wiz-dot">{c.ok ? <IconCheck size={12} /> : "!"}</span>
+                <div>
+                  <strong>{c.label}</strong>
+                  <div className="fmeta">{c.detail}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="connect-block">
+            <h3>Copy for travel Mac</h3>
+            <p className="connect-hint">
+              On the travel Mac: Add Mac → paste token + primary (and fallback if you have Tailscale).
+            </p>
+            <div className="share-rows">
+              <div className="share-row">
+                <div>
+                  <span className="share-label">Pair token</span>
+                  <code className="share-url">{status.pairToken}</code>
+                </div>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => copy("Token", status.pairToken)}
+                >
+                  Copy
+                </button>
+              </div>
+              <div className="share-row">
+                <div>
+                  <span className="share-label">Primary (Cloudflare / LAN)</span>
+                  <code className="share-url">{peerAddr}</code>
+                </div>
+                <button className="btn" type="button" onClick={() => copy("Primary", peerAddr)}>
+                  Copy
+                </button>
+              </div>
+              <div className="share-row">
+                <div>
+                  <span className="share-label">Fallback (Tailscale)</span>
+                  <code className="share-url">{fallback || "Tailscale not online yet"}</code>
+                </div>
+                {fallback ? (
+                  <button className="btn" type="button" onClick={() => copy("Fallback", fallback)}>
+                    Copy
+                  </button>
+                ) : (
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      void porter
+                        .openTailscaleDownload()
+                        .then((r) => setMsg(r.note))
+                        .catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
+                    }}
+                  >
+                    Get Tailscale
+                  </button>
+                )}
               </div>
             </div>
-          ))}
+            <button
+              className="btn linkish"
+              type="button"
+              onClick={() => {
+                const text = [
+                  `token: ${status.pairToken}`,
+                  `primary: ${peerAddr}`,
+                  fallback ? `fallback: ${fallback}` : "",
+                ]
+                  .filter(Boolean)
+                  .join("\n");
+                void navigator.clipboard.writeText(text);
+                setMsg("All travel lines copied");
+              }}
+            >
+              Copy token + addresses together →
+            </button>
+          </div>
+
+          <ol className="travel-steps">
+            {status.travelSteps.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ol>
+
+          {msg && (
+            <p className={/fail|error|could not|missing/i.test(msg) ? "error-text" : "ok-text"}>
+              {msg}
+            </p>
+          )}
         </div>
 
-        <div className="field">
-          <label>Pair token (copy to travel Mac)</label>
-          <textarea rows={2} readOnly value={status.pairToken} />
-        </div>
-        <div className="field">
-          <label>PRIMARY peer address (Cloudflare or LAN)</label>
-          <input readOnly value={peerAddr} />
-        </div>
-        <div className="field">
-          <label>FALLBACK peer (Tailscale — paste in Settings “Fallback”)</label>
-          <input readOnly value={status.fallbackAddress || "Tailscale not online yet"} />
-        </div>
-
-        <ol className="travel-steps">
-          {status.travelSteps.map((s) => (
-            <li key={s}>{s}</li>
-          ))}
-        </ol>
-
-        {msg && <p className="error-text">{msg}</p>}
-
-        <div className="row wizard-actions" style={{ flexWrap: "wrap" }}>
+        <div className="sheet-foot travel-foot">
           <button className="btn" type="button" onClick={onClose}>
             Close
-          </button>
-          <button
-            className="btn"
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              void navigator.clipboard.writeText(status.pairToken);
-              setMsg("Pair token copied");
-            }}
-          >
-            Copy token
-          </button>
-          <button
-            className="btn"
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              const text = [
-                `token: (paste from Copy token)`,
-                `primary: ${peerAddr}`,
-                status.fallbackAddress ? `fallback: ${status.fallbackAddress}` : "",
-              ]
-                .filter(Boolean)
-                .join("\n");
-              void navigator.clipboard.writeText(text);
-              setMsg("Addresses copied — paste primary + fallback on travel Mac");
-            }}
-          >
-            Copy addresses
-          </button>
-          <button
-            className="btn primary"
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setBusy(true);
-              setMsg("Enabling set-and-forget (LaunchAgent + tunnel + stay awake)…");
-              void porter
-                .setAndForget()
-                .then((r) => {
-                  const bits = [
-                    r.tunnelUrl ? "Tunnel live" : null,
-                    r.keepalive.ok ? "Auto-start installed" : r.keepalive.detail,
-                    r.folders.added.length
-                      ? `Shared ${r.folders.added.length} folders`
-                      : null,
-                    ...(r.warnings || []),
-                  ].filter(Boolean);
-                  setMsg(bits.join(" · ") || "Done");
-                  return refresh();
-                })
-                .catch((e) => setMsg(e instanceof Error ? e.message : String(e)))
-                .finally(() => setBusy(false));
-            }}
-          >
-            Set & forget for travel
           </button>
           <button
             className="btn"
@@ -187,7 +214,7 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
                 .catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
             }}
           >
-            Install Tailscale (official)
+            Tailscale
           </button>
           {!status.tunnel.running ? (
             <button
@@ -206,7 +233,7 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
                   .finally(() => setBusy(false));
               }}
             >
-              Start Cloudflare only
+              Start tunnel
             </button>
           ) : (
             <button
@@ -228,6 +255,33 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
               Stop tunnel
             </button>
           )}
+          <button
+            className="btn primary"
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              setMsg("Enabling set-and-forget…");
+              void porter
+                .setAndForget()
+                .then((r) => {
+                  const bits = [
+                    r.tunnelUrl ? "Tunnel live" : null,
+                    r.keepalive.ok ? "Auto-start installed" : r.keepalive.detail,
+                    r.folders.added.length
+                      ? `Shared ${r.folders.added.length} folders`
+                      : null,
+                    ...(r.warnings || []),
+                  ].filter(Boolean);
+                  setMsg(bits.join(" · ") || "Done");
+                  return refresh();
+                })
+                .catch((e) => setMsg(e instanceof Error ? e.message : String(e)))
+                .finally(() => setBusy(false));
+            }}
+          >
+            {busy ? "Working…" : "Set & forget"}
+          </button>
         </div>
       </div>
     </div>

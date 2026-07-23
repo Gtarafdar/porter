@@ -250,21 +250,45 @@ input {
   margin-top: 16px;
 }
 
+.travel-sheet {
+  width: min(520px, calc(100vw - 32px));
+  max-height: min(88vh, 760px);
+}
+
+.travel-sheet .wizard-brand {
+  margin-bottom: 0;
+}
+
+.travel-sheet .wizard-brand h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.travel-sheet .wizard-sub {
+  margin: 4px 0 0;
+}
+
+.travel-foot {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .travel-checks {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin: 12px 0 16px;
+  gap: 6px;
+  margin: 10px 0 14px;
 }
 
 .travel-check {
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  padding: 10px 12px;
-  border-radius: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
 }
 
 .travel-check.ok {
@@ -277,11 +301,16 @@ input {
   background: rgba(155, 44, 44, 0.06);
 }
 
+.travel-check strong {
+  display: block;
+  font-size: 13px;
+}
+
 .travel-steps {
-  margin: 0 0 12px;
+  margin: 12px 0 0;
   padding-left: 18px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
