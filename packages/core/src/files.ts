@@ -9,6 +9,7 @@ import {
   type SharedFolder,
 } from "@porter/protocol";
 import { loadConfig, type PorterConfig } from "./config.js";
+import { isChromeExtensionsPath } from "./chrome.js";
 
 const SKIP_DIR_NAMES = new Set([
   "node_modules",
@@ -24,6 +25,8 @@ const SKIP_DIR_NAMES = new Set([
 
 export function isDangerousPath(target: string): boolean {
   const normalized = path.resolve(target);
+  // Opt-in carve-out: Chrome Extensions + Local Extension Settings only
+  if (isChromeExtensionsPath(normalized)) return false;
   return DANGEROUS_PATH_FRAGMENTS.some((frag) =>
     normalized.includes(frag.replaceAll("/", path.sep)),
   );

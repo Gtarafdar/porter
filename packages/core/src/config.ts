@@ -149,6 +149,13 @@ export function appendActivity(
   detail: string,
   ok: boolean,
   source = "local",
+  meta?: {
+    humanMessage?: string;
+    durationMs?: number;
+    bytes?: number;
+    mbps?: number;
+    via?: string;
+  },
 ): ActivityEvent {
   const events = loadActivity();
   const event: ActivityEvent = {
@@ -158,12 +165,44 @@ export function appendActivity(
     detail,
     source,
     ok,
+    humanMessage: meta?.humanMessage,
+    durationMs: meta?.durationMs,
+    bytes: meta?.bytes,
+    mbps: meta?.mbps,
+    via: meta?.via,
   };
   events.unshift(event);
   fs.writeFileSync(ACTIVITY_PATH, JSON.stringify(events.slice(0, 500), null, 2), {
     mode: 0o600,
   });
   return event;
+}
+
+/** Turn raw errors into short user-facing text. */
+export function humanError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (msg.includes("Unauthorized") || msg.includes("pair token")) {
+    return "Pair token mismatch — paste the same token on both Macs (Settings).";
+  }
+  if (msg.includes("ENOTFOUND") || msg.includes("getaddrinfo")) {
+    return "Could not reach the other Mac (DNS/network). Try Tailscale fallback, or check Cloudflare Tunnel.";
+  }
+  if (msg.includes("ECONNREFUSED") || msg.includes("fetch failed")) {
+    return "Connection refused — is Porter running on the other Mac? Check Cloudflare/Tailscale path in Devices.";
+  }
+  if (msg.includes("Timed out") || msg.includes("timeout") || msg.includes("AbortError")) {
+    return "Timed out waiting for the other Mac. Check which link is active (Cloudflare vs Tailscale).";
+  }
+  if (msg.includes("outside approved") || msg.includes("Blocked dangerous")) {
+    return "That folder is not shared (or is blocked for safety). Share it in Porter first.";
+  }
+  if (msg.includes("Missing permission")) {
+    return "That folder needs write permission on the destination Mac.";
+  }
+  if (msg.includes("Chrome must be quit") || msg.includes("Chrome is running")) {
+    return "Quit Google Chrome completely on both Macs, then try again.";
+  }
+  return msg;
 }
 
 export function addSharedFolder(

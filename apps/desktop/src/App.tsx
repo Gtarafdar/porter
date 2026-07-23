@@ -35,6 +35,55 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function pathLabel(d: DeviceInfo): { badge: string; detail: string; kind: string } {
+  if (d.isLocal) {
+    return { badge: "This Mac", detail: "Local", kind: "local" };
+  }
+  const active = d.activeVia || d.via;
+  if (!d.online) {
+    return {
+      badge: "Offline",
+      detail: `Last path: ${active}${d.fallbackHost ? " · has Tailscale fallback" : ""}`,
+      kind: "off",
+    };
+  }
+  if (active === "cloudflare") {
+    return {
+      badge: "Cloudflare",
+      detail: d.fallbackHost
+        ? `Working via Cloudflare · Tailscale backup ready`
+        : `Working via Cloudflare`,
+      kind: "cloudflare",
+    };
+  }
+  if (active === "tailscale") {
+    return {
+      badge: "Tailscale",
+      detail: d.via === "cloudflare"
+        ? `Working via Tailscale (Cloudflare fallback)`
+        : `Working via Tailscale ${d.host}`,
+      kind: "tailscale",
+    };
+  }
+  return { badge: "LAN", detail: `${d.host}:${d.port}`, kind: "lan" };
+}
+
+function friendlyError(msg: string): string {
+  if (msg.includes("Unauthorized") || msg.includes("pair token")) {
+    return "Pair token mismatch — paste the same token on both Macs (Settings).";
+  }
+  if (msg.includes("ENOTFOUND") || msg.includes("getaddrinfo")) {
+    return "Could not reach the other Mac. Check Cloudflare/Tailscale path under Devices.";
+  }
+  if (msg.includes("ECONNREFUSED") || msg.includes("fetch failed")) {
+    return "Connection refused — is Porter running on the other Mac?";
+  }
+  if (msg.includes("timeout") || msg.includes("Timed out") || msg.includes("AbortError")) {
+    return "Timed out. Open Devices and see if Cloudflare or Tailscale is the active link.";
+  }
+  return msg;
+}
+
 function FileGlyph({ entry }: { entry: FileEntry }) {
   return entry.isDirectory ? <IconFolder size={28} /> : <IconFile size={28} />;
 }
@@ -421,7 +470,7 @@ export function App() {
                         else showToast("Remote Mac has no shared folders yet");
                       })
                       .catch((e) =>
-                        setError(e instanceof Error ? e.message : String(e)),
+                        setError(friendlyError(e instanceof Error ? e.message : String(e))),
                       );
                   }
                 }}
@@ -431,9 +480,15 @@ export function App() {
                   {d.name}
                   {d.isLocal ? " (this Mac)" : ""}
                 </span>
-                <span className="meta">
-                  {d.via} · {d.host}
-                </span>
+                {(() => {
+                  const p = pathLabel(d);
+                  return (
+                    <span className="meta">
+                      <span className={`path-badge path-${p.kind}`}>{p.badge}</span>
+                      <span className="path-detail">{p.detail}</span>
+                    </span>
+                  );
+                })()}
               </button>
             ))}
           </div>
@@ -583,6 +638,36 @@ export function App() {
                 placeholder="100.x.x.x:47831"
               />
             </div>
+            <div className="field">
+              <label>Chrome extensions (opt-in)</label>
+              <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: 13 }}>
+                Quit Chrome first. Shares Extensions + Local Extension Settings only (not
+                passwords/cookies). On the other Mac: copy into the same Chrome folders, then reopen
+                Chrome.
+              </p>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  void porter
+                    .shareChromeExtensions()
+                    .then((r) => {
+                      showToast(
+                        r.added.length
+                          ? `Shared ${r.added.length} Chrome folder(s)`
+                          : "Nothing new to share",
+                      );
+                      setError(r.warning);
+                      void refreshMeta();
+                    })
+                    .catch((e) =>
+                      setError(friendlyError(e instanceof Error ? e.message : String(e))),
+                    );
+                }}
+              >
+                Share Chrome extensions folders
+              </button>
+            </div>
             <label style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
               <input
                 type="checkbox"
@@ -641,14 +726,29 @@ export function App() {
       {showActivity && (
         <div className="modal-backdrop" onClick={() => setShowActivity(false)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <h2>Activity</h2>
-            <p>What Porter and Cursor accessed on this Mac.</p>
+            <h2>Activity & timing</h2>
+            <p>
+              Transfers, Cursor/MCP calls, and errors — with how long each took and which link was
+              used when known.
+            </p>
             <div className="activity">
               {activity.length === 0 && <div className="empty">No events yet</div>}
               {activity.map((a) => (
-                <div key={a.id} className="item">
-                  <strong>{a.action}</strong> · {a.source} · {a.ok ? "ok" : "fail"}
-                  <div>{a.detail}</div>
+                <div key={a.id} className={`item ${a.ok ? "" : "fail"}`}>
+                  <strong>{a.humanMessage || a.action}</strong>
+                  <div className="fmeta">
+                    {a.source || "local"}
+                    {a.via ? ` · ${a.via}` : ""}
+                    {a.ok ? " · ok" : " · failed"}
+                    {typeof a.durationMs === "number" ? ` · ${a.durationMs} ms` : ""}
+                    {typeof a.mbps === "number" ? ` · ${a.mbps} Mbps` : ""}
+                    {typeof a.bytes === "number" ? ` · ${formatBytes(a.bytes)}` : ""}
+                  </div>
+                  {a.humanMessage && a.detail !== a.humanMessage ? (
+                    <div className="fmeta">{a.detail}</div>
+                  ) : !a.humanMessage ? (
+                    <div>{a.detail}</div>
+                  ) : null}
                   <div style={{ color: "var(--muted)" }}>{new Date(a.at).toLocaleString()}</div>
                 </div>
               ))}

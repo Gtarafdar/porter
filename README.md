@@ -6,7 +6,8 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 
 ## Download (Mac — no git)
 
-**[⬇ Download Porter for Mac](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.1-mac.zip)** · [All releases](https://github.com/Gtarafdar/porter/releases)
+> **Easy download:** [⬇ Porter-0.2.2-mac.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.2-mac.zip)  
+> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.2 · [All releases](https://github.com/Gtarafdar/porter/releases)
 
 1. Unzip → double‑click **Porter.app** (first time: right‑click → **Open**)
 2. Follow the setup wizard

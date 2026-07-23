@@ -53,6 +53,13 @@ export interface ActivityEvent {
   detail: string;
   source?: string;
   ok: boolean;
+  /** Human-readable summary for the Activity panel */
+  humanMessage?: string;
+  durationMs?: number;
+  bytes?: number;
+  mbps?: number;
+  /** e.g. cloudflare | tailscale | lan | mcp | ui */
+  via?: string;
 }
 
 export interface CopyRequest {

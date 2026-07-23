@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${PORTER_VERSION:-0.2.1}"
+VERSION="${PORTER_VERSION:-0.2.2}"
 OUT="${ROOT}/dist/release"
 APP_DIR="${OUT}/Porter.app"
 CONTENTS="${APP_DIR}/Contents"

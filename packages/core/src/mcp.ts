@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   addSharedFolder,
   appendActivity,
+  humanError,
   loadConfig,
   localDevice,
 } from "./config.js";
@@ -38,15 +39,41 @@ function text(data: unknown) {
   };
 }
 
+async function timed<T>(
+  action: string,
+  detail: string,
+  fn: () => Promise<T> | T,
+): Promise<T> {
+  const started = performance.now();
+  try {
+    const result = await fn();
+    const durationMs = Math.round(performance.now() - started);
+    appendActivity(action, detail, true, "mcp", {
+      durationMs,
+      humanMessage: `Cursor/MCP ${action.replace(/^mcp_/, "").replaceAll("_", " ")} · ${durationMs} ms`,
+      via: "mcp",
+    });
+    return result;
+  } catch (err) {
+    const durationMs = Math.round(performance.now() - started);
+    appendActivity(action, humanError(err), false, "mcp", {
+      durationMs,
+      humanMessage: `Cursor/MCP failed: ${humanError(err)} (${durationMs} ms)`,
+      via: "mcp",
+    });
+    throw err;
+  }
+}
+
 server.tool(
   "list_devices",
   "List this Mac and other Porter devices discovered on LAN/Tailscale",
   {},
-  async () => {
-    const devices = listDevices();
-    appendActivity("mcp_list_devices", `${devices.length} devices`, true, "mcp");
-    return text(devices);
-  },
+  async () =>
+    timed("mcp_list_devices", "list devices", async () => {
+      const devices = listDevices();
+      return text(devices);
+    }),
 );
 
 server.tool(
@@ -55,13 +82,14 @@ server.tool(
   {
     deviceId: z.string().optional().describe("Device id, or omit for local"),
   },
-  async ({ deviceId }) => {
-    const c = loadConfig();
-    if (!deviceId || deviceId === "local" || deviceId === c.deviceId) {
-      return text(c.sharedFolders);
-    }
-    return text(await remoteListFolders(deviceId));
-  },
+  async ({ deviceId }) =>
+    timed("mcp_list_shared_folders", deviceId || "local", async () => {
+      const c = loadConfig();
+      if (!deviceId || deviceId === "local" || deviceId === c.deviceId) {
+        return text(c.sharedFolders);
+      }
+      return text(await remoteListFolders(deviceId));
+    }),
 );
 
 server.tool(
@@ -71,17 +99,14 @@ server.tool(
     path: z.string().describe("Absolute directory path inside an approved folder"),
     deviceId: z.string().optional(),
   },
-  async ({ path: dirPath, deviceId }) => {
-    const c = loadConfig();
-    if (!deviceId || deviceId === "local" || deviceId === c.deviceId) {
-      const entries = listDirectory(dirPath);
-      appendActivity("mcp_list_directory", dirPath, true, "mcp");
-      return text(entries);
-    }
-    const entries = await remoteListDirectory(deviceId, dirPath);
-    appendActivity("mcp_list_directory_remote", dirPath, true, "mcp");
-    return text(entries);
-  },
+  async ({ path: dirPath, deviceId }) =>
+    timed("mcp_list_directory", dirPath, async () => {
+      const c = loadConfig();
+      if (!deviceId || deviceId === "local" || deviceId === c.deviceId) {
+        return text(listDirectory(dirPath));
+      }
+      return text(await remoteListDirectory(deviceId, dirPath));
+    }),
 );
 
 server.tool(
@@ -91,13 +116,14 @@ server.tool(
     query: z.string(),
     deviceId: z.string().optional(),
   },
-  async ({ query, deviceId }) => {
-    const c = loadConfig();
-    if (!deviceId || deviceId === "local" || deviceId === c.deviceId) {
-      return text(searchFiles(query));
-    }
-    return text(await remoteSearch(deviceId, query));
-  },
+  async ({ query, deviceId }) =>
+    timed("mcp_search_files", query, async () => {
+      const c = loadConfig();
+      if (!deviceId || deviceId === "local" || deviceId === c.deviceId) {
+        return text(searchFiles(query));
+      }
+      return text(await remoteSearch(deviceId, query));
+    }),
 );
 
 server.tool(
@@ -107,13 +133,14 @@ server.tool(
     path: z.string(),
     deviceId: z.string().optional(),
   },
-  async ({ path: filePath, deviceId }) => {
-    const c = loadConfig();
-    if (!deviceId || deviceId === "local" || deviceId === c.deviceId) {
-      return text(readFileLimited(filePath));
-    }
-    return text(await remoteReadFile(deviceId, filePath));
-  },
+  async ({ path: filePath, deviceId }) =>
+    timed("mcp_read_file", filePath, async () => {
+      const c = loadConfig();
+      if (!deviceId || deviceId === "local" || deviceId === c.deviceId) {
+        return text(readFileLimited(filePath));
+      }
+      return text(await remoteReadFile(deviceId, filePath));
+    }),
 );
 
 server.tool(
@@ -124,18 +151,18 @@ server.tool(
     destPath: z.string(),
     sourceDeviceId: z.string().optional(),
   },
-  async ({ sourcePath, destPath, sourceDeviceId }) => {
-    const c = loadConfig();
-    const local = !sourceDeviceId || sourceDeviceId === "local" || sourceDeviceId === c.deviceId;
-    if (local) {
-      const result = copyFileLocal(sourcePath, destPath);
-      appendActivity("mcp_copy_file", `${sourcePath} → ${destPath}`, true, "mcp");
+  async ({ sourcePath, destPath, sourceDeviceId }) =>
+    timed("mcp_copy_file", `${sourcePath} → ${destPath}`, async () => {
+      const c = loadConfig();
+      const local =
+        !sourceDeviceId || sourceDeviceId === "local" || sourceDeviceId === c.deviceId;
+      if (local) {
+        const result = copyFileLocal(sourcePath, destPath);
+        return text({ ok: true, result });
+      }
+      const result = await remoteDownloadToLocal(sourceDeviceId!, sourcePath, destPath);
       return text({ ok: true, result });
-    }
-    const result = await remoteDownloadToLocal(sourceDeviceId!, sourcePath, destPath);
-    appendActivity("mcp_copy_file_remote", `${sourcePath} → ${destPath}`, true, "mcp");
-    return text({ ok: true, result });
-  },
+    }),
 );
 
 server.tool(
@@ -146,36 +173,35 @@ server.tool(
     destPath: z.string(),
     sourceDeviceId: z.string().optional(),
   },
-  async ({ sourcePath, destPath, sourceDeviceId }) => {
-    const c = loadConfig();
-    const local = !sourceDeviceId || sourceDeviceId === "local" || sourceDeviceId === c.deviceId;
-    if (local) {
-      const result = copyFolderLocal(sourcePath, destPath);
-      appendActivity("mcp_copy_folder", `${sourcePath} → ${destPath}`, true, "mcp");
-      return text({ ok: true, result });
-    }
-    // Remote folder pull via recursive listing
-    const fs = await import("node:fs");
-    let files = 0;
-    let bytes = 0;
-    async function pull(remoteDir: string, localDir: string): Promise<void> {
-      const items = await remoteListDirectory(sourceDeviceId!, remoteDir);
-      fs.mkdirSync(localDir, { recursive: true });
-      for (const item of items) {
-        if (item.isDirectory) {
-          await pull(item.path, path.join(localDir, item.name));
-        } else {
-          const dest = path.join(localDir, item.name);
-          const r = await remoteDownloadToLocal(sourceDeviceId!, item.path, dest);
-          files += 1;
-          bytes += r.bytes;
+  async ({ sourcePath, destPath, sourceDeviceId }) =>
+    timed("mcp_copy_folder", `${sourcePath} → ${destPath}`, async () => {
+      const c = loadConfig();
+      const local =
+        !sourceDeviceId || sourceDeviceId === "local" || sourceDeviceId === c.deviceId;
+      if (local) {
+        const result = copyFolderLocal(sourcePath, destPath);
+        return text({ ok: true, result });
+      }
+      const fs = await import("node:fs");
+      let files = 0;
+      let bytes = 0;
+      async function pull(remoteDir: string, localDir: string): Promise<void> {
+        const items = await remoteListDirectory(sourceDeviceId!, remoteDir);
+        fs.mkdirSync(localDir, { recursive: true });
+        for (const item of items) {
+          if (item.isDirectory) {
+            await pull(item.path, path.join(localDir, item.name));
+          } else {
+            const dest = path.join(localDir, item.name);
+            const r = await remoteDownloadToLocal(sourceDeviceId!, item.path, dest);
+            files += 1;
+            bytes += r.bytes;
+          }
         }
       }
-    }
-    await pull(sourcePath, destPath);
-    appendActivity("mcp_copy_folder_remote", `${sourcePath} → ${destPath}`, true, "mcp");
-    return text({ ok: true, result: { files, bytes } });
-  },
+      await pull(sourcePath, destPath);
+      return text({ ok: true, result: { files, bytes } });
+    }),
 );
 
 server.tool(
@@ -186,28 +212,29 @@ server.tool(
     label: z.string().optional(),
     write: z.boolean().optional().describe("Also allow writes into this folder"),
   },
-  async ({ path: folderPath, label, write }) => {
-    const permissions = write
-      ? (["read", "copy", "write"] as const)
-      : (["read", "copy"] as const);
-    const folder = addSharedFolder(folderPath, label ?? "", [...permissions]);
-    return text(folder);
-  },
+  async ({ path: folderPath, label, write }) =>
+    timed("mcp_add_shared_folder", folderPath, async () => {
+      const permissions = write
+        ? (["read", "copy", "write"] as const)
+        : (["read", "copy"] as const);
+      const folder = addSharedFolder(folderPath, label ?? "", [...permissions]);
+      return text(folder);
+    }),
 );
 
 server.tool(
   "porter_status",
   "Show local Porter device identity and share count",
   {},
-  async () => {
-    const c = loadConfig();
-    return text({
-      device: localDevice(c),
-      sharedFolders: c.sharedFolders.length,
-      requireConfirmWrites: c.requireConfirmWrites,
-      allowSecretFiles: c.allowSecretFiles,
-    });
-  },
+  async () =>
+    timed("mcp_porter_status", "status", async () => {
+      const c = loadConfig();
+      return text({
+        device: localDevice(c),
+        sharedFolders: c.sharedFolders.length,
+        sleeping: c.sleeping,
+      });
+    }),
 );
 
 const transport = new StdioServerTransport();

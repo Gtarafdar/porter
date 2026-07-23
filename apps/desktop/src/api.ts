@@ -7,6 +7,10 @@ export interface DeviceInfo {
   isLocal: boolean;
   via: "local" | "lan" | "tailscale" | "cloudflare";
   baseUrl?: string;
+  fallbackHost?: string;
+  fallbackPort?: number;
+  fallbackBaseUrl?: string;
+  activeVia?: "lan" | "tailscale" | "cloudflare";
 }
 
 export interface SharedFolder {
@@ -33,6 +37,11 @@ export interface ActivityEvent {
   detail: string;
   source?: string;
   ok: boolean;
+  humanMessage?: string;
+  durationMs?: number;
+  bytes?: number;
+  mbps?: number;
+  via?: string;
 }
 
 export interface DeviceSettings {
@@ -158,6 +167,21 @@ export const porter = {
       method: "POST",
       body: "{}",
     }),
+  chromeStatus: () =>
+    api<{
+      chromeRunning: boolean;
+      hasExtensions: boolean;
+      hasLocalSettings: boolean;
+      readyToShare: boolean;
+      note: string;
+      shared: SharedFolder[];
+      paths: { extensions: string; localSettings: string };
+    }>("/api/chrome/status"),
+  shareChromeExtensions: () =>
+    api<{ ok: boolean; added: string[]; skipped: string[]; warning: string }>(
+      "/api/chrome/share",
+      { method: "POST", body: "{}" },
+    ),
   syncOneWay: (body: { sourcePath: string; destDeviceId: string; destPath: string }) =>
     api<{ ok: boolean; result?: { files: number; mbps: number; ms: number } }>(
       "/api/sync/one-way",

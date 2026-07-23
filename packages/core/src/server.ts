@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   addSharedFolder,
   appendActivity,
+  humanError,
   loadActivity,
   loadConfig,
   removeSharedFolder,
@@ -45,6 +46,7 @@ import {
   maybeAutoStartTunnel,
 } from "./tunnel.js";
 import { installKeepAlive, maybeStartPreventSleep } from "./keepalive.js";
+import { chromeExtensionsStatus, shareChromeExtensions } from "./chrome.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -206,6 +208,21 @@ export async function startServer(opts?: {
       url: "https://tailscale.com/download/mac",
       note: "Install Tailscale from the official site, sign in with the same account on both Macs. Porter cannot embed Tailscale’s VPN app.",
     });
+  });
+
+  app.get("/api/chrome/status", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    res.json(chromeExtensionsStatus());
+  });
+
+  app.post("/api/chrome/share", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    try {
+      const result = shareChromeExtensions();
+      res.json({ ok: true, ...result });
+    } catch (e) {
+      res.status(400).json({ error: humanError(e) });
+    }
   });
 
   app.post("/api/travel-presets", (req, res) => {
@@ -551,9 +568,15 @@ export async function startServer(opts?: {
           : copyFileResumable(sourcePath, destPath);
         appendActivity(
           "copy",
-          `${sourcePath} → ${destPath} (${result.mbps} Mbps, ${result.ms}ms)`,
+          `${sourcePath} → ${destPath}`,
           true,
           "ui",
+          {
+            durationMs: result.ms,
+            bytes: result.bytes,
+            mbps: result.mbps,
+            humanMessage: `Copied in ${(result.ms / 1000).toFixed(1)}s · ${result.mbps} Mbps`,
+          },
         );
         res.json({ ok: true, result });
         return;
@@ -583,26 +606,34 @@ export async function startServer(opts?: {
           });
           const ms = Math.max(1, Math.round(performance.now() - started));
           const mbps = Number(((bytes * 8) / (ms / 1000) / 1_000_000).toFixed(2));
-          const result = { files: jobs.length, bytes, ms, mbps, parallel: 4 };
           appendActivity(
             "copy_remote",
-            `${sourcePath} → ${destPath} (${mbps} Mbps, ${jobs.length} files)`,
+            `${sourcePath} → ${destPath}`,
             true,
             "ui",
+            {
+              durationMs: ms,
+              bytes,
+              mbps,
+              humanMessage: `Pulled folder (${jobs.length} files) in ${(ms / 1000).toFixed(1)}s · ${mbps} Mbps`,
+            },
           );
-          res.json({ ok: true, result });
+          res.json({ ok: true, result: { files: jobs.length, bytes, ms, mbps } });
           return;
         }
         const r = await remoteDownloadToLocal(sourceDeviceId, sourcePath, destPath);
         const ms = Math.max(1, Math.round(performance.now() - started));
         const mbps = Number(((r.bytes * 8) / (ms / 1000) / 1_000_000).toFixed(2));
-        const result = { ...r, ms, mbps };
-        appendActivity("copy_remote", `${sourcePath} → ${destPath} (${mbps} Mbps)`, true, "ui");
-        res.json({ ok: true, result });
+        appendActivity("copy_remote", `${sourcePath} → ${destPath}`, true, "ui", {
+          durationMs: ms,
+          bytes: r.bytes,
+          mbps,
+          humanMessage: `Downloaded in ${(ms / 1000).toFixed(1)}s · ${mbps} Mbps`,
+        });
+        res.json({ ok: true, result: { ...r, ms, mbps } });
         return;
       }
 
-      // Push from this Mac onto a remote device
       if (srcLocal && !destLocal) {
         const started = performance.now();
         if (isDirectory) {
@@ -625,31 +656,34 @@ export async function startServer(opts?: {
           });
           const ms = Math.max(1, Math.round(performance.now() - started));
           const mbps = Number(((bytes * 8) / (ms / 1000) / 1_000_000).toFixed(2));
-          const result = { files: jobs.length, bytes, ms, mbps, parallel: 4, direction: "push" };
-          appendActivity(
-            "copy_push",
-            `${sourcePath} → ${destDeviceId}:${destPath} (${mbps} Mbps)`,
-            true,
-            "ui",
-          );
-          res.json({ ok: true, result });
+          appendActivity("copy_push", `${sourcePath} → ${destPath}`, true, "ui", {
+            durationMs: ms,
+            bytes,
+            mbps,
+            humanMessage: `Pushed folder (${jobs.length} files) in ${(ms / 1000).toFixed(1)}s · ${mbps} Mbps`,
+          });
+          res.json({ ok: true, result: { files: jobs.length, bytes, ms, mbps } });
           return;
         }
         const r = await remoteUploadFromLocal(destDeviceId, sourcePath, destPath);
         const ms = Math.max(1, Math.round(performance.now() - started));
         const mbps = Number(((r.bytes * 8) / (ms / 1000) / 1_000_000).toFixed(2));
-        const result = { ...r, ms, mbps, direction: "push" };
-        appendActivity("copy_push", `${sourcePath} → ${destPath} (${mbps} Mbps)`, true, "ui");
-        res.json({ ok: true, result });
+        appendActivity("copy_push", `${sourcePath} → ${destPath}`, true, "ui", {
+          durationMs: ms,
+          bytes: r.bytes,
+          mbps,
+          humanMessage: `Uploaded in ${(ms / 1000).toFixed(1)}s · ${mbps} Mbps`,
+        });
+        res.json({ ok: true, result: { ...r, ms, mbps } });
         return;
       }
 
-      res.status(400).json({
-        error: "Unsupported copy direction for these device ids.",
-      });
+      res.status(400).json({ error: "Unsupported copy direction" });
     } catch (e) {
-      appendActivity("copy", e instanceof Error ? e.message : String(e), false, "ui");
-      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+      appendActivity("copy", humanError(e), false, "ui", {
+        humanMessage: `Copy failed: ${humanError(e)}`,
+      });
+      res.status(400).json({ error: humanError(e) });
     }
   });
 
