@@ -13,11 +13,14 @@ let localPort = 47831;
 let restartAttempts = 0;
 
 function whichCloudflared(): string | null {
-  const fromEnv = process.env.PORTER_RESOURCES
-    ? path.join(process.env.PORTER_RESOURCES, "cloudflared")
-    : null;
+  const arch = process.arch; // 'arm64' | 'x64' | …
+  const res = process.env.PORTER_RESOURCES;
+  const fromEnvExplicit = process.env.PORTER_CLOUDFLARED || null;
   const candidates = [
-    fromEnv,
+    fromEnvExplicit,
+    res ? path.join(res, arch === "arm64" ? "cloudflared-arm64" : "cloudflared-x64") : null,
+    res ? path.join(res, "cloudflared") : null,
+    path.join(process.env.HOME || "", "Library/Application Support/Porter/bin/cloudflared"),
     "/opt/homebrew/bin/cloudflared",
     "/usr/local/bin/cloudflared",
     "cloudflared",

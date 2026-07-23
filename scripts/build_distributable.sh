@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${PORTER_VERSION:-0.2.3}"
+VERSION="${PORTER_VERSION:-0.2.4}"
 OUT="${ROOT}/dist/release"
 APP_DIR="${OUT}/Porter.app"
 CONTENTS="${APP_DIR}/Contents"
@@ -13,34 +13,95 @@ MACOS="${CONTENTS}/MacOS"
 RES="${CONTENTS}/Resources"
 APP_RES="${RES}/app"
 ZIP="${OUT}/Porter-${VERSION}-mac.zip"
+NODE_VER="${PORTER_NODE_VERSION:-20.18.2}"
+CACHE="${ROOT}/dist/cache"
 
 echo "==> Building Porter packages"
 npm run build
 
 echo "==> Assembling ${APP_DIR}"
 rm -rf "${OUT}"
-mkdir -p "${MACOS}" "${APP_RES}/packages/core" "${APP_RES}/packages/protocol" "${RES}/ui"
+mkdir -p "${MACOS}" "${APP_RES}/packages/core" "${APP_RES}/packages/protocol" "${RES}/ui" "${CACHE}"
 
-# Portable Node (required — keeps install click-and-run)
-NODE_SRC="$(command -v node)"
-if [[ -z "${NODE_SRC}" ]]; then
-  echo "error: node not found on PATH (need Node 20+ to package)" >&2
-  exit 1
+# Official Node binaries for both Mac chips (Homebrew node is often arm64-only + linked to Homebrew libs)
+download_node() {
+  local arch="$1" # arm64 | x64
+  local dest="$2"
+  local tarball="node-v${NODE_VER}-darwin-${arch}.tar.gz"
+  local url="https://nodejs.org/dist/v${NODE_VER}/${tarball}"
+  local cached="${CACHE}/${tarball}"
+  if [[ ! -f "${cached}" ]]; then
+    echo "==> Downloading Node ${NODE_VER} (${arch})"
+    curl -fsSL "${url}" -o "${cached}.partial"
+    mv "${cached}.partial" "${cached}"
+  else
+    echo "==> Using cached Node ${NODE_VER} (${arch})"
+  fi
+  local tmp
+  tmp="$(mktemp -d)"
+  tar -xzf "${cached}" -C "${tmp}"
+  cp "${tmp}/node-v${NODE_VER}-darwin-${arch}/bin/node" "${dest}"
+  chmod +x "${dest}"
+  rm -rf "${tmp}"
+}
+
+download_node arm64 "${RES}/node-arm64"
+download_node x64 "${RES}/node-x64"
+# Convenience symlink/copy for tools that still look for Resources/node
+HOST_ARCH="$(uname -m)"
+if [[ "${HOST_ARCH}" == "x86_64" ]]; then
+  cp "${RES}/node-x64" "${RES}/node"
+else
+  cp "${RES}/node-arm64" "${RES}/node"
 fi
-cp "${NODE_SRC}" "${RES}/node"
 chmod +x "${RES}/node"
 
 # Optional: bundle cloudflared so home Mac needs no separate Homebrew step
-CF=""
-for c in /opt/homebrew/bin/cloudflared /usr/local/bin/cloudflared; do
-  if [[ -x "$c" ]]; then CF="$c"; break; fi
-done
-if [[ -n "$CF" ]]; then
-  echo "==> Bundling cloudflared from ${CF}"
-  cp "$CF" "${RES}/cloudflared"
+# Prefer official dual-arch downloads when available; fall back to local brew binary.
+CF_VER="${PORTER_CLOUDFLARED_VERSION:-2026.7.3}"
+download_cloudflared() {
+  local arch="$1" # arm64 | amd64
+  local dest="$2"
+  local name="cloudflared-darwin-${arch}.tgz"
+  local url="https://github.com/cloudflare/cloudflared/releases/download/${CF_VER}/${name}"
+  local cached="${CACHE}/${name}"
+  if [[ ! -f "${cached}" ]]; then
+    echo "==> Downloading cloudflared ${CF_VER} (${arch})"
+    if ! curl -fsSL "${url}" -o "${cached}.partial"; then
+      rm -f "${cached}.partial"
+      return 1
+    fi
+    mv "${cached}.partial" "${cached}"
+  fi
+  local tmp
+  tmp="$(mktemp -d)"
+  tar -xzf "${cached}" -C "${tmp}"
+  # tarball contains a single `cloudflared` binary
+  cp "${tmp}/cloudflared" "${dest}"
+  chmod +x "${dest}"
+  rm -rf "${tmp}"
+}
+
+if download_cloudflared arm64 "${RES}/cloudflared-arm64" && download_cloudflared amd64 "${RES}/cloudflared-x64"; then
+  if [[ "${HOST_ARCH}" == "x86_64" ]]; then
+    cp "${RES}/cloudflared-x64" "${RES}/cloudflared"
+  else
+    cp "${RES}/cloudflared-arm64" "${RES}/cloudflared"
+  fi
   chmod +x "${RES}/cloudflared"
+  echo "==> Bundled cloudflared ${CF_VER} (arm64 + x64)"
 else
-  echo "==> cloudflared not found — Travel Ready will ask user to install it"
+  CF=""
+  for c in /opt/homebrew/bin/cloudflared /usr/local/bin/cloudflared; do
+    if [[ -x "$c" ]]; then CF="$c"; break; fi
+  done
+  if [[ -n "$CF" ]]; then
+    echo "==> Bundling local cloudflared from ${CF} (host arch only)"
+    cp "$CF" "${RES}/cloudflared"
+    chmod +x "${RES}/cloudflared"
+  else
+    echo "==> cloudflared not found — Travel Ready will ask user to install it"
+  fi
 fi
 
 # App runtime: compiled JS + production deps
@@ -98,16 +159,58 @@ export PORTER_UI_DIR="${RES}/ui"
 export PORTER_RESOURCES="${RES}"
 export PORTER_NO_BONJOUR="${PORTER_NO_BONJOUR:-1}"
 export PORTER_OPEN_BROWSER="0"
-if [[ -x "${RES}/cloudflared" ]]; then
-  export PATH="${RES}:${PATH}"
+
+ARCH="$(uname -m)"
+pick_bin() {
+  local arm="$1" x64="$2" fallback="$3"
+  case "${ARCH}" in
+    arm64)
+      if [[ -x "${arm}" ]]; then echo "${arm}"; return; fi
+      ;;
+    x86_64)
+      if [[ -x "${x64}" ]]; then echo "${x64}"; return; fi
+      ;;
+  esac
+  if [[ -x "${fallback}" ]]; then echo "${fallback}"; return; fi
+  return 1
+}
+
+NODE="$(pick_bin "${RES}/node-arm64" "${RES}/node-x64" "${RES}/node" || true)"
+CF="$(pick_bin "${RES}/cloudflared-arm64" "${RES}/cloudflared-x64" "${RES}/cloudflared" || true)"
+
+# Downloads from GitHub often quarantine nested binaries — clear so Node can run.
+xattr -dr com.apple.quarantine \
+  "${RES}/node" "${RES}/node-arm64" "${RES}/node-x64" \
+  "${RES}/cloudflared" "${RES}/cloudflared-arm64" "${RES}/cloudflared-x64" \
+  2>/dev/null || true
+
+if [[ -n "${CF}" ]]; then
+  export PORTER_CLOUDFLARED="${CF}"
+  # Expose as the name `cloudflared` without relying on the host-arch copy in Resources
+  # (that copy matches the build Mac, not necessarily this Mac).
+  BIN_DIR="${HOME}/Library/Application Support/Porter/bin"
+  if mkdir -p "${BIN_DIR}" 2>/dev/null; then
+    ln -sfn "${CF}" "${BIN_DIR}/cloudflared" 2>/dev/null || true
+    export PATH="${BIN_DIR}:${PATH}"
+  fi
 fi
+
 LOG_DIR="${HOME}/Library/Logs/Porter"
-mkdir -p "${LOG_DIR}" "${HOME}/Library/Application Support/Porter"
+mkdir -p "${LOG_DIR}" "${HOME}/Library/Application Support/Porter" 2>/dev/null || mkdir -p "${LOG_DIR}"
+{
+  echo "---- $(date -u +%Y-%m-%dT%H:%M:%SZ) porter-core start arch=${ARCH} node=${NODE:-missing} cloudflared=${CF:-missing} ----"
+} >>"${LOG_DIR}/porter.log"
+
+if [[ -z "${NODE}" ]]; then
+  echo "error: no Node binary for arch ${ARCH} inside Porter.app" >>"${LOG_DIR}/porter.log"
+  exit 1
+fi
+
 if curl -sf "http://127.0.0.1:47831/api/health" >/dev/null 2>&1; then
   exit 0
 fi
 cd "${RES}/app"
-exec "${RES}/node" "${RES}/app/packages/core/dist/cli.js" serve >>"${LOG_DIR}/porter.log" 2>&1
+exec "${NODE}" "${RES}/app/packages/core/dist/cli.js" serve >>"${LOG_DIR}/porter.log" 2>&1
 CORE
 chmod +x "${MACOS}/porter-core"
 
@@ -158,6 +261,13 @@ Install (no Terminal / no git):
 3. Double-click Porter.app — a normal Mac window opens (not a browser tab)
    First time: right-click → Open (Gatekeeper)
 4. Follow the setup wizard inside the app
+
+Works on Apple Silicon and Intel Macs (Node for both is inside the app).
+
+If you see “Porter core did not start”:
+- First open: right-click Porter.app → Open
+- In the window: use Copy error / Show log folder (no Terminal needed)
+- Or open: ~/Library/Logs/Porter/porter.log
 
 Same Wi‑Fi:
 - Same pair token on both Macs

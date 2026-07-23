@@ -19,13 +19,19 @@ enum PorterWindowMain {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate {
     private var window: NSWindow!
     private var webView: WKWebView!
+    private var statusStack: NSStackView!
     private var statusLabel: NSTextField!
+    private var detailScroll: NSScrollView!
+    private var detailText: NSTextView!
+    private var actionRow: NSStackView!
     private let port = 47831
     private var healthTimer: Timer?
     private var loadAttempts = 0
+    private var lastFailureText = ""
 
     private var baseURL: URL { URL(string: "http://127.0.0.1:\(port)/")! }
     private var healthURL: URL { URL(string: "http://127.0.0.1:\(port)/api/health")! }
+    private var logPath: String { NSHomeDirectory() + "/Library/Logs/Porter/porter.log" }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
@@ -64,11 +70,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         container.wantsLayer = true
 
         statusLabel = NSTextField(labelWithString: "Starting Porter…")
-        statusLabel.translatesAutoresizingMaskIntoConstraints = false
         statusLabel.alignment = .center
-        statusLabel.font = .systemFont(ofSize: 14, weight: .medium)
-        statusLabel.textColor = .secondaryLabelColor
-        container.addSubview(statusLabel)
+        statusLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+        statusLabel.textColor = .labelColor
+        statusLabel.maximumNumberOfLines = 3
+        statusLabel.lineBreakMode = .byWordWrapping
+
+        detailText = NSTextView(frame: .zero)
+        detailText.isEditable = false
+        detailText.isSelectable = true
+        detailText.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        detailText.textColor = .secondaryLabelColor
+        detailText.backgroundColor = NSColor.textBackgroundColor.withAlphaComponent(0.6)
+        detailText.drawsBackground = true
+        detailText.textContainerInset = NSSize(width: 8, height: 8)
+
+        detailScroll = NSScrollView(frame: .zero)
+        detailScroll.documentView = detailText
+        detailScroll.hasVerticalScroller = true
+        detailScroll.borderType = .bezelBorder
+        detailScroll.translatesAutoresizingMaskIntoConstraints = false
+        detailScroll.heightAnchor.constraint(equalToConstant: 220).isActive = true
+        detailScroll.isHidden = true
+
+        let retry = NSButton(title: "Try again", target: self, action: #selector(reloadUI))
+        let copy = NSButton(title: "Copy error", target: self, action: #selector(copyFailure))
+        let showLog = NSButton(title: "Show log folder", target: self, action: #selector(revealLog))
+        actionRow = NSStackView(views: [retry, copy, showLog])
+        actionRow.orientation = .horizontal
+        actionRow.spacing = 10
+        actionRow.alignment = .centerY
+        actionRow.isHidden = true
+
+        statusStack = NSStackView(views: [statusLabel, detailScroll, actionRow])
+        statusStack.orientation = .vertical
+        statusStack.spacing = 14
+        statusStack.alignment = .centerX
+        statusStack.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(statusStack)
 
         let config = WKWebViewConfiguration()
         config.preferences.isElementFullscreenEnabled = true
@@ -79,8 +118,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         container.addSubview(webView)
 
         NSLayoutConstraint.activate([
-            statusLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-            statusLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            statusStack.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            statusStack.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            statusStack.widthAnchor.constraint(lessThanOrEqualToConstant: 640),
+            statusStack.leadingAnchor.constraint(greaterThanOrEqualTo: container.leadingAnchor, constant: 40),
+            statusStack.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -40),
+            detailScroll.widthAnchor.constraint(equalTo: statusStack.widthAnchor),
 
             webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
@@ -111,6 +154,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         fileMenuItem.submenu = fileMenu
         fileMenu.addItem(withTitle: "Show Window", action: #selector(showWindow), keyEquivalent: "0")
         fileMenu.addItem(withTitle: "Reload", action: #selector(reloadUI), keyEquivalent: "r")
+        fileMenu.addItem(withTitle: "Show Log Folder", action: #selector(revealLog), keyEquivalent: "l")
         fileMenu.addItem(NSMenuItem.separator())
         fileMenu.addItem(withTitle: "Open in Browser…", action: #selector(openInBrowser), keyEquivalent: "")
 
@@ -140,7 +184,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
 
     private func ensureCoreThenLoad() {
         statusLabel.stringValue = "Starting Porter…"
-        statusLabel.isHidden = false
+        detailScroll.isHidden = true
+        actionRow.isHidden = true
         webView.isHidden = true
         loadAttempts = 0
 
@@ -163,7 +208,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 self.loadAttempts += 1
                 if self.loadAttempts > 40 {
                     self.healthTimer?.invalidate()
-                    self.statusLabel.stringValue = "Porter core did not start. Check ~/Library/Logs/Porter/porter.log"
+                    self.showStartupFailure()
                     return
                 }
                 self.checkHealth { ok in
@@ -174,6 +219,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 }
             }
         }
+    }
+
+    private func showStartupFailure() {
+        let logTail = readLogTail(lines: 40)
+        let hint = diagnoseFailure(logTail: logTail)
+        statusLabel.stringValue = hint
+        let body = """
+\(hint)
+
+—— Last lines from porter.log ——
+\(logTail.isEmpty ? "(log is empty — core likely never launched, or was blocked by Gatekeeper)" : logTail)
+
+Log file: \(logPath)
+"""
+        lastFailureText = body
+        detailText.string = body
+        detailScroll.isHidden = false
+        actionRow.isHidden = false
+        webView.isHidden = true
+    }
+
+    private func diagnoseFailure(logTail: String) -> String {
+        let lower = logTail.lowercased()
+        let arch = shell("uname -m").trimmingCharacters(in: .whitespacesAndNewlines)
+        if lower.contains("bad cpu type") || lower.contains("mach-o") && lower.contains("architecture") {
+            return "Wrong Mac chip for this build (this Mac is \(arch)). Download the latest Porter release — it includes Intel + Apple Silicon Node."
+        }
+        if lower.contains("killed") || lower.contains("cannot be opened") || lower.contains("quarantine") {
+            return "macOS blocked Porter’s engine. Right‑click Porter.app → Open, then try again."
+        }
+        if lower.contains("eaddrinuse") || lower.contains("address already in use") {
+            return "Port 47831 is already in use. Quit any other Porter, then Try again."
+        }
+        if lower.contains("cannot find module") || lower.contains("err_module_not_found") {
+            return "Porter app package is incomplete. Re-download the zip and replace Porter.app."
+        }
+        if logTail.isEmpty {
+            return "Porter engine did not start. If this is the first open: right‑click Porter.app → Open."
+        }
+        return "Porter engine failed to start. See details below (you can Copy error)."
+    }
+
+    private func readLogTail(lines: Int) -> String {
+        guard let data = try? String(contentsOfFile: logPath, encoding: .utf8), !data.isEmpty else {
+            return ""
+        }
+        let all = data.split(separator: "\n", omittingEmptySubsequences: false)
+        let slice = all.suffix(lines)
+        return slice.joined(separator: "\n")
     }
 
     private func checkHealth(completion: @escaping (Bool) -> Void) {
@@ -190,10 +284,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         }.resume()
     }
 
+    private func resolveBundledNode(in resources: URL) -> String? {
+        let arch = shell("uname -m").trimmingCharacters(in: .whitespacesAndNewlines)
+        let candidates: [String]
+        if arch == "x86_64" {
+            candidates = ["node-x64", "node"]
+        } else {
+            candidates = ["node-arm64", "node"]
+        }
+        for name in candidates {
+            let path = resources.appendingPathComponent(name).path
+            if FileManager.default.isExecutableFile(atPath: path) {
+                return path
+            }
+        }
+        return nil
+    }
+
     private func launchCore() {
-        // Prefer bundled Resources inside .app; fall back to repo for `swift build` / window:build.
         let resources = Bundle.main.resourceURL
-        let bundledNode = resources?.appendingPathComponent("node").path
         let bundledCli = resources?
             .appendingPathComponent("app/packages/core/dist/cli.js").path
         let porterCoreScript = Bundle.main.bundleURL
@@ -205,14 +314,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         let porterResources: String
         let appDir: String
 
-        if let bundledNode, let bundledCli, let resources,
-           FileManager.default.isExecutableFile(atPath: bundledNode),
-           FileManager.default.fileExists(atPath: bundledCli) {
+        if let resources, let bundledCli,
+           FileManager.default.fileExists(atPath: bundledCli),
+           let bundledNode = resolveBundledNode(in: resources) {
             nodePath = bundledNode
             cliPath = bundledCli
             uiDir = resources.appendingPathComponent("ui").path
             porterResources = resources.path
             appDir = resources.appendingPathComponent("app").path
+            // Clear Gatekeeper quarantine on nested binaries (common after GitHub zip download).
+            _ = shell("xattr -dr com.apple.quarantine \"\(bundledNode)\" \"\(resources.appendingPathComponent("cloudflared").path)\" \"\(resources.appendingPathComponent("node-arm64").path)\" \"\(resources.appendingPathComponent("node-x64").path)\" 2>/dev/null || true")
         } else {
             let home = ProcessInfo.processInfo.environment["PORTER_HOME"]
                 ?? (NSHomeDirectory() + "/Downloads/porter")
@@ -226,15 +337,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
 
         guard FileManager.default.fileExists(atPath: cliPath) else {
             statusLabel.stringValue = "Porter core not found. Use the packaged Porter.app from the release zip."
+            actionRow.isHidden = false
             return
         }
 
         let logDir = NSHomeDirectory() + "/Library/Logs/Porter"
         try? FileManager.default.createDirectory(atPath: logDir, withIntermediateDirectories: true)
-        let logPath = logDir + "/porter.log"
+        let logFile = logPath
 
-        // Detach via nohup so Node outlives this window process and is not killed
-        // when Swift FileHandles / Process teardown (that was causing "site can't be reached").
+        // Detach via nohup so Node outlives this window process.
         let cfPath = (resources?.appendingPathComponent("cloudflared").path) ?? ""
         let pathPrefix: String
         if !cfPath.isEmpty, FileManager.default.isExecutableFile(atPath: cfPath) {
@@ -246,7 +357,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         let script: String
         if FileManager.default.isExecutableFile(atPath: porterCoreScript) {
             script = """
-            \(pathPrefix)nohup "\(porterCoreScript)" >>"\(logPath)" 2>&1 &
+            \(pathPrefix)nohup "\(porterCoreScript)" >>"\(logFile)" 2>&1 &
             """
         } else {
             let resExport = porterResources.isEmpty ? "" : "export PORTER_RESOURCES=\"\(porterResources)\"; "
@@ -257,7 +368,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             export PORTER_UI_DIR="\(uiDir)"; \
             \(resExport)\
             cd "\(appDir)"; \
-            nohup "\(nodePath)" "\(cliPath)" serve >>"\(logPath)" 2>&1 &
+            nohup "\(nodePath)" "\(cliPath)" serve >>"\(logFile)" 2>&1 &
             """
         }
 
@@ -269,11 +380,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             process.waitUntilExit()
         } catch {
             statusLabel.stringValue = "Failed to start Porter core: \(error.localizedDescription)"
+            actionRow.isHidden = false
         }
     }
 
     private func loadWebUI() {
         statusLabel.isHidden = true
+        detailScroll.isHidden = true
+        actionRow.isHidden = true
+        statusStack.isHidden = true
         webView.isHidden = false
         webView.load(URLRequest(url: baseURL))
         window.makeKeyAndOrderFront(nil)
@@ -303,7 +418,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     }
 
     @objc private func reloadUI() {
+        statusStack.isHidden = false
+        statusLabel.isHidden = false
         ensureCoreThenLoad()
+    }
+
+    @objc private func copyFailure() {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(lastFailureText.isEmpty ? readLogTail(lines: 80) : lastFailureText, forType: .string)
+        statusLabel.stringValue = "Error copied — paste it into chat or Notes."
+    }
+
+    @objc private func revealLog() {
+        let dir = (logPath as NSString).deletingLastPathComponent
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        if FileManager.default.fileExists(atPath: logPath) {
+            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: logPath)])
+        } else {
+            NSWorkspace.shared.open(URL(fileURLWithPath: dir))
+        }
     }
 
     @objc private func openInBrowser() {
@@ -334,6 +468,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     // MARK: - Navigation
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        statusStack.isHidden = false
         statusLabel.isHidden = false
         webView.isHidden = true
         statusLabel.stringValue = "Waiting for Porter… (\(error.localizedDescription))"

@@ -6,19 +6,25 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 
 ## Download (Mac — no git)
 
-> **Easy download:** [⬇ Porter-0.2.3-mac.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.3-mac.zip)  
-> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.3 · [All releases](https://github.com/Gtarafdar/porter/releases)
+> **Easy download:** [⬇ Porter-0.2.4-mac.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.4-mac.zip)  
+> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.4 · [All releases](https://github.com/Gtarafdar/porter/releases)
 
 1. Unzip → double‑click **Porter.app** (first time: right‑click → **Open**) — opens a **normal Mac window** (Dock icon, close/minimize/zoom), not a browser tab
 2. Follow the setup wizard inside the app
 3. For travel: **Travel Ready → Set & forget** (Cloudflare bundled). Install Tailscale from the in-app **official** button if you want the stable backup path.
 
-**Bundled:** Node + Porter native window + Finder UI + `cloudflared`  
+**Bundled:** Node (Apple Silicon + Intel) + Porter native window + Finder UI + `cloudflared`  
 **Not bundled:** Tailscale (VPN app — must install from [tailscale.com/download/mac](https://tailscale.com/download/mac); one-click button inside Porter)
 
 **Chrome:** Everyday file copy never requires quitting Chrome. Optional Chrome-extension sync only: quit Chrome → share/copy folders → reopen (see Settings).
 
 **Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Roadmap:** [PLAN.md](PLAN.md)
+
+## What’s new in 0.2.4
+
+- **Works on Intel + Apple Silicon** — official Node (and cloudflared) for both chips in one zip
+- If the engine fails to start: **error text shown in the window** + Copy error / Show log folder (no Terminal hunting)
+- Clears Gatekeeper quarantine on nested binaries after GitHub download
 
 ## What’s new in 0.2.3
 
