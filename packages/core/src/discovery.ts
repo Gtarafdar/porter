@@ -23,10 +23,40 @@ export function hydrateManualPeers(): void {
     const peers = JSON.parse(fs.readFileSync(MANUAL_PEERS_PATH, "utf8")) as DeviceInfo[];
     for (const p of peers) {
       if (!p?.id || p.isLocal) continue;
-      remoteDevices.set(p.id, { ...p, online: true });
+      // Prefer Tailscale IP if we can map the device name later; keep saved host for now
+      remoteDevices.set(p.id, { ...p, online: false });
     }
   } catch {
     // ignore
+  }
+}
+
+/** Re-ping saved peers and mark online/offline (call on a timer). */
+export async function refreshPeerHealth(): Promise<void> {
+  const config = loadConfig();
+  for (const [id, device] of remoteDevices) {
+    if (device.isLocal) continue;
+    try {
+      const res = await fetch(`http://${device.host}:${device.port}/api/health`, {
+        signal: AbortSignal.timeout(4000),
+      });
+      if (!res.ok) {
+        remoteDevices.set(id, { ...device, online: false });
+        continue;
+      }
+      // Confirm pair still works
+      const folders = await fetch(`http://${device.host}:${device.port}/api/folders`, {
+        headers: {
+          Authorization: `Bearer ${config.token}`,
+          "X-Porter-Device": config.deviceId,
+          "X-Porter-Pair": config.token,
+        },
+        signal: AbortSignal.timeout(4000),
+      });
+      remoteDevices.set(id, { ...device, online: folders.ok });
+    } catch {
+      remoteDevices.set(id, { ...device, online: false });
+    }
   }
 }
 

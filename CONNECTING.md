@@ -1,80 +1,92 @@
-# Connect another Mac to Porter
+# Connect from home, travel, or another country
 
-**Not automatic.** Installing Porter on a second Mac does **not** auto-link via Apple ID. You pair once with a shared secret, then devices talk **directly** (LAN or Tailscale). No Porter cloud.
+## Short answer
 
-## What you need
+| Situation | What works |
+| --- | --- |
+| Both Macs on same Wi‑Fi | LAN IP + pair token |
+| You are traveling / other country | **Tailscale** (free) + home Mac left **on** with Porter always running |
+| Apple ID alone | **Does not** connect Porter |
+| Phone | Not in this version |
 
-1. Porter running on **both** Macs  
-2. The **same pair token** in Settings on both  
-3. Same Wi‑Fi **or** free Tailscale on both  
-4. Approved folders on each Mac (enable **write** where you want to receive files)
-
-Phone / iPad: **not supported** in this version (skip). Use the Mac app + Cursor.
-
-Apple ID / iCloud: **not used** by Porter. Same Apple login alone will **not** sync Porter folders. (iCloud Desktop/Documents is separate.)
+**First time = one setup.** After that, reconnect is **automatic** when both Macs are online on Tailscale (saved peers are re-checked every 15s).
 
 ---
 
-## Step-by-step (Mac A ↔ Mac B)
+## What you must leave running at home
 
-### On Mac A (already set up)
+While you travel, the Mac at home/office must:
 
-1. Open http://127.0.0.1:47831/  
-2. **Settings** → copy **Pair token**  
-3. Note this Mac’s LAN IP from the header (e.g. `192.168.0.107`)  
-4. If you use Tailscale, note the `100.x` address too  
+1. Stay **powered on** (sleep can break access — set Energy settings to prevent sleep, or use “Wake for network access” where possible)  
+2. Stay connected to **internet**  
+3. Run **Tailscale** (signed into your Tailscale account)  
+4. Run **Porter** all the time (LaunchAgent / login item)
 
-### On Mac B (new Mac)
+If that Mac is off or offline, nothing can reach its files — there is no Porter cloud.
+
+---
+
+## One-time setup for travel (do this before you leave)
+
+### 1. Install Tailscale on **both** Macs (free)
+
+https://tailscale.com/download
+
+- Sign in with the **same Tailscale account** on Mac mini (home) and MacBook (travel)  
+- Confirm each shows a `100.x.x.x` address  
+
+### 2. Keep Porter always on (home Mac)
 
 ```bash
-git clone https://github.com/Gtarafdar/porter.git
-cd porter
+cd ~/Downloads/porter   # or your clone path
 npm install && npm run build
-PORTER_NO_BONJOUR=1 PORTER_OPEN_BROWSER=0 nohup node packages/core/dist/cli.js serve >> /tmp/porter.log 2>&1 &
-open http://127.0.0.1:47831/
 ```
 
-1. Run **Setup** wizard → paste the **same pair token** from Mac A  
-2. **Share folder** (Projects) with **write** if this Mac should receive copies  
-3. **Settings → Add peer** (or Devices) → enter Mac A’s IP and port `47831`  
-4. You should see Mac A under Devices → browse its approved folders  
+Install login agent (starts Porter when you log in, restarts if it crashes):
 
-### Back on Mac A
+```bash
+cp scripts/local.porter.plist ~/Library/LaunchAgents/local.porter.plist
+# edit paths inside the plist if your clone is not ~/Downloads/porter
+launchctl bootout gui/$(id -u)/local.porter 2>/dev/null || true
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.porter.plist
+curl http://127.0.0.1:47831/api/health
+```
 
-Add Mac B as a peer the same way (Mac B’s IP + `47831`) if it does not appear automatically.
+### 3. Pair once (same as before)
 
-> Bonjour auto-discovery is **off by default** on some Macs for stability. Manual peer IP is the reliable path. Tailscale: use each Mac’s `100.x` IP instead of LAN.
+1. Same **pair token** on both Macs (Settings)  
+2. On the travel MacBook: **Settings → Add peer** → home Mac’s **Tailscale IP** (`100.x.x.x`) + port `47831`  
+3. Share folders on home Mac; enable **write** if you will push files home  
 
----
-
-## After pairing — what works
-
-| Action | How |
-| --- | --- |
-| Browse remote folders | Click the other device → approved folders |
-| Copy **from** other Mac **to** this Mac | Select file → Copy to other pane / MCP `copy_file` |
-| Copy **to** other Mac | Push copy (dest = remote device) when remote folder has write |
-| One-way sync pack | Settings / MCP `sync_to_device` for a shared folder → remote path |
-| Cursor AI | Install MCP on **each** Mac (`Setup → Link Cursor`) |
+After this, when you open Porter abroad, the saved peer should show **online** once Tailscale connects — you do **not** re-enter the token every trip.
 
 ---
 
-## Checklist
+## While traveling
 
-- [ ] Same pair token on both Macs  
-- [ ] Porter process running on both (`curl http://127.0.0.1:47831/api/health`)  
-- [ ] Peer added by IP (or Tailscale IP)  
-- [ ] Folders shared; write enabled on destination  
-- [ ] Firewall allows TCP **47831** on both Macs  
+1. Open Tailscale on the MacBook (must be connected)  
+2. Open Porter → home Mac should appear under Devices (saved peer)  
+3. Browse / copy / sync as usual  
+
+If offline: check Tailscale status, home Mac power, Porter health on home (`curl http://127.0.0.1:47831/api/health` via screen share or leave a monitor).
 
 ---
 
-## Troubleshooting
+## Why not “fully automatic Apple ID”?
 
-| Symptom | Fix |
-| --- | --- |
-| Other Mac missing | Add peer by IP; check same token; check Tailscale/LAN |
-| 401 Unauthorized | Tokens differ — paste identical token on both |
-| 503 Sleeping | Wake Porter on that Mac (menu bar or UI) |
-| Slow copies | Prefer same Wi‑Fi over Tailscale for big folders |
-| Link dead on this Mac | Restart: `scripts/run-porter.sh` or `node packages/core/dist/cli.js serve` |
+Apple ID / iCloud does not give apps a private tunnel to another Mac’s disks. Porter needs either:
+
+- Same local network, or  
+- A private mesh like **Tailscale** (identity + encrypted path, free for personal use)
+
+That is the zero-server-cost way to reach home from another country.
+
+---
+
+## Checklist before a long trip
+
+- [ ] Tailscale installed & logged in on home + travel Mac  
+- [ ] Home Mac: Porter LaunchAgent loaded; `api/health` OK  
+- [ ] Home Mac: won’t deep-sleep; internet stable  
+- [ ] Same pair token; peer added with **100.x** IP (not only LAN `192.168`)  
+- [ ] Test once from a different network (phone hotspot) before you fly  

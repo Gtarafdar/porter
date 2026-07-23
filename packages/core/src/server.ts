@@ -17,7 +17,7 @@ import {
   readFileLimited,
   searchFiles,
 } from "./files.js";
-import { listDevices, localLanHint, networkInfo, startDiscovery, hydrateManualPeers } from "./discovery.js";
+import { listDevices, localLanHint, networkInfo, startDiscovery, hydrateManualPeers, refreshPeerHealth } from "./discovery.js";
 import {
   addPeerByAddress,
   authorizePeer,
@@ -557,6 +557,11 @@ export async function startServer(opts?: {
 
   hydrateManualPeers();
   startDiscovery();
+  // Reconnect saved peers automatically (same token + Tailscale/LAN IP from first Add peer)
+  void refreshPeerHealth();
+  setInterval(() => {
+    void refreshPeerHealth();
+  }, 15_000);
 
   await new Promise<void>((resolve, reject) => {
     const server = app.listen(config.port, "0.0.0.0", () => resolve());
