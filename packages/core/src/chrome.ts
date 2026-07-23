@@ -63,8 +63,8 @@ export function chromeExtensionsStatus() {
     shared,
     readyToShare: hasExtensions && !running,
     note: running
-      ? "Quit Google Chrome completely before sharing or syncing extensions."
-      : "Chrome extensions + Local Extension Settings can be shared (opt-in). Cookies/passwords stay blocked.",
+      ? "Quit Google Chrome completely before sharing or syncing extensions (optional feature only)."
+      : "Optional: share Extensions + Local Extension Settings. Everyday file copy never needs quitting Chrome. Cookies/passwords stay blocked.",
   };
 }
 

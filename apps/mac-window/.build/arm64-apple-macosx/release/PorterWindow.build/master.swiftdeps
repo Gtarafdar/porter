@@ -1,0 +1,6 @@
+version: "Apple Swift version 6.0.3 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)"
+options: "0fd69089b41719a62d9f59dd9e84c84d792669f1dd195db8ee4b803ebfe53404"
+build_start_time: [1784808540, 86068000]
+build_end_time: [1784808541, 204949000]
+inputs:
+  "/Users/gtarafdar/Downloads/porter/apps/mac-window/Sources/PorterWindow/main.swift": [1784808537, 87272949]

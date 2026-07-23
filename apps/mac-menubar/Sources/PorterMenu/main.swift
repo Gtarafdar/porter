@@ -137,7 +137,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func ensureCoreThenOpen(_ url: String) {
         if !online { launchCore() }
-        DispatchQueue.main.asyncAfter(deadline: .now() + (online ? 0.1 : 1.2)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + (online ? 0.1 : 1.5)) {
+            // Prefer native Porter window over opening Safari/Chrome
+            let candidates = [
+                "/Applications/Porter.app",
+                NSHomeDirectory() + "/Downloads/porter/dist/release/Porter.app",
+                NSHomeDirectory() + "/Downloads/Porter.app",
+            ]
+            for path in candidates {
+                if FileManager.default.fileExists(atPath: path) {
+                    NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                    return
+                }
+            }
             if let u = URL(string: url) {
                 NSWorkspace.shared.open(u)
             }

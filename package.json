@@ -1,6 +1,6 @@
 {
   "name": "porter",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "description": "Private local AI + Finder-like file bridge across your Macs — no cloud, no paid servers",
   "workspaces": [
@@ -16,6 +16,7 @@
     "typecheck": "npm run typecheck -w @porter/protocol && npm run typecheck -w @porter/core",
     "test:e2e": "npm run build -w @porter/protocol && npm run build -w @porter/core && npx tsx --test packages/core/src/__tests__/e2e.test.ts packages/core/src/__tests__/failover.test.ts packages/core/src/__tests__/security.test.ts",
     "menubar:build": "bash apps/mac-menubar/scripts/build_app.sh",
+    "window:build": "bash apps/mac-window/scripts/build_app.sh",
     "package": "bash scripts/build_distributable.sh",
     "icons": "python3 scripts/generate_icons.py"
   },

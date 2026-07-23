@@ -39,6 +39,14 @@ Leave Mac **plugged in**, logged in, internet connected. Do not force-quit Porte
 
 ---
 
+## Chrome extensions (optional)
+
+- **Normal file sharing** (Projects, Downloads, etc.) never requires quitting Chrome.
+- **Optional** Chrome Extensions sync only: quit Chrome on both Macs → Settings → Share Chrome extensions folders → copy those folders on the other Mac into the same Chrome paths → reopen Chrome.
+- Passwords and cookies are never synced.
+
+---
+
 ## Same Wi‑Fi (desk)
 
 Same pair token → Add peer with LAN IP. No Cloudflare / Tailscale needed.

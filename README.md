@@ -6,17 +6,30 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 
 ## Download (Mac — no git)
 
-> **Easy download:** [⬇ Porter-0.2.2-mac.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.2-mac.zip)  
-> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.2 · [All releases](https://github.com/Gtarafdar/porter/releases)
+> **Easy download:** [⬇ Porter-0.2.3-mac.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.3-mac.zip)  
+> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.3 · [All releases](https://github.com/Gtarafdar/porter/releases)
 
-1. Unzip → double‑click **Porter.app** (first time: right‑click → **Open**)
-2. Follow the setup wizard
+1. Unzip → double‑click **Porter.app** (first time: right‑click → **Open**) — opens a **normal Mac window** (Dock icon, close/minimize/zoom), not a browser tab
+2. Follow the setup wizard inside the app
 3. For travel: **Travel Ready → Set & forget** (Cloudflare bundled). Install Tailscale from the in-app **official** button if you want the stable backup path.
 
-**Bundled:** Node + Porter + `cloudflared`  
+**Bundled:** Node + Porter native window + Finder UI + `cloudflared`  
 **Not bundled:** Tailscale (VPN app — must install from [tailscale.com/download/mac](https://tailscale.com/download/mac); one-click button inside Porter)
 
+**Chrome:** Everyday file copy never requires quitting Chrome. Optional Chrome-extension sync only: quit Chrome → share/copy folders → reopen (see Settings).
+
 **Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Roadmap:** [PLAN.md](PLAN.md)
+
+## What’s new in 0.2.3
+
+- **Native Mac window** (WKWebView shell) — real traffic lights / Dock; same Finder UI underneath
+- Closing the window does **not** stop the Porter agent (like closing a browser tab)
+
+## What’s new in 0.2.2
+
+- Devices badge for Cloudflare vs Tailscale active path
+- Timed Activity logs + clearer errors
+- Optional Chrome extensions folder share
 
 ## What’s new in 0.2.1
 
@@ -32,7 +45,6 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 - **Cloudflare Tunnel** away-from-home (travel Mac needs Porter only) **or** Tailscale
 - Sleep / Wake, chunked copy + SHA-256 + Mbps, push / one-way sync
 - `npm run test:e2e` — automated API checks
-
 ## What you get
 
 - **Finder-style UI** — browse approved folders on this Mac (and paired Macs)
@@ -44,7 +56,10 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 
 ```bash
 npm install
-npm run package
+npm run package   # full Porter.app with native window + Node + cloudflared
+# or local window only (needs npm start for core):
+npm start &
+npm run window:build && open apps/mac-window/dist/Porter.app
 ```
 
 Share `dist/release/Porter-*-mac.zip`.

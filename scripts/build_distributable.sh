@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${PORTER_VERSION:-0.2.2}"
+VERSION="${PORTER_VERSION:-0.2.3}"
 OUT="${ROOT}/dist/release"
 APP_DIR="${OUT}/Porter.app"
 CONTENTS="${APP_DIR}/Contents"
@@ -79,8 +79,17 @@ echo "==> Installing production node_modules inside .app"
 # Finder UI
 cp -R apps/desktop/dist/* "${RES}/ui/"
 
-# Launcher
-cat > "${MACOS}/Porter" <<'LAUNCH'
+echo "==> Building native Mac window (WKWebView shell)"
+(
+  cd apps/mac-window
+  swift build -c release
+)
+SWIFT_BIN="$(cd apps/mac-window && swift build -c release --show-bin-path)/PorterWindow"
+cp "${SWIFT_BIN}" "${MACOS}/Porter"
+chmod +x "${MACOS}/Porter"
+
+# Headless core starter for LaunchAgent / scripts (does not open a window)
+cat > "${MACOS}/porter-core" <<'CORE'
 #!/bin/bash
 set -euo pipefail
 CONTENTS="$(cd "$(dirname "$0")/.." && pwd)"
@@ -88,33 +97,19 @@ RES="${CONTENTS}/Resources"
 export PORTER_UI_DIR="${RES}/ui"
 export PORTER_RESOURCES="${RES}"
 export PORTER_NO_BONJOUR="${PORTER_NO_BONJOUR:-1}"
-# Prefer bundled cloudflared when present
+export PORTER_OPEN_BROWSER="0"
 if [[ -x "${RES}/cloudflared" ]]; then
   export PATH="${RES}:${PATH}"
 fi
 LOG_DIR="${HOME}/Library/Logs/Porter"
 mkdir -p "${LOG_DIR}" "${HOME}/Library/Application Support/Porter"
-cd "${RES}/app"
-# Single instance: if already up, just open UI
 if curl -sf "http://127.0.0.1:47831/api/health" >/dev/null 2>&1; then
-  open "http://127.0.0.1:47831/"
   exit 0
 fi
-# Start in background so double-click returns immediately
-nohup "${RES}/node" "${RES}/app/packages/core/dist/cli.js" serve \
-  >>"${LOG_DIR}/porter.log" 2>&1 &
-# Wait briefly then open UI
-for _ in 1 2 3 4 5 6 7 8 9 10; do
-  if curl -sf "http://127.0.0.1:47831/api/health" >/dev/null 2>&1; then
-    open "http://127.0.0.1:47831/"
-    exit 0
-  fi
-  sleep 0.4
-done
-open "http://127.0.0.1:47831/" || true
-exit 0
-LAUNCH
-chmod +x "${MACOS}/Porter"
+cd "${RES}/app"
+exec "${RES}/node" "${RES}/app/packages/core/dist/cli.js" serve >>"${LOG_DIR}/porter.log" 2>&1
+CORE
+chmod +x "${MACOS}/porter-core"
 
 cat > "${CONTENTS}/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -136,9 +131,11 @@ cat > "${CONTENTS}/Info.plist" <<PLIST
   <key>CFBundleVersion</key>
   <string>${VERSION}</string>
   <key>LSMinimumSystemVersion</key>
-  <string>12.0</string>
+  <string>13.0</string>
   <key>NSHighResolutionCapable</key>
   <true/>
+  <key>NSPrincipalClass</key>
+  <string>NSApplication</string>
   <key>CFBundleIconFile</key>
   <string>AppIcon</string>
 </dict>
@@ -158,9 +155,9 @@ Porter — private file bridge for your Macs
 Install (no Terminal / no git):
 1. Unzip this archive
 2. Drag Porter.app to Applications (or anywhere)
-3. Double-click Porter.app
+3. Double-click Porter.app — a normal Mac window opens (not a browser tab)
    First time: right-click → Open (Gatekeeper)
-4. Follow the setup wizard in the browser
+4. Follow the setup wizard inside the app
 
 Same Wi‑Fi:
 - Same pair token on both Macs
@@ -173,6 +170,10 @@ A) Cloudflare (bundled cloudflared inside Porter.app)
 B) Tailscale (stable backup — NOT bundled; VPN requires official install)
    Travel Ready → “Install Tailscale (official)” OR https://tailscale.com/download/mac
    Same Tailscale account on both Macs → add 100.x IP as Fallback peer
+
+Chrome extensions (optional):
+- Everyday file copy does NOT require quitting Chrome
+- Only when syncing Chrome Extensions folders: quit Chrome, share/copy, reopen Chrome
 
 Home Mac must stay powered on with Porter running.
 
@@ -188,11 +189,9 @@ echo "==> Creating ${ZIP}"
 (
   cd "${OUT}"
   ditto -c -k --sequesterRsrc --keepParent "Porter.app" "Porter-${VERSION}-mac.zip"
-  # also zip with howto
   ditto -c -k --keepParent . "Porter-${VERSION}-mac-with-readme.zip" 2>/dev/null || true
 )
 
-# Prefer a clean zip with app + howto
 rm -f "${ZIP}"
 (
   cd "${OUT}"

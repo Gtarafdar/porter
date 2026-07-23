@@ -1,0 +1,12 @@
+{
+  "": {
+    "dependencies": "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.build/PorterWindow.d",
+    "object": "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.build/PorterWindow.o",
+    "swift-dependencies": "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.build/master.swiftdeps"
+  },
+  "/Users/gtarafdar/Downloads/porter/apps/mac-window/Sources/PorterWindow/main.swift": {
+    "object": "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.build/main.swift.o",
+    "swiftmodule": "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.build/main.swiftdeps"
+  }
+}

@@ -1,0 +1,217 @@
+{
+  "builtTestProducts" : [
+
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.PorterWindow-arm64-apple-macosx15.0-release.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.build/sources",
+      "importPath" : "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/gtarafdar/Downloads/porter/apps/mac-window/Sources/PorterWindow/main.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.build/sources"
+        }
+      ],
+      "isLibrary" : false,
+      "moduleName" : "PorterWindow",
+      "moduleOutputPath" : "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/Modules/PorterWindow.swiftmodule",
+      "objects" : [
+        "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.build/main.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-O",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-module-cache-path",
+        "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/ModuleCache",
+        "-parseable-output",
+        "-Xfrontend",
+        "-entry-point-function-name",
+        "-Xfrontend",
+        "PorterWindow_main",
+        "-parse-as-library",
+        "-swift-version",
+        "5",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "mac_window"
+      ],
+      "outputFileMapPath" : "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.build/main.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/Modules/PorterWindow.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/gtarafdar/Downloads/porter/apps/mac-window/Sources/PorterWindow/main.swift"
+      ],
+      "tempsPath" : "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.build",
+      "wholeModuleOptimization" : true
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "PorterWindow" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "PorterWindow",
+      "-package-name",
+      "mac_window",
+      "-whole-module-optimization",
+      "-num-threads",
+      "10",
+      "-c",
+      "/Users/gtarafdar/Downloads/porter/apps/mac-window/Sources/PorterWindow/main.swift",
+      "-I",
+      "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-O",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-module-cache-path",
+      "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/ModuleCache",
+      "-parseable-output",
+      "-Xfrontend",
+      "-entry-point-function-name",
+      "-Xfrontend",
+      "PorterWindow_main",
+      "-parse-as-library",
+      "-swift-version",
+      "5",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "mac_window",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "PorterWindow" : [
+
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+
+  },
+  "writeCommands" : {
+    "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/gtarafdar/Downloads/porter/apps/mac-window/Sources/PorterWindow/main.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.build/sources"
+    },
+    "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.build/main.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/PorterWindow.product/Objects.LinkFileList"
+    },
+    "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/gtarafdar/Downloads/porter/apps/mac-window/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+    }
+  }
+}

@@ -73,7 +73,7 @@ Config: ${PORTER_DIR}
     console.log(`Device: ${config.deviceName} (${config.deviceId})`);
     console.log(`Pair token (copy to other Mac Settings): ${config.token}`);
     console.log("Add folders in the UI, or: npm run start -w @porter/core -- share ~/Projects");
-    if (process.env.PORTER_OPEN_BROWSER !== "0") {
+    if (process.env.PORTER_OPEN_BROWSER === "1") {
       exec(`open "${url}"`);
     }
     return;

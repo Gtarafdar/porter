@@ -639,11 +639,11 @@ export function App() {
               />
             </div>
             <div className="field">
-              <label>Chrome extensions (opt-in)</label>
+              <label>Chrome extensions (optional sync)</label>
               <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: 13 }}>
-                Quit Chrome first. Shares Extensions + Local Extension Settings only (not
-                passwords/cookies). On the other Mac: copy into the same Chrome folders, then reopen
-                Chrome.
+                Everyday file sharing never needs quitting Chrome. Only this optional step does:
+                quit Chrome on both Macs → share Extensions + Local Extension Settings → copy to the
+                other Mac → reopen Chrome. Passwords/cookies stay blocked.
               </p>
               <button
                 className="btn"
