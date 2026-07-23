@@ -121,8 +121,10 @@ export function App() {
     message: string;
     canAutoInstall: boolean;
     releaseUrl: string | null;
+    downloadUrl: string | null;
   } | null>(null);
   const [updateBusy, setUpdateBusy] = useState(false);
+  const [updateNudgeHidden, setUpdateNudgeHidden] = useState(false);
   const [pairToken, setPairToken] = useState("");
   const [showWizard, setShowWizard] = useState(false);
   const [showTravel, setShowTravel] = useState(false);
@@ -214,16 +216,20 @@ export function App() {
 
   useEffect(() => {
     const onCheck = () => {
-      setShowSettings(true);
-      setSettingsTab("more");
+      setUpdateNudgeHidden(false);
       void runUpdateCheck(true);
     };
     window.addEventListener("porter-check-update", onCheck);
-    // Soft check once after load (no modal spam)
-    const t = window.setTimeout(() => void runUpdateCheck(false), 4000);
+    // Soft check after load + periodic (like Cursor)
+    const t = window.setTimeout(() => void runUpdateCheck(false), 2500);
+    const interval = window.setInterval(() => void runUpdateCheck(false), 30 * 60 * 1000);
+    const onFocus = () => void runUpdateCheck(false);
+    window.addEventListener("focus", onFocus);
     return () => {
       window.removeEventListener("porter-check-update", onCheck);
+      window.removeEventListener("focus", onFocus);
       window.clearTimeout(t);
+      window.clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -238,15 +244,23 @@ export function App() {
         message: u.message,
         canAutoInstall: u.canAutoInstall,
         releaseUrl: u.releaseUrl,
+        downloadUrl: u.downloadUrl,
       });
+      if (u.updateAvailable && u.latestVersion) {
+        const dismissed = sessionStorage.getItem(`porter-update-later-${u.latestVersion}`);
+        setUpdateNudgeHidden(Boolean(dismissed) && !fromUser);
+      } else {
+        setUpdateNudgeHidden(false);
+      }
       if (fromUser) {
         setSettingsMsg(u.message);
-        if (u.updateAvailable) showToast(`Update available: ${u.latestVersion}`);
-        else showToast(u.message);
+        showToast(u.message);
+        if (u.updateAvailable) setUpdateNudgeHidden(false);
       }
     } catch (e) {
       if (fromUser) {
         setSettingsMsg(friendlyError(e instanceof Error ? e.message : String(e)));
+        showToast(friendlyError(e instanceof Error ? e.message : String(e)));
       }
     }
   }
@@ -256,13 +270,38 @@ export function App() {
     setUpdateBusy(true);
     setSettingsMsg("Downloading update… Porter will quit and reopen.");
     try {
+      // Prefer in-app install; if this Mac can’t replace the .app, open the zip download
+      if (updateInfo && !updateInfo.canAutoInstall && updateInfo.downloadUrl) {
+        window.open(updateInfo.downloadUrl, "_blank");
+        setSettingsMsg(
+          "Download opened — unzip, replace Porter.app in Applications, then reopen (right-click → Open).",
+        );
+        showToast("Download opened in browser");
+        setUpdateBusy(false);
+        return;
+      }
       const r = await porter.applyUpdate();
       setSettingsMsg(r.message);
       showToast(r.message);
     } catch (e) {
-      setSettingsMsg(friendlyError(e instanceof Error ? e.message : String(e)));
+      const msg = friendlyError(e instanceof Error ? e.message : String(e));
+      setSettingsMsg(msg);
+      // Fallback: open zip if auto-install fails
+      if (updateInfo?.downloadUrl) {
+        window.open(updateInfo.downloadUrl, "_blank");
+        showToast("Auto-install failed — opened zip download instead");
+      } else {
+        showToast(msg);
+      }
       setUpdateBusy(false);
     }
+  }
+
+  function dismissUpdateNudge() {
+    if (updateInfo?.latestVersion) {
+      sessionStorage.setItem(`porter-update-later-${updateInfo.latestVersion}`, "1");
+    }
+    setUpdateNudgeHidden(true);
   }
 
   useEffect(() => {
@@ -495,6 +534,14 @@ export function App() {
           <button
             className="btn"
             type="button"
+            title="Check for Porter updates"
+            onClick={() => void runUpdateCheck(true)}
+          >
+            {updateInfo?.updateAvailable ? `Update ${updateInfo.latestVersion}` : "Updates"}
+          </button>
+          <button
+            className="btn"
+            type="button"
             onClick={() => {
               setSettingsMsg(null);
               setSettingsTab("more");
@@ -518,37 +565,6 @@ export function App() {
       {error && (
         <div className="error-text" style={{ padding: "0 4px" }}>
           {error}
-        </div>
-      )}
-
-      {updateInfo?.updateAvailable && (
-        <div
-          className="callout ok"
-          style={{ margin: "0 4px 8px", display: "flex", alignItems: "center", gap: 10 }}
-        >
-          <span style={{ flex: 1 }}>
-            Porter {updateInfo.latestVersion} available (you have {updateInfo.currentVersion}).
-          </span>
-          <button
-            className="btn"
-            type="button"
-            onClick={() => {
-              setShowSettings(true);
-              setSettingsTab("more");
-            }}
-          >
-            Review
-          </button>
-          {updateInfo.canAutoInstall ? (
-            <button
-              className="btn primary"
-              type="button"
-              disabled={updateBusy}
-              onClick={() => void installUpdate()}
-            >
-              {updateBusy ? "Updating…" : "Install & relaunch"}
-            </button>
-          ) : null}
         </div>
       )}
 
@@ -1033,14 +1049,18 @@ export function App() {
                       >
                         Check for updates
                       </button>
-                      {updateInfo?.updateAvailable && updateInfo.canAutoInstall ? (
+                      {updateInfo?.updateAvailable ? (
                         <button
                           className="btn primary"
                           type="button"
                           disabled={updateBusy}
                           onClick={() => void installUpdate()}
                         >
-                          {updateBusy ? "Updating…" : `Install ${updateInfo.latestVersion}`}
+                          {updateBusy
+                            ? "Updating…"
+                            : updateInfo.canAutoInstall
+                              ? `Install ${updateInfo.latestVersion}`
+                              : `Download ${updateInfo.latestVersion}`}
                         </button>
                       ) : null}
                       {updateInfo?.releaseUrl ? (
@@ -1261,6 +1281,29 @@ export function App() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {updateInfo?.updateAvailable && !updateNudgeHidden && (
+        <div className="update-nudge" role="status" aria-live="polite">
+          <span className="update-nudge-icon" aria-hidden>
+            ▤
+          </span>
+          <span className="update-nudge-text">
+            New update available
+            {updateInfo.latestVersion ? ` · v${updateInfo.latestVersion}` : ""}
+          </span>
+          <button className="update-nudge-later" type="button" onClick={dismissUpdateNudge}>
+            Later
+          </button>
+          <button
+            className="update-nudge-install"
+            type="button"
+            disabled={updateBusy}
+            onClick={() => void installUpdate()}
+          >
+            {updateBusy ? "Installing…" : "Install Now"}
+          </button>
         </div>
       )}
 
