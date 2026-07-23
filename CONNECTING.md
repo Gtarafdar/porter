@@ -41,9 +41,16 @@ Leave Mac **plugged in**, logged in, internet connected. Do not force-quit Porte
 
 ## Chrome extensions (optional)
 
-- **Normal file sharing** (Projects, Downloads, etc.) never requires quitting Chrome.
-- **Optional** Chrome Extensions sync only: quit Chrome on both Macs → Settings → Share Chrome extensions folders → copy those folders on the other Mac into the same Chrome paths → reopen Chrome.
-- Passwords and cookies are never synced.
+See the full guide: **[CHROME.md](CHROME.md)**.
+
+Short version:
+
+1. Quit Chrome on **both** Macs.
+2. Settings → **Share Chrome extensions folders** (on Home and on Travel).
+3. Copy **Chrome Extensions** + **Chrome Extension Data** into the **same Chrome Library paths** on the other Mac — **not** into Downloads.
+4. Reopen Chrome → `chrome://extensions`.
+
+Copying into Downloads alone will not restore settings. Passwords and cookies are never synced.
 
 ---
 

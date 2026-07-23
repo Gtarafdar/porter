@@ -25,7 +25,7 @@ Not sure which chip?  menu → About This Mac → look for “Chip” (Apple)
 
 **Chrome:** Everyday file copy never requires quitting Chrome. Optional Chrome-extension sync only: quit Chrome → share/copy folders → reopen (see Settings).
 
-**Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Roadmap:** [PLAN.md](PLAN.md)
+**Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Chrome extensions:** [CHROME.md](CHROME.md) · **Roadmap:** [PLAN.md](PLAN.md)
 
 ## What’s new in 0.2.18
 
