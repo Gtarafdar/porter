@@ -237,6 +237,41 @@ input {
   margin-top: 16px;
 }
 
+.travel-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+
+.travel-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.travel-check.ok {
+  border-color: rgba(31, 122, 76, 0.25);
+  background: rgba(31, 122, 76, 0.08);
+}
+
+.travel-check.bad {
+  border-color: rgba(155, 44, 44, 0.25);
+  background: rgba(155, 44, 44, 0.06);
+}
+
+.travel-steps {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .side-section h3 {
   display: flex;
   align-items: center;

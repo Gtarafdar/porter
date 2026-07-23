@@ -7,16 +7,18 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>/Users/gtarafdar/Downloads/porter/scripts/run-porter.sh</string>
+    <string>/Users/gtarafdar/Library/Application Support/Porter/start-porter.sh</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
   <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
   <key>StandardOutPath</key>
-  <string>/tmp/porter.launchd.out.log</string>
+  <string>/Users/gtarafdar/Library/Logs/Porter.launchd.out.log</string>
   <key>StandardErrorPath</key>
-  <string>/tmp/porter.launchd.err.log</string>
+  <string>/Users/gtarafdar/Library/Logs/Porter.launchd.err.log</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>HOME</key>
@@ -28,7 +30,5 @@
     <key>PORTER_NO_BONJOUR</key>
     <string>1</string>
   </dict>
-  <key>WorkingDirectory</key>
-  <string>/Users/gtarafdar/Downloads/porter</string>
 </dict>
 </plist>

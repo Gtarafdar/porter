@@ -19,6 +19,7 @@ import {
   IconWake,
 } from "./Icons";
 import { SetupWizard } from "./SetupWizard";
+import { TravelReadyPanel } from "./TravelReady";
 
 type PaneState = {
   deviceId: string;
@@ -60,6 +61,7 @@ export function App() {
   } | null>(null);
   const [pairToken, setPairToken] = useState("");
   const [showWizard, setShowWizard] = useState(false);
+  const [showTravel, setShowTravel] = useState(false);
   const [wizardChecked, setWizardChecked] = useState(false);
   const [netHint, setNetHint] = useState<string>("");
   const [peerHost, setPeerHost] = useState("");
@@ -344,6 +346,9 @@ export function App() {
           </div>
         </div>
         <div className="top-actions">
+          <button className="btn primary" type="button" onClick={() => setShowTravel(true)}>
+            Travel Ready
+          </button>
           <button className="btn" type="button" onClick={() => setShowWizard(true)}>
             Setup
           </button>
@@ -667,7 +672,16 @@ export function App() {
           onDone={() => {
             setShowWizard(false);
             void refreshMeta();
-            showToast("Setup ready");
+            setShowTravel(true);
+            showToast("Setup ready — check Travel Ready");
+          }}
+        />
+      )}
+      {showTravel && (
+        <TravelReadyPanel
+          onClose={() => {
+            setShowTravel(false);
+            void refreshMeta();
           }}
         />
       )}

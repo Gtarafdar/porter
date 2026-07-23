@@ -36,6 +36,7 @@ import {
   wizardSnapshot,
 } from "./setup.js";
 import { copyFileResumable, copyFolderResumable, mapPool } from "./transfer.js";
+import { shareTravelPresets, travelReady } from "./travel.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -91,6 +92,24 @@ export async function startServer(opts?: {
       sleeping: c.sleeping,
       version: "0.2.0",
     });
+  });
+
+  app.get("/api/travel-ready", (_req, res) => {
+    res.json(travelReady());
+  });
+
+  app.post("/api/travel-presets", (req, res) => {
+    if (!isLocalRequest(req)) {
+      res.status(403).json({ error: "Local only" });
+      return;
+    }
+    try {
+      const result = shareTravelPresets();
+      appendActivity("travel_presets", JSON.stringify(result.added), true, "ui");
+      res.json({ ok: true, ...result, travel: travelReady() });
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
   });
 
   app.get("/api/setup", (_req, res) => {

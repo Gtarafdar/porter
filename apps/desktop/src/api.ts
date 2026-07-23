@@ -150,4 +150,21 @@ export const porter = {
     ),
   sleep: () => api<{ ok: boolean }>("/api/sleep", { method: "POST", body: "{}" }),
   wake: () => api<{ ok: boolean }>("/api/wake", { method: "POST", body: "{}" }),
+  travelReady: () =>
+    api<{
+      ready: boolean;
+      deviceName: string;
+      pairToken: string;
+      tailscaleIp: string | null;
+      lanIp: string | null;
+      port: number;
+      checks: { id: string; label: string; ok: boolean; detail: string }[];
+      travelSteps: string[];
+      safetyNote: string;
+    }>("/api/travel-ready"),
+  shareTravelPresets: () =>
+    api<{ ok: boolean; added: string[]; skipped: string[] }>("/api/travel-presets", {
+      method: "POST",
+      body: "{}",
+    }),
 };
