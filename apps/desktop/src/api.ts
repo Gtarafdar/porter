@@ -107,7 +107,18 @@ export const porter = {
     destDeviceId: string;
     destPath: string;
     isDirectory?: boolean;
-  }) => api<{ ok: boolean }>("/api/files/copy", { method: "POST", body: JSON.stringify(body) }),
+  }) =>
+    api<{
+      ok: boolean;
+      result?: { bytes?: number; mbps?: number; ms?: number; files?: number; sha256?: string };
+    }>("/api/files/copy", { method: "POST", body: JSON.stringify(body) }),
+  network: () =>
+    api<{
+      primaryLan: string | null;
+      tailscale: { available: boolean; selfIp: string | null };
+      bonjour: { enabled: boolean; disabledByEnv: boolean };
+      guidance: string[];
+    }>("/api/network"),
   activity: () => api<ActivityEvent[]>("/api/activity"),
   kill: () => api<{ ok: boolean }>("/api/kill", { method: "POST", body: "{}" }),
   setToken: (token: string) =>
@@ -115,6 +126,16 @@ export const porter = {
       method: "POST",
       body: JSON.stringify({ token }),
     }),
+  addPeer: (host: string, port = 47831, name?: string) =>
+    api<DeviceInfo>("/api/peers", {
+      method: "POST",
+      body: JSON.stringify({ host, port, name }),
+    }),
+  syncOneWay: (body: { sourcePath: string; destDeviceId: string; destPath: string }) =>
+    api<{ ok: boolean; result?: { files: number; mbps: number; ms: number } }>(
+      "/api/sync/one-way",
+      { method: "POST", body: JSON.stringify(body) },
+    ),
   setup: () => api<SetupSnapshot>("/api/setup"),
   updateSetup: (body: {
     step?: number;

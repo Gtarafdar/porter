@@ -101,14 +101,30 @@ export function IconCheck({ size = 16, className }: IconProps) {
 }
 
 export function IconPorterMark({ size = 40, className }: IconProps) {
+  // Vector mark — stays sharp at any DPI (PNG was blurry when upscaled from 32px)
+  const r = Math.max(6, size * 0.22);
   return (
-    <img
-      src={`/icons/porter-${size >= 64 ? 64 : 32}.png`}
+    <svg
       width={size}
       height={size}
-      alt=""
+      viewBox="0 0 64 64"
       className={className}
-      style={{ borderRadius: size * 0.22 }}
-    />
+      aria-hidden
+      style={{ borderRadius: r, display: "block", flexShrink: 0 }}
+    >
+      <defs>
+        <linearGradient id="porterGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#187868" />
+          <stop offset="100%" stopColor="#084840" />
+        </linearGradient>
+      </defs>
+      <rect width="64" height="64" rx="14" fill="url(#porterGrad)" />
+      <rect x="12" y="18" width="14" height="28" rx="3" fill="none" stroke="#FFFCF7" strokeWidth="2.5" />
+      <rect x="38" y="18" width="14" height="28" rx="3" fill="none" stroke="#FFFCF7" strokeWidth="2.5" />
+      <rect x="14.5" y="21" width="9" height="5" rx="1.2" fill="#FFFCF7" opacity="0.35" />
+      <rect x="40.5" y="21" width="9" height="5" rx="1.2" fill="#FFFCF7" opacity="0.35" />
+      <line x1="26" y1="32" x2="38" y2="32" stroke="#FFFCF7" strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="32" cy="32" r="3.2" fill="#FFFCF7" />
+    </svg>
   );
 }

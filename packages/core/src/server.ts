@@ -13,19 +13,20 @@ import {
 } from "./config.js";
 import {
   assertAllowed,
-  copyFolderLocal,
   listDirectory,
   readFileLimited,
   searchFiles,
 } from "./files.js";
-import { listDevices, localLanHint, startDiscovery } from "./discovery.js";
+import { listDevices, localLanHint, networkInfo, startDiscovery, hydrateManualPeers } from "./discovery.js";
 import {
+  addPeerByAddress,
   authorizePeer,
   remoteDownloadToLocal,
   remoteListDirectory,
   remoteListFolders,
   remoteReadFile,
   remoteSearch,
+  remoteUploadFromLocal,
   setSharedToken,
 } from "./peer.js";
 import {
@@ -34,7 +35,7 @@ import {
   updateWizard,
   wizardSnapshot,
 } from "./setup.js";
-import { copyFileResumable } from "./transfer.js";
+import { copyFileResumable, copyFolderResumable, mapPool } from "./transfer.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -311,6 +312,93 @@ export async function startServer(opts?: {
     }
   });
 
+  app.post("/api/files/upload", express.raw({ type: "*/*", limit: "512mb" }), (req, res) => {
+    try {
+      const destPath = String(req.query.path ?? "");
+      if (!destPath) {
+        res.status(400).json({ error: "Missing path" });
+        return;
+      }
+      assertAllowed(path.dirname(path.resolve(destPath)), "write");
+      const resolved = path.resolve(destPath);
+      fs.mkdirSync(path.dirname(resolved), { recursive: true });
+      const body = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body ?? []);
+      fs.writeFileSync(resolved, body);
+      appendActivity("upload", resolved, true, isLocalRequest(req) ? "ui" : "peer");
+      res.json({ ok: true, bytes: body.length, path: resolved });
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  app.post("/api/peers", async (req, res) => {
+    if (!isLocalRequest(req)) {
+      res.status(403).json({ error: "Adding peers is local only" });
+      return;
+    }
+    try {
+      const host = String(req.body.host ?? "").trim();
+      const port = Number(req.body.port ?? 47831);
+      const name = req.body.name ? String(req.body.name) : undefined;
+      if (!host) {
+        res.status(400).json({ error: "host required" });
+        return;
+      }
+      const device = await addPeerByAddress(host, port, name);
+      res.json(device);
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  /** One-way sync: mirror a local approved folder onto a remote write-enabled path. */
+  app.post("/api/sync/one-way", async (req, res) => {
+    if (!isLocalRequest(req)) {
+      res.status(403).json({ error: "Sync is local only" });
+      return;
+    }
+    try {
+      const sourcePath = String(req.body.sourcePath ?? "");
+      const destDeviceId = String(req.body.destDeviceId ?? "");
+      const destPath = String(req.body.destPath ?? "");
+      if (!sourcePath || !destDeviceId || !destPath) {
+        res.status(400).json({ error: "sourcePath, destDeviceId, destPath required" });
+        return;
+      }
+      assertAllowed(sourcePath, "copy");
+      const started = performance.now();
+      type Job = { local: string; remote: string };
+      const jobs: Job[] = [];
+      function walk(localDir: string, remoteDir: string): void {
+        for (const entry of fs.readdirSync(localDir, { withFileTypes: true })) {
+          if (entry.name === "node_modules" || entry.name === ".git") continue;
+          const lp = path.join(localDir, entry.name);
+          const rp = path.join(remoteDir, entry.name);
+          if (entry.isDirectory()) walk(lp, rp);
+          else jobs.push({ local: lp, remote: rp });
+        }
+      }
+      walk(sourcePath, destPath);
+      let bytes = 0;
+      await mapPool(jobs, 4, async (job) => {
+        const r = await remoteUploadFromLocal(destDeviceId, job.local, job.remote);
+        bytes += r.bytes;
+      });
+      const ms = Math.max(1, Math.round(performance.now() - started));
+      const mbps = Number(((bytes * 8) / (ms / 1000) / 1_000_000).toFixed(2));
+      const result = { files: jobs.length, bytes, ms, mbps };
+      appendActivity("sync_one_way", `${sourcePath} → ${destDeviceId}:${destPath}`, true, "ui");
+      res.json({ ok: true, result });
+    } catch (e) {
+      appendActivity("sync_one_way", e instanceof Error ? e.message : String(e), false, "ui");
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  app.get("/api/network", (_req, res) => {
+    res.json(networkInfo());
+  });
+
   app.post("/api/files/copy", async (req, res) => {
     try {
       if (!isLocalRequest(req)) {
@@ -336,48 +424,105 @@ export async function startServer(opts?: {
 
       if (srcLocal && destLocal) {
         const result = isDirectory
-          ? copyFolderLocal(sourcePath, destPath)
+          ? copyFolderResumable(sourcePath, destPath)
           : copyFileResumable(sourcePath, destPath);
-        appendActivity("copy", `${sourcePath} → ${destPath}`, true, "ui");
+        appendActivity(
+          "copy",
+          `${sourcePath} → ${destPath} (${result.mbps} Mbps, ${result.ms}ms)`,
+          true,
+          "ui",
+        );
         res.json({ ok: true, result });
         return;
       }
 
       if (!srcLocal && destLocal) {
+        const started = performance.now();
         if (isDirectory) {
-          // Expand remote listing and download files one by one (simple V1)
-          const entries = await remoteListDirectory(sourceDeviceId, sourcePath);
-          fs.mkdirSync(destPath, { recursive: true });
-          let files = 0;
-          let bytes = 0;
-          async function pullDir(remoteDir: string, localDir: string): Promise<void> {
+          type Job = { remote: string; local: string };
+          const jobs: Job[] = [];
+          async function collect(remoteDir: string, localDir: string): Promise<void> {
             const items = await remoteListDirectory(sourceDeviceId, remoteDir);
             fs.mkdirSync(localDir, { recursive: true });
             for (const item of items) {
               if (item.isDirectory) {
-                await pullDir(item.path, path.join(localDir, item.name));
+                await collect(item.path, path.join(localDir, item.name));
               } else {
-                const destFile = path.join(localDir, item.name);
-                const r = await remoteDownloadToLocal(sourceDeviceId, item.path, destFile);
-                files += 1;
-                bytes += r.bytes;
+                jobs.push({ remote: item.path, local: path.join(localDir, item.name) });
               }
             }
           }
-          await pullDir(sourcePath, destPath);
-          appendActivity("copy_remote", `${sourcePath} → ${destPath}`, true, "ui");
-          res.json({ ok: true, result: { files, bytes } });
+          await collect(sourcePath, destPath);
+          let bytes = 0;
+          await mapPool(jobs, 4, async (job) => {
+            const r = await remoteDownloadToLocal(sourceDeviceId, job.remote, job.local);
+            bytes += r.bytes;
+          });
+          const ms = Math.max(1, Math.round(performance.now() - started));
+          const mbps = Number(((bytes * 8) / (ms / 1000) / 1_000_000).toFixed(2));
+          const result = { files: jobs.length, bytes, ms, mbps, parallel: 4 };
+          appendActivity(
+            "copy_remote",
+            `${sourcePath} → ${destPath} (${mbps} Mbps, ${jobs.length} files)`,
+            true,
+            "ui",
+          );
+          res.json({ ok: true, result });
           return;
         }
         const r = await remoteDownloadToLocal(sourceDeviceId, sourcePath, destPath);
-        appendActivity("copy_remote", `${sourcePath} → ${destPath}`, true, "ui");
-        res.json({ ok: true, result: r });
+        const ms = Math.max(1, Math.round(performance.now() - started));
+        const mbps = Number(((r.bytes * 8) / (ms / 1000) / 1_000_000).toFixed(2));
+        const result = { ...r, ms, mbps };
+        appendActivity("copy_remote", `${sourcePath} → ${destPath} (${mbps} Mbps)`, true, "ui");
+        res.json({ ok: true, result });
+        return;
+      }
+
+      // Push from this Mac onto a remote device
+      if (srcLocal && !destLocal) {
+        const started = performance.now();
+        if (isDirectory) {
+          type Job = { local: string; remote: string };
+          const jobs: Job[] = [];
+          function walk(localDir: string, remoteDir: string): void {
+            for (const entry of fs.readdirSync(localDir, { withFileTypes: true })) {
+              if (entry.name === "node_modules" || entry.name === ".git") continue;
+              const lp = path.join(localDir, entry.name);
+              const rp = path.join(remoteDir, entry.name);
+              if (entry.isDirectory()) walk(lp, rp);
+              else jobs.push({ local: lp, remote: rp });
+            }
+          }
+          walk(sourcePath, destPath);
+          let bytes = 0;
+          await mapPool(jobs, 4, async (job) => {
+            const r = await remoteUploadFromLocal(destDeviceId, job.local, job.remote);
+            bytes += r.bytes;
+          });
+          const ms = Math.max(1, Math.round(performance.now() - started));
+          const mbps = Number(((bytes * 8) / (ms / 1000) / 1_000_000).toFixed(2));
+          const result = { files: jobs.length, bytes, ms, mbps, parallel: 4, direction: "push" };
+          appendActivity(
+            "copy_push",
+            `${sourcePath} → ${destDeviceId}:${destPath} (${mbps} Mbps)`,
+            true,
+            "ui",
+          );
+          res.json({ ok: true, result });
+          return;
+        }
+        const r = await remoteUploadFromLocal(destDeviceId, sourcePath, destPath);
+        const ms = Math.max(1, Math.round(performance.now() - started));
+        const mbps = Number(((r.bytes * 8) / (ms / 1000) / 1_000_000).toFixed(2));
+        const result = { ...r, ms, mbps, direction: "push" };
+        appendActivity("copy_push", `${sourcePath} → ${destPath} (${mbps} Mbps)`, true, "ui");
+        res.json({ ok: true, result });
         return;
       }
 
       res.status(400).json({
-        error:
-          "V1 supports copy onto this Mac (from local or remote). Push-to-remote comes next.",
+        error: "Unsupported copy direction for these device ids.",
       });
     } catch (e) {
       appendActivity("copy", e instanceof Error ? e.message : String(e), false, "ui");
@@ -410,6 +555,7 @@ export async function startServer(opts?: {
     });
   }
 
+  hydrateManualPeers();
   startDiscovery();
 
   await new Promise<void>((resolve, reject) => {

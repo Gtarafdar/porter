@@ -1,12 +1,55 @@
 import Bonjour from "bonjour-service";
 import type { DeviceInfo } from "@porter/protocol";
-import { loadConfig, localDevice } from "./config.js";
+import { loadConfig, localDevice, PORTER_DIR } from "./config.js";
 import os from "node:os";
+import fs from "node:fs";
+import path from "node:path";
 import { execSync } from "node:child_process";
 
 const SERVICE_TYPE = "porter";
 let bonjour: InstanceType<typeof Bonjour> | null = null;
 const remoteDevices = new Map<string, DeviceInfo>();
+const MANUAL_PEERS_PATH = path.join(PORTER_DIR, "manual-peers.json");
+
+function persistManualPeers(): void {
+  const peers = [...remoteDevices.values()].filter((d) => !d.isLocal);
+  fs.mkdirSync(PORTER_DIR, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(MANUAL_PEERS_PATH, JSON.stringify(peers, null, 2), { mode: 0o600 });
+}
+
+export function hydrateManualPeers(): void {
+  try {
+    if (!fs.existsSync(MANUAL_PEERS_PATH)) return;
+    const peers = JSON.parse(fs.readFileSync(MANUAL_PEERS_PATH, "utf8")) as DeviceInfo[];
+    for (const p of peers) {
+      if (!p?.id || p.isLocal) continue;
+      remoteDevices.set(p.id, { ...p, online: true });
+    }
+  } catch {
+    // ignore
+  }
+}
+
+export function registerManualPeer(input: {
+  id: string;
+  name: string;
+  host: string;
+  port: number;
+}): DeviceInfo {
+  const via = input.host.startsWith("100.") ? "tailscale" : "lan";
+  const device: DeviceInfo = {
+    id: input.id,
+    name: input.name,
+    host: input.host,
+    port: input.port,
+    online: true,
+    isLocal: false,
+    via,
+  };
+  remoteDevices.set(input.id, device);
+  persistManualPeers();
+  return device;
+}
 
 function getTailscaleStatus(): { selfIp?: string; peerIps: Map<string, string> } {
   const peerIps = new Map<string, string>();
@@ -152,4 +195,40 @@ export function getDevice(id: string): DeviceInfo | undefined {
 export function localLanHint(): string {
   const addrs = lanAddresses();
   return addrs[0] ?? "127.0.0.1";
+}
+
+export function networkInfo() {
+  const ts = getTailscaleStatus();
+  const lan = lanAddresses();
+  const bonjourDisabled = process.env.PORTER_NO_BONJOUR === "1";
+  const remotes = [...remoteDevices.values()];
+  return {
+    lanIps: lan,
+    primaryLan: lan[0] ?? null,
+    tailscale: {
+      available: Boolean(ts.selfIp),
+      selfIp: ts.selfIp ?? null,
+      peerCount: ts.peerIps.size,
+    },
+    bonjour: {
+      enabled: !bonjourDisabled && bonjour !== null,
+      disabledByEnv: bonjourDisabled,
+      discoveredPeers: remotes.length,
+    },
+    devices: listDevices().map((d) => ({
+      id: d.id,
+      name: d.name,
+      via: d.via,
+      host: d.host,
+      online: d.online,
+    })),
+    guidance: [
+      "Same Wi‑Fi / LAN is usually fastest (often 50–900+ Mbps on Gigabit).",
+      "Tailscale works off-LAN but adds latency — Porter prefers 100.x when Tailscale is up.",
+      "Large folders use parallel file pulls (4 at a time) + 2 MiB chunks.",
+      bonjourDisabled
+        ? "Bonjour auto-discovery is off for stability on this Mac; add peers via same pair token + Tailscale/LAN IP when needed."
+        : "Bonjour advertises this Mac on the LAN automatically.",
+    ],
+  };
 }

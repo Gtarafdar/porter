@@ -12,11 +12,8 @@ import { fileURLToPath } from "node:url";
 import { createHash, randomBytes } from "node:crypto";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// src/__tests__ → ../../.. ; dist/__tests__ → ../../../..
-const ROOT = path.resolve(
-  __dirname,
-  __dirname.includes(`${path.sep}dist${path.sep}`) ? "../../../.." : "../../..",
-);
+// packages/core/src/__tests__ OR packages/core/dist/__tests__ → repo root
+const ROOT = path.resolve(__dirname, "../../../..");
 const PORT = Number(process.env.PORTER_TEST_PORT || 0) || 47000 + Math.floor(Math.random() * 1000);
 const BASE = `http://127.0.0.1:${PORT}`;
 
@@ -163,7 +160,10 @@ describe("Porter e2e", { timeout: 60_000 }, () => {
   it("copies file into write inbox with checksum", async () => {
     const dest = path.join(tmpInbox, "hello-copy.txt");
     const device = await json<{ id: string }>(`${BASE}/api/device`);
-    const result = await json<{ ok: boolean; result: { sha256?: string } }>(
+    const result = await json<{
+      ok: boolean;
+      result: { sha256?: string; bytes?: number; mbps?: number; ms?: number };
+    }>(
       `${BASE}/api/files/copy`,
       {
         method: "POST",
@@ -180,6 +180,8 @@ describe("Porter e2e", { timeout: 60_000 }, () => {
     assert.ok(fs.existsSync(dest));
     assert.equal(fs.readFileSync(dest, "utf8"), "porter-e2e-hello\n");
     assert.ok(result.result.sha256);
+    assert.equal(typeof result.result.mbps, "number");
+    assert.ok((result.result.mbps ?? 0) >= 0);
   });
 
   it("copies folder", async () => {

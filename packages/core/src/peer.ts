@@ -1,6 +1,12 @@
 import type { DeviceInfo, FileEntry, SearchHit, SharedFolder } from "@porter/protocol";
-import { loadConfig, saveConfig } from "./config.js";
-import { getDevice } from "./discovery.js";
+import { getDevice, listDevices, registerManualPeer } from "./discovery.js";
+import fs from "node:fs";
+import path from "node:path";
+import {
+  appendActivity,
+  loadConfig,
+  saveConfig,
+} from "./config.js";
 
 async function peerFetch(
   device: DeviceInfo,
@@ -13,7 +19,7 @@ async function peerFetch(
   headers.set("Authorization", `Bearer ${config.token}`);
   headers.set("X-Porter-Device", config.deviceId);
   headers.set("X-Porter-Pair", config.token);
-  return fetch(url, { ...init, headers, signal: AbortSignal.timeout(60_000) });
+  return fetch(url, { ...init, headers, signal: AbortSignal.timeout(120_000) });
 }
 
 export async function remoteListFolders(deviceId: string): Promise<SharedFolder[]> {
@@ -81,8 +87,6 @@ export async function remoteDownloadToLocal(
   );
   if (!res.ok) throw new Error(await res.text());
   const buf = Buffer.from(await res.arrayBuffer());
-  const fs = await import("node:fs");
-  const path = await import("node:path");
   const { assertAllowed } = await import("./files.js");
   assertAllowed(path.dirname(localDest), "write");
   fs.mkdirSync(path.dirname(localDest), { recursive: true });
@@ -90,10 +94,77 @@ export async function remoteDownloadToLocal(
   return { bytes: buf.length };
 }
 
-/**
- * Personal LAN auth: devices that share the same pair secret (token copied once)
- * or that have been explicitly paired. Set the same token on both Macs via UI.
- */
+/** Push a local file onto a remote Porter (remote must allow write on dest folder). */
+export async function remoteUploadFromLocal(
+  deviceId: string,
+  localPath: string,
+  remoteDest: string,
+): Promise<{ bytes: number }> {
+  const device = getDevice(deviceId);
+  if (!device || device.isLocal) throw new Error("Remote device not found");
+  const { assertAllowed } = await import("./files.js");
+  assertAllowed(localPath, "copy");
+  const buf = fs.readFileSync(localPath);
+  const res = await peerFetch(
+    device,
+    `/api/files/upload?path=${encodeURIComponent(remoteDest)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: buf,
+    },
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return { bytes: buf.length };
+}
+
+export async function pingPeer(
+  host: string,
+  port: number,
+): Promise<{ ok: boolean; deviceId?: string; deviceName?: string }> {
+  const config = loadConfig();
+  const res = await fetch(`http://${host}:${port}/api/health`, {
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!res.ok) return { ok: false };
+  const data = (await res.json()) as {
+    ok?: boolean;
+    deviceId?: string;
+    deviceName?: string;
+  };
+  const folders = await fetch(`http://${host}:${port}/api/folders`, {
+    headers: {
+      Authorization: `Bearer ${config.token}`,
+      "X-Porter-Device": config.deviceId,
+      "X-Porter-Pair": config.token,
+    },
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!folders.ok) {
+    throw new Error(
+      "Peer reachable but pair token rejected. Use the same token on both Macs.",
+    );
+  }
+  return { ok: true, deviceId: data.deviceId, deviceName: data.deviceName };
+}
+
+export async function addPeerByAddress(
+  host: string,
+  port: number,
+  label?: string,
+): Promise<DeviceInfo> {
+  const ping = await pingPeer(host, port);
+  if (!ping.ok || !ping.deviceId) throw new Error("Could not reach peer health endpoint");
+  const device = registerManualPeer({
+    id: ping.deviceId,
+    name: label || ping.deviceName || host,
+    host,
+    port,
+  });
+  appendActivity("peer_add", `${device.name} @ ${host}:${port}`, true, "ui");
+  return device;
+}
+
 export function authorizePeer(
   authHeader: string | undefined,
   peerId: string | undefined,
@@ -105,7 +176,6 @@ export function authorizePeer(
     : "";
   const pair = pairHeader?.trim() || bearer;
 
-  // Shared household secret: identical token on both machines
   if (pair && pair === config.token) {
     if (peerId && !config.pairedDeviceIds.includes(peerId)) {
       config.pairedDeviceIds.push(peerId);
@@ -128,4 +198,8 @@ export function setSharedToken(token: string): void {
   const config = loadConfig();
   config.token = token.trim();
   saveConfig(config);
+}
+
+export function listKnownDevices(): DeviceInfo[] {
+  return listDevices();
 }

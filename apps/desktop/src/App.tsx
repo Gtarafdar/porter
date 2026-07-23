@@ -61,6 +61,9 @@ export function App() {
   const [pairToken, setPairToken] = useState("");
   const [showWizard, setShowWizard] = useState(false);
   const [wizardChecked, setWizardChecked] = useState(false);
+  const [netHint, setNetHint] = useState<string>("");
+  const [peerHost, setPeerHost] = useState("");
+  const [peerPort, setPeerPort] = useState("47831");
 
   const [left, setLeft] = useState<PaneState | null>(null);
   const [right, setRight] = useState<PaneState | null>(null);
@@ -82,6 +85,17 @@ export function App() {
     setSettings(s);
     setActivity(a);
     setPairToken(s.token);
+    try {
+      const n = await porter.network();
+      const parts = [
+        n.primaryLan ? `LAN ${n.primaryLan}` : null,
+        n.tailscale.available ? `Tailscale ${n.tailscale.selfIp}` : "Tailscale off",
+        n.bonjour.enabled ? "Bonjour on" : "Bonjour off",
+      ].filter(Boolean);
+      setNetHint(parts.join(" · "));
+    } catch {
+      // ignore
+    }
     return { d, f, s };
   }, []);
 
@@ -182,7 +196,7 @@ export function App() {
   async function doCopy() {
     if (!confirmCopy || !localDevice) return;
     try {
-      await porter.copy({
+      const res = await porter.copy({
         sourceDeviceId: confirmCopy.sourceDeviceId,
         sourcePath: confirmCopy.source.path,
         destDeviceId: localDevice.id,
@@ -192,7 +206,12 @@ export function App() {
       setConfirmCopy(null);
       if (right) await navigate("right", right.path);
       await refreshMeta();
-      showToast("Copy complete");
+      const r = res.result;
+      const speed =
+        r?.mbps != null
+          ? ` · ${r.mbps} Mbps` + (r.ms != null ? ` · ${r.ms} ms` : "")
+          : "";
+      showToast(`Copy complete${speed}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -319,6 +338,7 @@ export function App() {
                 Private bridge · {settings?.name ?? "…"}
                 {settings ? ` · ${settings.lan}` : ""}
                 {settings?.sleeping ? " · sleeping" : ""}
+                {netHint ? ` · ${netHint}` : ""}
               </span>
             </div>
           </div>
@@ -508,8 +528,9 @@ export function App() {
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <h2>Settings</h2>
             <p>
-              No Apple Developer account needed. Run Porter with Node on each Mac. Put the{" "}
-              <strong>same pair token</strong> on both machines so they trust each other.
+              Not automatic via Apple ID. On the other Mac: install Porter, paste the{" "}
+              <strong>same pair token</strong>, then add this Mac’s IP below (see{" "}
+              <code>CONNECTING.md</code>).
             </p>
             <div className="field">
               <label>Device name</label>
@@ -529,6 +550,23 @@ export function App() {
                 onChange={(e) => setPairToken(e.target.value)}
               />
             </div>
+            <div className="field">
+              <label>Add other Mac (LAN or Tailscale IP)</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  value={peerHost}
+                  onChange={(e) => setPeerHost(e.target.value)}
+                  placeholder="192.168.0.50 or 100.x.x.x"
+                  style={{ flex: 1 }}
+                />
+                <input
+                  value={peerPort}
+                  onChange={(e) => setPeerPort(e.target.value)}
+                  style={{ width: 80 }}
+                  placeholder="47831"
+                />
+              </div>
+            </div>
             <label style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
               <input
                 type="checkbox"
@@ -544,6 +582,22 @@ export function App() {
             <div className="row">
               <button className="btn" type="button" onClick={() => setShowSettings(false)}>
                 Close
+              </button>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  void porter
+                    .addPeer(peerHost.trim(), Number(peerPort) || 47831)
+                    .then((d) => {
+                      showToast(`Connected to ${d.name}`);
+                      setPeerHost("");
+                      void refreshMeta();
+                    })
+                    .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+                }}
+              >
+                Add peer
               </button>
               <button
                 className="btn primary"

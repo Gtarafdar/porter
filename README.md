@@ -4,22 +4,23 @@ Private **AI + Finder-like** file bridge across your Macs. No cloud. No paid ser
 
 > Securely let Cursor (and you) find, browse, and copy approved folders between computers.
 
-**Full roadmap & status:** see [PLAN.md](PLAN.md) (use this when iterating from phone or another Mac).
+**Full roadmap:** [PLAN.md](PLAN.md) · **Connect a second Mac:** [CONNECTING.md](CONNECTING.md) (not automatic — same pair token + Add peer IP)
 
 ## What’s new in 0.2
 
 - Setup wizard (Cursor MCP one-click install — keeps Slack Agent Bridge entries)
 - Professional Porter icons + Finder SVG icons (no emoji)
 - Menu bar app: `npm run menubar:build` → `open apps/mac-menubar/dist/Porter.app`
-- Sleep / Wake, Tailscale IP preference, chunked copy + SHA-256
+- Sleep / Wake, Tailscale IP preference, chunked copy + SHA-256 + Mbps
+- **Add peer by IP**, **push to remote**, **one-way sync**
 - `npm run test:e2e` — 10 automated checks
 
-## Requirements
+## What you get
 
 - **Finder-style UI** — browse approved folders on this Mac (and paired Macs) with icons/list, breadcrumbs, dual-pane copy
 - **Cursor MCP** — `list_devices`, `list_directory`, `search_files`, `read_file`, `copy_file`, `copy_folder`, …
 - **On-demand** — start when you need it; Disconnect all kills the process
-- **$0 infra** — LAN via Bonjour; optional free Tailscale for home ↔ office
+- **$0 infra** — LAN / Tailscale; no Porter cloud
 - **Security defaults** — folder allowlists, secret-file blocks, dangerous path blocks, activity log, pair token
 
 ## Requirements
@@ -27,7 +28,9 @@ Private **AI + Finder-like** file bridge across your Macs. No cloud. No paid ser
 - Node.js 20+
 - Two Macs on the same Wi‑Fi (or Tailscale)
 
-**No paid Apple Developer account.** Porter runs as Node + a local web UI. Open it in your browser (or keep the window handy). Optional later: wrap in an unsigned `.app` with ad-hoc `codesign --sign -` and right-click → Open.
+**No paid Apple Developer account.** Porter runs as Node + a local web UI.
+
+**Not Apple-ID sync. Not a phone app (yet).**
 
 ## Install (each Mac)
 
