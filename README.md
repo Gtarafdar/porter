@@ -8,9 +8,9 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 
 Pick your Mac chip (smaller downloads — about half the old universal zip):
 
-> **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.15-mac-arm64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.15-mac-arm64.zip)  
-> **Intel Mac:** [⬇ Porter-0.2.15-mac-x64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.15-mac-x64.zip)  
-> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.15 · [All releases](https://github.com/Gtarafdar/porter/releases)
+> **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.16-mac-arm64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.16-mac-arm64.zip)  
+> **Intel Mac:** [⬇ Porter-0.2.16-mac-x64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.16-mac-x64.zip)  
+> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.16 · [All releases](https://github.com/Gtarafdar/porter/releases)
 
 Not sure which chip?  menu → About This Mac → look for “Chip” (Apple) or “Processor” (Intel).
 
@@ -26,6 +26,13 @@ Not sure which chip?  menu → About This Mac → look for “Chip” (Apple)
 **Chrome:** Everyday file copy never requires quitting Chrome. Optional Chrome-extension sync only: quit Chrome → share/copy folders → reopen (see Settings).
 
 **Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Roadmap:** [PLAN.md](PLAN.md)
+
+## What’s new in 0.2.16
+
+- Dead Cloudflare URLs no longer dump HTML — clear “URL changed” guidance + use Tailscale fallback
+- Home Devices lists the travel Mac after it connects (inbound peer)
+- Setup wizard Home shows Copy rows for token / LAN / Cloudflare / Tailscale (same labels as paste fields)
+- Chrome Extension Data share no longer shows a false error banner
 
 ## What’s new in 0.2.15
 

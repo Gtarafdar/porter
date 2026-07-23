@@ -32,7 +32,29 @@ export function SetupWizard({
   const [nativePicker, setNativePicker] = useState(false);
   const [pairRole, setPairRole] = useState<PairRole>(null);
   const [peerAddress, setPeerAddress] = useState("");
+  const [peerFallback, setPeerFallback] = useState("");
   const [homeTokenSnapshot, setHomeTokenSnapshot] = useState("");
+  const [shareLinks, setShareLinks] = useState<{
+    lan: string | null;
+    tailscale: string | null;
+    cloudflare: string | null;
+    port: number;
+  } | null>(null);
+  const [linksBusy, setLinksBusy] = useState(false);
+
+  async function refreshShareLinks() {
+    try {
+      const [n, t] = await Promise.all([porter.network(), porter.tunnelStatus()]);
+      setShareLinks({
+        lan: n.primaryLan,
+        tailscale: n.tailscale.selfIp,
+        cloudflare: t.publicUrl,
+        port: 47831,
+      });
+    } catch {
+      // ignore
+    }
+  }
 
   async function refresh() {
     const s = await porter.setup();
@@ -40,6 +62,7 @@ export function SetupWizard({
     setName(s.deviceName);
     setToken(s.token);
     if (!homeTokenSnapshot) setHomeTokenSnapshot(s.token);
+    if (s.step === 3) void refreshShareLinks();
     return s;
   }
 
@@ -121,7 +144,12 @@ export function SetupWizard({
             .replace(/^fallback:\s*/i, "")
             .replace(/^["']|["']$/g, "");
           try {
-            const d = await porter.addPeer(addr);
+            const d = await porter.addPeer(
+              addr,
+              47831,
+              undefined,
+              peerFallback.trim() || undefined,
+            );
             joinNote = `Linked to ${d.name}.`;
           } catch (e) {
             const raw = e instanceof Error ? e.message : String(e);
@@ -129,9 +157,12 @@ export function SetupWizard({
             if (/pair token rejected|Unauthorized/i.test(raw)) {
               joinNote =
                 "Token may not match Home yet. Continue, then fix token in Add Mac.";
+            } else if (/1033|Cloudflare tunnel|HTML error|trycloudflare/i.test(raw)) {
+              joinNote =
+                "Cloudflare URL looks dead. Copy a fresh URL from Home Add Mac, then retry Connect.";
             } else {
               joinNote =
-                "Home not reachable right now (check Cloudflare URL). Token saved — retry Connect in Add Mac.";
+                "Home not reachable right now (check Cloudflare URL + Tailscale fallback). Token saved — retry in Add Mac.";
             }
           }
         } else if (pairRole === "join") {
@@ -283,6 +314,7 @@ export function SetupWizard({
                     setPairRole("home");
                     setToken(homeTokenSnapshot || token);
                     setMsg(null);
+                    void refreshShareLinks();
                   }}
                 >
                   <strong>This is Home</strong>
@@ -304,25 +336,140 @@ export function SetupWizard({
 
               {pairRole === "home" && (
                 <>
-                  <div className="field">
-                    <label>Your pair token (copy this to the other Mac)</label>
-                    <textarea rows={3} value={token} readOnly />
-                  </div>
-                  <div className="row" style={{ justifyContent: "flex-start", marginTop: 0 }}>
-                    <button
-                      className="btn primary"
-                      type="button"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(token);
-                        setMsg("Token copied — paste it on the other Mac under “Join Home Mac”.");
-                      }}
-                    >
-                      Copy token
-                    </button>
+                  <div className="connect-block" style={{ borderBottom: 0, marginBottom: 0, paddingBottom: 0 }}>
+                    <h3>Copy these for the travel Mac</h3>
+                    <p className="connect-hint">
+                      Labels match the paste fields on the other Mac (Add Mac / Join).
+                    </p>
+                    <div className="share-rows">
+                      <div className="share-row">
+                        <div>
+                          <span className="share-label">
+                            Pair token — paste into “Pair token on this Mac”
+                          </span>
+                          <code className="share-url">{token}</code>
+                        </div>
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(token);
+                            setMsg("Pair token copied");
+                          }}
+                        >
+                          Copy
+                        </button>
+                      </div>
+                      <div className="share-row">
+                        <div>
+                          <span className="share-label">
+                            Other Mac address (LAN) — paste into “Other Mac address”
+                          </span>
+                          <code>{shareLinks?.lan || "—"}</code>
+                        </div>
+                        <button
+                          className="btn"
+                          type="button"
+                          disabled={!shareLinks?.lan}
+                          onClick={() => {
+                            if (!shareLinks?.lan) return;
+                            void navigator.clipboard.writeText(shareLinks.lan);
+                            setMsg("LAN address copied");
+                          }}
+                        >
+                          Copy
+                        </button>
+                      </div>
+                      <div className="share-row">
+                        <div>
+                          <span className="share-label">
+                            Other Mac address (Cloudflare URL) — paste into “Other Mac address”
+                          </span>
+                          <code className="share-url">
+                            {shareLinks?.cloudflare || "Not started — tap Start tunnel"}
+                          </code>
+                        </div>
+                        {shareLinks?.cloudflare ? (
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(shareLinks.cloudflare!);
+                              setMsg("Cloudflare URL copied");
+                            }}
+                          >
+                            Copy
+                          </button>
+                        ) : (
+                          <button
+                            className="btn primary"
+                            type="button"
+                            disabled={linksBusy}
+                            onClick={() => {
+                              setLinksBusy(true);
+                              void porter
+                                .startTunnel()
+                                .then(async (r) => {
+                                  setMsg(
+                                    r.publicUrl
+                                      ? "Tunnel ready — Copy Cloudflare URL"
+                                      : "Tunnel started — wait a moment then Copy",
+                                  );
+                                  await refreshShareLinks();
+                                })
+                                .catch((e) =>
+                                  setMsg(e instanceof Error ? e.message : String(e)),
+                                )
+                                .finally(() => setLinksBusy(false));
+                            }}
+                          >
+                            Start tunnel
+                          </button>
+                        )}
+                      </div>
+                      <div className="share-row">
+                        <div>
+                          <span className="share-label">
+                            Fallback (Tailscale) — paste into “Fallback”
+                          </span>
+                          <code>
+                            {shareLinks?.tailscale
+                              ? `${shareLinks.tailscale}:${shareLinks.port}`
+                              : "Install Tailscale for travel backup"}
+                          </code>
+                        </div>
+                        {shareLinks?.tailscale ? (
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() => {
+                              const v = `${shareLinks.tailscale}:${shareLinks.port}`;
+                              void navigator.clipboard.writeText(v);
+                              setMsg("Tailscale fallback copied");
+                            }}
+                          >
+                            Copy
+                          </button>
+                        ) : (
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() => {
+                              void porter.openTailscaleDownload().then((r) => {
+                                window.open(r.url, "_blank");
+                                setMsg(r.note);
+                              });
+                            }}
+                          >
+                            Get Tailscale
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <div className="callout">
-                    On the other Mac: choose <strong>Join Home Mac</strong>, paste this token, then
-                    add this Mac’s LAN IP, Tailscale IP, or Cloudflare HTTPS URL (Travel Ready).
+                    On travel: choose <strong>Join Home Mac</strong>, paste token + Cloudflare URL,
+                    and Tailscale as Fallback (required if the Cloudflare link changes after reboot).
                   </div>
                 </>
               )}
@@ -330,7 +477,7 @@ export function SetupWizard({
               {pairRole === "join" && (
                 <>
                   <div className="field">
-                    <label>Paste pair token from Home Mac</label>
+                    <label>Pair token on this Mac (paste from Home)</label>
                     <textarea
                       rows={3}
                       value={token}
@@ -339,16 +486,24 @@ export function SetupWizard({
                     />
                   </div>
                   <div className="field">
-                    <label>Home Mac address (LAN IP or Cloudflare https://… URL)</label>
+                    <label>Other Mac address (LAN or Cloudflare URL from Home)</label>
                     <input
                       value={peerAddress}
                       onChange={(e) => setPeerAddress(e.target.value)}
                       placeholder="https://….trycloudflare.com or 192.168.x.x"
                     />
                   </div>
+                  <div className="field">
+                    <label>Fallback (optional Tailscale from Home)</label>
+                    <input
+                      value={peerFallback}
+                      onChange={(e) => setPeerFallback(e.target.value)}
+                      placeholder="100.x.x.x:47831"
+                    />
+                  </div>
                   <div className="callout">
-                    Copy these from Home’s <strong>Add Mac</strong> panel (Copy buttons). If Home
-                    isn’t online yet, Continue still works — you can Connect later.
+                    Copy each value from Home’s matching labeled Copy buttons. If Cloudflare fails
+                    later, Tailscale fallback keeps you connected.
                   </div>
                 </>
               )}

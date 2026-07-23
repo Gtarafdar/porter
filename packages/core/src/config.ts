@@ -184,7 +184,14 @@ export function appendActivity(
 
 /** Turn raw errors into short user-facing text. */
 export function humanError(err: unknown): string {
-  const msg = err instanceof Error ? err.message : String(err);
+  const raw = err instanceof Error ? err.message : String(err);
+  const msg = sanitizePeerBody(raw);
+  if (
+    /cloudflare tunnel|error 1033|trycloudflare|unable to resolve/i.test(msg) ||
+    /<!DOCTYPE html|<html/i.test(raw)
+  ) {
+    return "Cloudflare tunnel URL is dead or changed. On Home: Travel Ready or Add Mac → Copy the new Cloudflare URL (and Tailscale fallback). On this Mac: Add Mac → paste the new URL.";
+  }
   if (msg.includes("Unauthorized") || msg.includes("pair token")) {
     return "Pair token mismatch — paste the same token on both Macs (Settings).";
   }
@@ -207,6 +214,20 @@ export function humanError(err: unknown): string {
     return "Quit Google Chrome completely on both Macs, then try again.";
   }
   return msg;
+}
+
+/** Strip HTML / huge Cloudflare pages so the Finder UI never dumps source. */
+export function sanitizePeerBody(text: string): string {
+  const t = (text || "").trim();
+  if (!t) return "Peer request failed";
+  if (/<!DOCTYPE html|<html|Cloudflare Tunnel error|Error 1033/i.test(t)) {
+    if (/1033|unable to resolve|trycloudflare/i.test(t)) {
+      return "Cloudflare tunnel error 1033 — URL expired or tunnel offline";
+    }
+    return "Remote Mac returned an HTML error page (tunnel/network)";
+  }
+  if (t.length > 280) return `${t.slice(0, 240)}…`;
+  return t;
 }
 
 export function addSharedFolder(

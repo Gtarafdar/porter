@@ -60,6 +60,9 @@ function pathLabel(d: DeviceInfo): { badge: string; detail: string; kind: string
 }
 
 function friendlyError(msg: string): string {
+  if (/<!DOCTYPE html|<html|Error 1033|Cloudflare Tunnel error|unable to resolve/i.test(msg)) {
+    return "Cloudflare tunnel URL is dead or changed. On Home Mac: Add Mac → Copy Cloudflare URL + Tailscale fallback. On this Mac: paste the NEW URL (and Tailscale as Fallback).";
+  }
   if (msg.includes("Unauthorized") || msg.includes("pair token")) {
     return "Pair token mismatch — paste the same token on both Macs (Settings → Save token).";
   }
@@ -72,12 +75,10 @@ function friendlyError(msg: string): string {
   if (msg.includes("ENOTFOUND") || msg.includes("getaddrinfo")) {
     return "Could not reach the other Mac. Check Cloudflare/Tailscale path under Devices.";
   }
-  if (msg.includes("ECONNREFUSED") || msg.includes("fetch failed")) {
-    return "Connection refused — is Porter running on the other Mac?";
-  }
   if (msg.includes("timeout") || msg.includes("Timed out") || msg.includes("AbortError")) {
     return "Timed out. Open Devices and see if Cloudflare or Tailscale is the active link.";
   }
+  if (msg.length > 320) return `${msg.slice(0, 280)}…`;
   return msg;
 }
 
@@ -169,7 +170,7 @@ export function App() {
         if (side === "left") setLeft(pane);
         else setRight(pane);
       } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
+        setError(friendlyError(e instanceof Error ? e.message : String(e)));
       }
     },
     [],
@@ -185,7 +186,7 @@ export function App() {
         if (side === "left") setLeft(next);
         else setRight(next);
       } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
+        setError(friendlyError(e instanceof Error ? e.message : String(e)));
       }
     },
     [left, right],
@@ -412,8 +413,9 @@ export function App() {
             </h3>
             {devices.filter((d) => !d.isLocal).length === 0 && (
               <div className="side-hint">
-                No other Mac yet. Click <strong>Add Mac</strong> — 3 steps: copy your IP, match
-                the pair token, paste the other Mac’s IP.
+                No other Mac listed yet. On <strong>both</strong> Macs: same pair token, then{" "}
+                <strong>Add Mac</strong> and paste the other side’s Cloudflare URL + Tailscale
+                fallback. After travel connects once, Home should show it here automatically.
               </div>
             )}
             {devices.map((d) => (
@@ -632,7 +634,9 @@ export function App() {
                     <div className="share-rows">
                       <div className="share-row">
                         <div>
-                          <span className="share-label">LAN IP (same Wi‑Fi)</span>
+                          <span className="share-label">
+                            Other Mac address (LAN) — paste into “Other Mac address”
+                          </span>
                           <code>{shareLinks?.lan || settings.lan || "—"}</code>
                         </div>
                         <button
@@ -640,7 +644,10 @@ export function App() {
                           type="button"
                           disabled={!(shareLinks?.lan || settings.lan)}
                           onClick={() =>
-                            copyShareValue("LAN IP", shareLinks?.lan || settings.lan || "")
+                            copyShareValue(
+                              "Other Mac address (LAN)",
+                              shareLinks?.lan || settings.lan || "",
+                            )
                           }
                         >
                           Copy
@@ -648,42 +655,11 @@ export function App() {
                       </div>
                       <div className="share-row">
                         <div>
-                          <span className="share-label">Tailscale IP (travel backup)</span>
-                          <code>{shareLinks?.tailscale || "Not connected"}</code>
-                        </div>
-                        {shareLinks?.tailscale ? (
-                          <button
-                            className="btn"
-                            type="button"
-                            onClick={() =>
-                              copyShareValue(
-                                "Tailscale",
-                                `${shareLinks.tailscale}:${shareLinks.port}`,
-                              )
-                            }
-                          >
-                            Copy
-                          </button>
-                        ) : (
-                          <button
-                            className="btn"
-                            type="button"
-                            onClick={() => {
-                              void porter.openTailscaleDownload().then((r) => {
-                                window.open(r.url, "_blank");
-                                setSettingsMsg(r.note);
-                              });
-                            }}
-                          >
-                            Get Tailscale
-                          </button>
-                        )}
-                      </div>
-                      <div className="share-row">
-                        <div>
-                          <span className="share-label">Cloudflare URL (travel)</span>
+                          <span className="share-label">
+                            Other Mac address (Cloudflare URL) — paste into “Other Mac address”
+                          </span>
                           <code className="share-url">
-                            {shareLinks?.cloudflare || "Not started yet"}
+                            {shareLinks?.cloudflare || "Not started yet — tap Start tunnel"}
                           </code>
                         </div>
                         {shareLinks?.cloudflare ? (
@@ -691,7 +667,10 @@ export function App() {
                             className="btn"
                             type="button"
                             onClick={() =>
-                              copyShareValue("Cloudflare URL", shareLinks.cloudflare!)
+                              copyShareValue(
+                                "Other Mac address (Cloudflare URL)",
+                                shareLinks.cloudflare!,
+                              )
                             }
                           >
                             Copy
@@ -708,7 +687,9 @@ export function App() {
                                 .startTunnel()
                                 .then(async (r) => {
                                   if (r.publicUrl) {
-                                    setSettingsMsg("Tunnel ready — Copy and send to the other Mac.");
+                                    setSettingsMsg(
+                                      "Tunnel ready — Copy Cloudflare URL and send to the other Mac.",
+                                    );
                                     showToast("Cloudflare URL ready");
                                   } else {
                                     setSettingsMsg(
@@ -733,13 +714,54 @@ export function App() {
                       </div>
                       <div className="share-row">
                         <div>
-                          <span className="share-label">Pair token (must match)</span>
+                          <span className="share-label">
+                            Fallback (Tailscale) — paste into “Fallback”
+                          </span>
+                          <code>
+                            {shareLinks?.tailscale
+                              ? `${shareLinks.tailscale}:${shareLinks.port}`
+                              : "Not connected"}
+                          </code>
+                        </div>
+                        {shareLinks?.tailscale ? (
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() =>
+                              copyShareValue(
+                                "Fallback (Tailscale)",
+                                `${shareLinks.tailscale}:${shareLinks.port}`,
+                              )
+                            }
+                          >
+                            Copy
+                          </button>
+                        ) : (
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() => {
+                              void porter.openTailscaleDownload().then((r) => {
+                                window.open(r.url, "_blank");
+                                setSettingsMsg(r.note);
+                              });
+                            }}
+                          >
+                            Get Tailscale
+                          </button>
+                        )}
+                      </div>
+                      <div className="share-row">
+                        <div>
+                          <span className="share-label">
+                            Pair token — paste into “Pair token on this Mac”
+                          </span>
                           <code className="share-url">{pairToken || "—"}</code>
                         </div>
                         <button
                           className="btn"
                           type="button"
-                          onClick={() => copyShareValue("pair token", pairToken)}
+                          onClick={() => copyShareValue("Pair token", pairToken)}
                         >
                           Copy
                         </button>
@@ -841,25 +863,36 @@ export function App() {
                     <label>Chrome extensions (optional)</label>
                     <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: 13 }}>
                       Everyday file copy never needs quitting Chrome. Only for syncing extension
-                      folders: quit Chrome → share → copy → reopen.
+                      folders: quit Chrome → share → copy to the other Mac’s same paths → reopen.
                     </p>
                     <button
                       className="btn"
                       type="button"
                       onClick={() => {
                         void porter
-                          .shareChromeExtensions()
+                          .chromeStatus()
+                          .then((st) => {
+                            if (st.chromeRunning) {
+                              setSettingsMsg(st.note);
+                              showToast("Quit Google Chrome first");
+                              return null;
+                            }
+                            return porter.shareChromeExtensions();
+                          })
                           .then((r) => {
+                            if (!r) return;
                             showToast(
                               r.added.length
-                                ? `Shared ${r.added.length} Chrome folder(s)`
-                                : "Nothing new to share",
+                                ? `Shared: ${r.added.join(", ")}`
+                                : "Chrome folders already shared",
                             );
-                            setError(r.warning ?? null);
+                            setSettingsMsg(r.warning);
                             void refreshMeta();
                           })
                           .catch((e) =>
-                            setError(friendlyError(e instanceof Error ? e.message : String(e))),
+                            setSettingsMsg(
+                              friendlyError(e instanceof Error ? e.message : String(e)),
+                            ),
                           );
                       }}
                     >

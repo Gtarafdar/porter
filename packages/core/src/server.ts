@@ -104,6 +104,11 @@ export async function startServer(opts?: {
       req.header("authorization") ?? undefined,
       req.header("x-porter-device") ?? undefined,
       req.header("x-porter-pair") ?? undefined,
+      {
+        name: req.header("x-porter-device-name") ?? undefined,
+        replyLan: req.header("x-porter-reply-lan") ?? undefined,
+        replyTailscale: req.header("x-porter-reply-tailscale") ?? undefined,
+      },
     );
     if (!ok) {
       res.status(401).json({ error: "Unauthorized peer. Pair devices with the same secret token." });
@@ -121,7 +126,7 @@ export async function startServer(opts?: {
       deviceId: c.deviceId,
       deviceName: c.deviceName,
       sleeping: c.sleeping,
-      version: "0.2.0",
+      version: "0.2.16",
       // Do not leak LAN details to remote/tunnel clients
       ...(local ? { lan: localLanHint() } : {}),
     });

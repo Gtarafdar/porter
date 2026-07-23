@@ -167,6 +167,65 @@ export function registerManualPeer(input: {
   return device;
 }
 
+/**
+ * When another Mac calls us (same pair token), show it under Devices.
+ * Prefer Tailscale reply address so Home can reach Travel later.
+ */
+export function noteSeenPeer(input: {
+  id: string;
+  name?: string;
+  replyLan?: string;
+  replyTailscale?: string;
+}): void {
+  const config = loadConfig();
+  if (!input.id || input.id === config.deviceId) return;
+  const existing = remoteDevices.get(input.id);
+  const reply =
+    (input.replyTailscale && input.replyTailscale.startsWith("100.")
+      ? input.replyTailscale
+      : null) ||
+    (input.replyLan && /^\d+\.\d+\.\d+\.\d+$/.test(input.replyLan) ? input.replyLan : null);
+  const host =
+    reply ||
+    existing?.host ||
+    (existing?.baseUrl ? existing.host : "inbound");
+  if (host === "inbound" && !existing) {
+    // Still show the Mac so Home isn't empty — user can Add Mac with a real address later.
+  }
+  const via: Exclude<DeviceInfo["via"], "local"> = host.startsWith("100.")
+    ? "tailscale"
+    : host.endsWith(".trycloudflare.com") || existing?.via === "cloudflare"
+      ? (existing?.via === "cloudflare" ? "cloudflare" : "lan")
+      : "lan";
+  const device: DeviceInfo = {
+    id: input.id,
+    name: input.name?.trim() || existing?.name || input.id.slice(0, 8),
+    host: existing?.baseUrl ? existing.host : host === "inbound" ? existing?.host || host : host,
+    port: existing?.port || 47831,
+    online: true,
+    isLocal: false,
+    via: existing?.baseUrl ? existing.via : via,
+    baseUrl: existing?.baseUrl,
+    fallbackHost:
+      existing?.fallbackHost ||
+      (input.replyTailscale?.startsWith("100.") ? input.replyTailscale : undefined),
+    fallbackPort: existing?.fallbackPort || (input.replyTailscale ? 47831 : undefined),
+    fallbackBaseUrl: existing?.fallbackBaseUrl,
+    activeVia: existing?.activeVia || via,
+  };
+  // If we learned a Tailscale IP and primary was placeholder inbound, promote it
+  if (reply && (device.host === "inbound" || !existing)) {
+    device.host = reply;
+    device.via = reply.startsWith("100.") ? "tailscale" : "lan";
+    device.activeVia = device.via;
+  } else if (reply && reply.startsWith("100.") && !device.fallbackHost) {
+    device.fallbackHost = reply;
+    device.fallbackPort = 47831;
+  }
+  remoteDevices.set(input.id, device);
+  persistManualPeers();
+}
+
 function getTailscaleStatus(): { selfIp?: string; peerIps: Map<string, string> } {
   const peerIps = new Map<string, string>();
   try {
@@ -257,6 +316,7 @@ export function startDiscovery(onChange?: () => void): void {
         (host.startsWith("100.") ? host : undefined);
       const preferHost = tsIp || host;
       const via = preferHost.startsWith("100.") ? "tailscale" : "lan";
+      const existing = remoteDevices.get(id);
       remoteDevices.set(id, {
         id,
         name: String(service.txt?.deviceName ?? service.name),
@@ -265,15 +325,27 @@ export function startDiscovery(onChange?: () => void): void {
         online: true,
         isLocal: false,
         via,
+        // Keep travel/Cloudflare paths if Bonjour only saw LAN
+        baseUrl: existing?.baseUrl,
+        fallbackHost: existing?.fallbackHost || (tsIp && tsIp !== preferHost ? tsIp : undefined),
+        fallbackPort: existing?.fallbackPort,
+        fallbackBaseUrl: existing?.fallbackBaseUrl,
+        activeVia: existing?.activeVia || via,
       });
       onChange?.();
     });
     browser.on("down", (service: { txt?: Record<string, string> }) => {
       const id = String(service.txt?.id ?? "");
-      if (id) {
+      if (!id) return;
+      const existing = remoteDevices.get(id);
+      if (!existing) return;
+      // Never wipe manual / Cloudflare / Tailscale peers when LAN Bonjour drops
+      if (existing.baseUrl || existing.fallbackHost || existing.via === "cloudflare") {
+        remoteDevices.set(id, { ...existing, online: false });
+      } else {
         remoteDevices.delete(id);
-        onChange?.();
       }
+      onChange?.();
     });
   } catch (err) {
     console.warn(

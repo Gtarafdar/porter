@@ -1,11 +1,21 @@
 import type { DeviceInfo, FileEntry, SearchHit, SharedFolder } from "@porter/protocol";
-import { getDevice, listDevices, registerManualPeer, updatePeerActivePath } from "./discovery.js";
+import {
+  getDevice,
+  listDevices,
+  localLanHint,
+  networkInfo,
+  noteSeenPeer,
+  registerManualPeer,
+  updatePeerActivePath,
+} from "./discovery.js";
 import fs from "node:fs";
 import path from "node:path";
 import {
   appendActivity,
+  humanError,
   loadConfig,
   saveConfig,
+  sanitizePeerBody,
 } from "./config.js";
 
 /** Resolve http(s) base for a peer (LAN / Tailscale / Cloudflare). */
@@ -108,6 +118,15 @@ async function peerFetch(
   headers.set("Authorization", `Bearer ${config.token}`);
   headers.set("X-Porter-Device", config.deviceId);
   headers.set("X-Porter-Pair", config.token);
+  headers.set("X-Porter-Device-Name", config.deviceName);
+  try {
+    const net = networkInfo();
+    if (net.primaryLan) headers.set("X-Porter-Reply-Lan", net.primaryLan);
+    if (net.tailscale.selfIp) headers.set("X-Porter-Reply-Tailscale", net.tailscale.selfIp);
+  } catch {
+    const lan = localLanHint();
+    if (lan) headers.set("X-Porter-Reply-Lan", lan);
+  }
 
   const bases = peerBases(device);
   let lastErr: unknown;
@@ -123,19 +142,21 @@ async function peerFetch(
         updatePeerActivePath(device.id, viaForBase(base, device) || "lan", base);
         return res;
       }
-      lastErr = new Error(await res.text());
+      lastErr = new Error(sanitizePeerBody(await res.text()));
     } catch (e) {
       lastErr = e;
     }
   }
-  throw lastErr instanceof Error ? lastErr : new Error("All peer paths failed");
+  throw lastErr instanceof Error
+    ? new Error(humanError(lastErr))
+    : new Error("All peer paths failed");
 }
 
 export async function remoteListFolders(deviceId: string): Promise<SharedFolder[]> {
   const device = getDevice(deviceId);
   if (!device || device.isLocal) throw new Error("Remote device not found");
   const res = await peerFetch(device, "/api/folders");
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error(humanError(new Error(sanitizePeerBody(await res.text()))));
   return (await res.json()) as SharedFolder[];
 }
 
@@ -149,7 +170,7 @@ export async function remoteListDirectory(
     device,
     `/api/files/list?path=${encodeURIComponent(dirPath)}`,
   );
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error(humanError(new Error(sanitizePeerBody(await res.text()))));
   return (await res.json()) as FileEntry[];
 }
 
@@ -160,7 +181,7 @@ export async function remoteSearch(deviceId: string, query: string): Promise<Sea
     device,
     `/api/files/search?q=${encodeURIComponent(query)}`,
   );
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error(humanError(new Error(sanitizePeerBody(await res.text()))));
   return (await res.json()) as SearchHit[];
 }
 
@@ -174,7 +195,7 @@ export async function remoteReadFile(
     device,
     `/api/files/read?path=${encodeURIComponent(filePath)}`,
   );
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error(humanError(new Error(sanitizePeerBody(await res.text()))));
   return (await res.json()) as {
     path: string;
     content: string;
@@ -346,6 +367,11 @@ export function authorizePeer(
   authHeader: string | undefined,
   peerId: string | undefined,
   pairHeader: string | undefined,
+  meta?: {
+    name?: string;
+    replyLan?: string;
+    replyTailscale?: string;
+  },
 ): boolean {
   const config = loadConfig();
   const bearer = authHeader?.startsWith("Bearer ")
@@ -357,6 +383,14 @@ export function authorizePeer(
     if (peerId && !config.pairedDeviceIds.includes(peerId)) {
       config.pairedDeviceIds.push(peerId);
       saveConfig(config);
+    }
+    if (peerId) {
+      noteSeenPeer({
+        id: peerId,
+        name: meta?.name,
+        replyLan: meta?.replyLan,
+        replyTailscale: meta?.replyTailscale,
+      });
     }
     return true;
   }
