@@ -219,9 +219,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     // MARK: - Core lifecycle
 
     private func ensureCoreThenLoad() {
-        statusLabel.stringValue = "Starting Porter…"
-        detailScroll.isHidden = true
-        actionRow.isHidden = true
+        if Bundle.main.bundlePath.contains("AppTranslocation") {
+            statusLabel.stringValue = "Move Porter.app to Applications first (don’t open from Downloads)…"
+            detailScroll.isHidden = false
+            detailText.string = """
+macOS is running Porter from a temporary folder (App Translocation).
+
+1. Quit Porter
+2. Drag Porter.app into /Applications
+3. Open it from Applications (right‑click → Open the first time)
+
+Then the engine can start reliably.
+"""
+            actionRow.isHidden = false
+            // Still attempt start — some Macs work — but keep the warning visible until healthy.
+        } else {
+            statusLabel.stringValue = "Starting Porter…"
+            detailScroll.isHidden = true
+            actionRow.isHidden = true
+        }
         webView.isHidden = true
         loadAttempts = 0
 
@@ -258,14 +274,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     }
 
     private func showStartupFailure() {
-        let logTail = readLogTail(lines: 40)
+        let logTail = readRecentLog()
         let hint = diagnoseFailure(logTail: logTail)
         statusLabel.stringValue = hint
         let body = """
 \(hint)
 
-—— Last lines from porter.log ——
-\(logTail.isEmpty ? "(log is empty — core likely never launched, or was blocked by Gatekeeper)" : logTail)
+—— Recent porter.log (this launch) ——
+\(logTail.isEmpty ? "(no new log lines — core likely never launched, or was blocked by Gatekeeper)" : logTail)
 
 Log file: \(logPath)
 """
@@ -279,8 +295,16 @@ Log file: \(logPath)
     private func diagnoseFailure(logTail: String) -> String {
         let lower = logTail.lowercased()
         let arch = shell("uname -m").trimmingCharacters(in: .whitespacesAndNewlines)
-        if lower.contains("bad cpu type") || lower.contains("mach-o") && lower.contains("architecture") {
-            return "Wrong Mac chip for this build (this Mac is \(arch)). Download the latest Porter release — it includes Intel + Apple Silicon Node."
+        let bundlePath = Bundle.main.bundlePath
+
+        if bundlePath.contains("AppTranslocation") || lower.contains("apptranslocation") {
+            return "Don’t run Porter from Downloads. Drag Porter.app into Applications, then open it from there (right‑click → Open)."
+        }
+        if lower.contains("libuv") || lower.contains("/opt/homebrew/") || lower.contains("library not loaded") {
+            return "This Porter.app has a broken Node binary (needs Homebrew). Delete it, download Porter 0.2.6+, put it in Applications, then right‑click → Open."
+        }
+        if lower.contains("bad cpu type") || (lower.contains("mach-o") && lower.contains("architecture")) {
+            return "Wrong Mac chip for this zip (this Mac is \(arch)). Download the arm64 (Apple Silicon) or x64 (Intel) build."
         }
         if lower.contains("killed") || lower.contains("cannot be opened") || lower.contains("quarantine") {
             return "macOS blocked Porter’s engine. Right‑click Porter.app → Open, then try again."
@@ -292,18 +316,25 @@ Log file: \(logPath)
             return "Porter app package is incomplete. Re-download the zip and replace Porter.app."
         }
         if logTail.isEmpty {
-            return "Porter engine did not start. If this is the first open: right‑click Porter.app → Open."
+            return "Porter engine did not start. Drag the app to Applications, then right‑click → Open."
         }
         return "Porter engine failed to start. See details below (you can Copy error)."
     }
 
-    private func readLogTail(lines: Int) -> String {
+    /// Only the current launch — avoid showing stale Homebrew/libuv errors from older apps.
+    private func readRecentLog() -> String {
         guard let data = try? String(contentsOfFile: logPath, encoding: .utf8), !data.isEmpty else {
             return ""
         }
         let all = data.split(separator: "\n", omittingEmptySubsequences: false)
-        let slice = all.suffix(lines)
-        return slice.joined(separator: "\n")
+        if let lastStart = all.lastIndex(where: { $0.contains("porter-core start") }) {
+            return all[lastStart...].joined(separator: "\n")
+        }
+        return all.suffix(30).joined(separator: "\n")
+    }
+
+    private func readLogTail(lines: Int) -> String {
+        readRecentLog()
     }
 
     private func checkHealth(completion: @escaping (Bool) -> Void) {

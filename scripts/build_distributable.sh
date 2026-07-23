@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${PORTER_VERSION:-0.2.5}"
+VERSION="${PORTER_VERSION:-0.2.6}"
 OUT="${ROOT}/dist/release"
 CACHE="${ROOT}/dist/cache"
 NODE_VER="${PORTER_NODE_VERSION:-20.18.2}"
@@ -124,6 +124,12 @@ build_one_arch() {
 
   # One Node + one cloudflared for this chip only (no duplicates)
   download_node "${arch}" "${res}/node"
+  # Refuse Homebrew-linked Node (breaks on Macs without brew / libuv)
+  if otool -L "${res}/node" 2>/dev/null | grep -qE '/opt/homebrew/|/usr/local/opt/'; then
+    echo "error: bundled Node links to Homebrew libs — refusing to package" >&2
+    otool -L "${res}/node" >&2 || true
+    exit 1
+  fi
   if download_cloudflared "${cf_dl_arch}" "${res}/cloudflared"; then
     echo "==> Bundled cloudflared ${CF_VER} (${arch})"
   else
@@ -151,15 +157,13 @@ CF="${RES}/cloudflared"
 # GitHub downloads quarantine nested binaries — clear so macOS will run them.
 xattr -dr com.apple.quarantine "${CONTENTS}" 2>/dev/null || true
 
-if [[ -x "${CF}" ]]; then
-  export PORTER_CLOUDFLARED="${CF}"
-  export PATH="${RES}:${PATH}"
-fi
-
 LOG_DIR="${HOME}/Library/Logs/Porter"
 mkdir -p "${LOG_DIR}" "${HOME}/Library/Application Support/Porter" 2>/dev/null || mkdir -p "${LOG_DIR}"
 {
-  echo "---- $(date -u +%Y-%m-%dT%H:%M:%SZ) porter-core start arch=$(uname -m) node=${NODE} ----"
+  echo "---- $(date -u +%Y-%m-%dT%H:%M:%SZ) porter-core start arch=$(uname -m) node=${NODE} bundle=${CONTENTS} ----"
+  if [[ "${CONTENTS}" == *AppTranslocation* ]]; then
+    echo "warning: running under App Translocation — move Porter.app to /Applications and open from there"
+  fi
 } >>"${LOG_DIR}/porter.log"
 
 if [[ ! -x "${NODE}" ]]; then
@@ -167,9 +171,22 @@ if [[ ! -x "${NODE}" ]]; then
   exit 1
 fi
 
-# Wrong-chip zip (arm64 app on Intel, or vice versa)
-if ! "${NODE}" -e "process.exit(0)" >>"${LOG_DIR}/porter.log" 2>&1; then
-  echo "error: Node cannot run on this Mac — download the zip for your chip (Apple Silicon = arm64, Intel = x64)." >>"${LOG_DIR}/porter.log"
+# Catch old broken packages that shipped Homebrew Node (needs libuv.dylib).
+if command -v otool >/dev/null 2>&1; then
+  if otool -L "${NODE}" 2>/dev/null | grep -qE '/opt/homebrew/|/usr/local/opt/'; then
+    echo "error: bundled Node is linked to Homebrew (e.g. libuv). Delete this Porter.app and download a fresh release from GitHub (0.2.6+)." >>"${LOG_DIR}/porter.log"
+    exit 1
+  fi
+fi
+
+if [[ -x "${CF}" ]]; then
+  export PORTER_CLOUDFLARED="${CF}"
+  export PATH="${RES}:${PATH}"
+fi
+
+# Prove Node can actually exec (surfaces dyld errors into the log).
+if ! "${NODE}" -e "process.stdout.write('node-ok '+process.version+'\n')" >>"${LOG_DIR}/porter.log" 2>&1; then
+  echo "error: Node cannot run on this Mac — if you see libuv/homebrew above, re-download Porter 0.2.6+ and install to Applications." >>"${LOG_DIR}/porter.log"
   exit 1
 fi
 
@@ -177,6 +194,7 @@ if curl -sf "http://127.0.0.1:47831/api/health" >/dev/null 2>&1; then
   exit 0
 fi
 cd "${RES}/app"
+# Line-buffer-ish: reopen stdout as append fd so logs appear during start
 exec "${NODE}" "${RES}/app/packages/core/dist/cli.js" serve >>"${LOG_DIR}/porter.log" 2>&1
 CORE
   chmod +x "${macos}/porter-core"
@@ -225,7 +243,7 @@ Porter ${VERSION} — ${chip_label}
 
 Install:
 1. Unzip this archive
-2. Drag Porter.app to Applications (recommended)
+2. Drag Porter.app to Applications (required — do not open from Downloads)
 3. FIRST OPEN: right-click Porter.app → Open → Open
    (macOS shows a malware warning because Porter is not paid Apple-notarized.
     Right-click → Open is the normal fix for free/local apps.)
@@ -239,6 +257,9 @@ If Mac says “malware” / “can’t be opened”:
 - Do NOT delete the app — use right-click → Open
 - Or run (once) in Terminal:
   xattr -dr com.apple.quarantine /Applications/Porter.app
+
+If you see libuv / Homebrew errors: you have an old broken build.
+Delete Porter.app and download 0.2.6+ again.
 
 Wrong chip? This zip is for ${chip_label} only.
 Apple Silicon: Porter-*-mac-arm64.zip

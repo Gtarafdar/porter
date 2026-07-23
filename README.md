@@ -8,13 +8,13 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 
 Pick your Mac chip (smaller downloads — about half the old universal zip):
 
-> **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.5-mac-arm64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.5-mac-arm64.zip)  
-> **Intel Mac:** [⬇ Porter-0.2.5-mac-x64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.5-mac-x64.zip)  
-> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.5 · [All releases](https://github.com/Gtarafdar/porter/releases)
+> **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.6-mac-arm64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.6-mac-arm64.zip)  
+> **Intel Mac:** [⬇ Porter-0.2.6-mac-x64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.6-mac-x64.zip)  
+> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.6 · [All releases](https://github.com/Gtarafdar/porter/releases)
 
 Not sure which chip?  menu → About This Mac → look for “Chip” (Apple) or “Processor” (Intel).
 
-1. Unzip → drag **Porter.app** to Applications
+1. Unzip → drag **Porter.app** to **Applications** (important — don’t open from Downloads)
 2. **First open:** right‑click → **Open** → Open (macOS warns because Porter is not paid Apple-notarized — this is normal for free local apps)
 3. If still blocked: System Settings → Privacy & Security → **Open Anyway**
 4. Share folders with **Choose folder…** (Finder picker) — no typing paths
@@ -26,6 +26,12 @@ Not sure which chip?  menu → About This Mac → look for “Chip” (Apple)
 **Chrome:** Everyday file copy never requires quitting Chrome. Optional Chrome-extension sync only: quit Chrome → share/copy folders → reopen (see Settings).
 
 **Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Roadmap:** [PLAN.md](PLAN.md)
+
+## What’s new in 0.2.6
+
+- Clearer fix when an old Homebrew-linked Node fails (`libuv` missing)
+- Warns if you open Porter from Downloads (App Translocation) — move to Applications
+- Error panel shows only this launch’s log (not stale older failures)
 
 ## What’s new in 0.2.5
 
