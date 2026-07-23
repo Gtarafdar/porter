@@ -47,6 +47,7 @@ import {
 } from "./tunnel.js";
 import { installKeepAlive, maybeStartPreventSleep } from "./keepalive.js";
 import { chromeExtensionsStatus, shareChromeExtensions } from "./chrome.js";
+import { applyUpdate, checkForUpdate, currentVersion } from "./update.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -126,7 +127,7 @@ export async function startServer(opts?: {
       deviceId: c.deviceId,
       deviceName: c.deviceName,
       sleeping: c.sleeping,
-      version: "0.2.18",
+      version: currentVersion(),
       // Do not leak LAN details to remote/tunnel clients
       ...(local ? { lan: localLanHint() } : {}),
     });
@@ -225,6 +226,25 @@ export async function startServer(opts?: {
     try {
       const result = shareChromeExtensions();
       res.json({ ok: true, ...result });
+    } catch (e) {
+      res.status(400).json({ error: humanError(e) });
+    }
+  });
+
+  app.get("/api/updates/check", async (req, res) => {
+    if (!requireLocal(req, res)) return;
+    try {
+      res.json(await checkForUpdate());
+    } catch (e) {
+      res.status(400).json({ error: humanError(e) });
+    }
+  });
+
+  app.post("/api/updates/apply", async (req, res) => {
+    if (!requireLocal(req, res)) return;
+    try {
+      const result = await applyUpdate();
+      res.json(result);
     } catch (e) {
       res.status(400).json({ error: humanError(e) });
     }

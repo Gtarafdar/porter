@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${PORTER_VERSION:-0.2.18}"
+VERSION="${PORTER_VERSION:-0.2.19}"
 OUT="${ROOT}/dist/release"
 CACHE="${ROOT}/dist/cache"
 NODE_VER="${PORTER_NODE_VERSION:-20.18.2}"
@@ -138,6 +138,7 @@ build_one_arch() {
 
   cp -R "${STAGE_APP}/." "${app_res}/"
   cp -R apps/desktop/dist/* "${res}/ui/"
+  echo "${VERSION}" > "${res}/VERSION"
   cp "${SWIFT_BIN}" "${macos}/Porter"
   chmod +x "${macos}/Porter"
 
@@ -148,6 +149,7 @@ CONTENTS="$(cd "$(dirname "$0")/.." && pwd)"
 RES="${CONTENTS}/Resources"
 export PORTER_UI_DIR="${RES}/ui"
 export PORTER_RESOURCES="${RES}"
+export PORTER_VERSION="$(cat "${RES}/VERSION" 2>/dev/null || echo unknown)"
 # LAN discovery on (Bonjour). Set PORTER_NO_BONJOUR=1 only if it misbehaves.
 export PORTER_NO_BONJOUR="${PORTER_NO_BONJOUR:-0}"
 export PORTER_OPEN_BROWSER="0"

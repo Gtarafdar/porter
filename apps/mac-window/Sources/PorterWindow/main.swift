@@ -212,6 +212,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         let helpMenu = NSMenu(title: "Help")
         helpMenuItem.submenu = helpMenu
         helpMenu.addItem(withTitle: "If Mac says “malware”…", action: #selector(showMalwareHelp), keyEquivalent: "")
+        helpMenu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
 
         NSApp.mainMenu = mainMenu
     }
@@ -548,6 +549,13 @@ This is Gatekeeper — not a virus scan finding malware inside Porter.
             statusStack.isHidden = false
             statusLabel.stringValue = "Quarantine cleared. Try opening again if it was blocked."
         }
+    }
+
+    @objc private func checkForUpdates() {
+        webView.evaluateJavaScript(
+            "window.dispatchEvent(new CustomEvent('porter-check-update'))",
+            completionHandler: nil
+        )
     }
 
     @objc private func menuPickFolder() {

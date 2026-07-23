@@ -212,6 +212,26 @@ export const porter = {
       "/api/chrome/share",
       { method: "POST", body: "{}" },
     ),
+  checkUpdate: () =>
+    api<{
+      ok: boolean;
+      currentVersion: string;
+      latestVersion: string | null;
+      updateAvailable: boolean;
+      downloadUrl: string | null;
+      assetName: string | null;
+      releaseUrl: string | null;
+      notes: string | null;
+      arch: string;
+      canAutoInstall: boolean;
+      appPath: string | null;
+      message: string;
+    }>("/api/updates/check"),
+  applyUpdate: () =>
+    api<{ ok: boolean; message: string; willRelaunch: boolean }>("/api/updates/apply", {
+      method: "POST",
+      body: "{}",
+    }),
   syncOneWay: (body: { sourcePath: string; destDeviceId: string; destPath: string }) =>
     api<{ ok: boolean; result?: { files: number; mbps: number; ms: number } }>(
       "/api/sync/one-way",

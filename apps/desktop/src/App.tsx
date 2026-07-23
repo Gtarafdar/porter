@@ -107,6 +107,15 @@ export function App() {
   const [copyBusy, setCopyBusy] = useState(false);
   const [copyProgress, setCopyProgress] = useState<string | null>(null);
   const [copyModalError, setCopyModalError] = useState<string | null>(null);
+  const [updateInfo, setUpdateInfo] = useState<{
+    currentVersion: string;
+    latestVersion: string | null;
+    updateAvailable: boolean;
+    message: string;
+    canAutoInstall: boolean;
+    releaseUrl: string | null;
+  } | null>(null);
+  const [updateBusy, setUpdateBusy] = useState(false);
   const [pairToken, setPairToken] = useState("");
   const [showWizard, setShowWizard] = useState(false);
   const [showTravel, setShowTravel] = useState(false);
@@ -195,6 +204,59 @@ export function App() {
     },
     [left, right],
   );
+
+  useEffect(() => {
+    const onCheck = () => {
+      setShowSettings(true);
+      setSettingsTab("more");
+      void runUpdateCheck(true);
+    };
+    window.addEventListener("porter-check-update", onCheck);
+    // Soft check once after load (no modal spam)
+    const t = window.setTimeout(() => void runUpdateCheck(false), 4000);
+    return () => {
+      window.removeEventListener("porter-check-update", onCheck);
+      window.clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function runUpdateCheck(fromUser: boolean) {
+    try {
+      const u = await porter.checkUpdate();
+      setUpdateInfo({
+        currentVersion: u.currentVersion,
+        latestVersion: u.latestVersion,
+        updateAvailable: u.updateAvailable,
+        message: u.message,
+        canAutoInstall: u.canAutoInstall,
+        releaseUrl: u.releaseUrl,
+      });
+      if (fromUser) {
+        setSettingsMsg(u.message);
+        if (u.updateAvailable) showToast(`Update available: ${u.latestVersion}`);
+        else showToast(u.message);
+      }
+    } catch (e) {
+      if (fromUser) {
+        setSettingsMsg(friendlyError(e instanceof Error ? e.message : String(e)));
+      }
+    }
+  }
+
+  async function installUpdate() {
+    if (updateBusy) return;
+    setUpdateBusy(true);
+    setSettingsMsg("Downloading update… Porter will quit and reopen.");
+    try {
+      const r = await porter.applyUpdate();
+      setSettingsMsg(r.message);
+      showToast(r.message);
+    } catch (e) {
+      setSettingsMsg(friendlyError(e instanceof Error ? e.message : String(e)));
+      setUpdateBusy(false);
+    }
+  }
 
   useEffect(() => {
     setNativePicker(canPickFolderNative());
@@ -449,6 +511,37 @@ export function App() {
       {error && (
         <div className="error-text" style={{ padding: "0 4px" }}>
           {error}
+        </div>
+      )}
+
+      {updateInfo?.updateAvailable && (
+        <div
+          className="callout ok"
+          style={{ margin: "0 4px 8px", display: "flex", alignItems: "center", gap: 10 }}
+        >
+          <span style={{ flex: 1 }}>
+            Porter {updateInfo.latestVersion} available (you have {updateInfo.currentVersion}).
+          </span>
+          <button
+            className="btn"
+            type="button"
+            onClick={() => {
+              setShowSettings(true);
+              setSettingsTab("more");
+            }}
+          >
+            Review
+          </button>
+          {updateInfo.canAutoInstall ? (
+            <button
+              className="btn primary"
+              type="button"
+              disabled={updateBusy}
+              onClick={() => void installUpdate()}
+            >
+              {updateBusy ? "Updating…" : "Install & relaunch"}
+            </button>
+          ) : null}
         </div>
       )}
 
@@ -905,6 +998,47 @@ export function App() {
                         void porter.updateDevice({ deviceName: e.target.value }).then(refreshMeta);
                       }}
                     />
+                  </div>
+                  <div className="field">
+                    <label>Updates</label>
+                    <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: 13 }}>
+                      Current: {updateInfo?.currentVersion ?? "…"}. Checks GitHub releases and can
+                      install into this Porter.app automatically.
+                    </p>
+                    {updateInfo?.updateAvailable ? (
+                      <div className="callout ok" style={{ marginTop: 0 }}>
+                        {updateInfo.message}
+                      </div>
+                    ) : null}
+                    <div className="row" style={{ justifyContent: "flex-start", marginTop: 8 }}>
+                      <button
+                        className="btn"
+                        type="button"
+                        disabled={updateBusy}
+                        onClick={() => void runUpdateCheck(true)}
+                      >
+                        Check for updates
+                      </button>
+                      {updateInfo?.updateAvailable && updateInfo.canAutoInstall ? (
+                        <button
+                          className="btn primary"
+                          type="button"
+                          disabled={updateBusy}
+                          onClick={() => void installUpdate()}
+                        >
+                          {updateBusy ? "Updating…" : `Install ${updateInfo.latestVersion}`}
+                        </button>
+                      ) : null}
+                      {updateInfo?.releaseUrl ? (
+                        <button
+                          className="btn linkish"
+                          type="button"
+                          onClick={() => window.open(updateInfo.releaseUrl!, "_blank")}
+                        >
+                          Release notes →
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                   <div className="field">
                     <label>Chrome extensions (optional)</label>
