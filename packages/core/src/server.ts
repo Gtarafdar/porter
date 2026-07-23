@@ -715,12 +715,22 @@ export async function startServer(opts?: {
       }
       next();
     });
-    app.use(express.static(staticDir));
+    app.use(
+      express.static(staticDir, {
+        // Hashed assets are fine to cache; HTML must never stick on an old UI after updates.
+        setHeaders(res, filePath) {
+          if (filePath.endsWith(".html")) {
+            res.setHeader("Cache-Control", "no-store");
+          }
+        },
+      }),
+    );
     app.get(/^(?!\/api).*/, (req, res) => {
       if (!isLocalRequest(req)) {
         res.status(404).end();
         return;
       }
+      res.setHeader("Cache-Control", "no-store");
       res.sendFile(path.join(staticDir, "index.html"));
     });
   }
