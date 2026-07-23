@@ -1,0 +1,21 @@
+{
+  "name": "porter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private local AI + Finder-like file bridge across your Macs — no cloud, no paid servers",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @porter/protocol && npm run build -w @porter/core && npm run build -w @porter/desktop",
+    "dev": "npm run build -w @porter/protocol && npm run dev -w @porter/core",
+    "dev:ui": "npm run dev -w @porter/desktop",
+    "start": "npm run start -w @porter/core",
+    "mcp": "npm run mcp -w @porter/core",
+    "typecheck": "npm run typecheck -w @porter/protocol && npm run typecheck -w @porter/core"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

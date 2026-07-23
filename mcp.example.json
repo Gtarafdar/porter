@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "porter": {
+      "command": "node",
+      "args": ["REPLACE_WITH_ABSOLUTE_PATH/packages/core/dist/mcp.js"]
+    }
+  }
+}

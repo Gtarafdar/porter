@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "porter": {
+      "command": "node",
+      "args": [
+        "/Users/gtarafdar/Downloads/porter/packages/core/dist/mcp.js"
+      ]
+    }
+  }
+}
