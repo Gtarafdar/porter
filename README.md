@@ -8,9 +8,9 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 
 Pick your Mac chip (smaller downloads — about half the old universal zip):
 
-> **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.21-mac-arm64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.21-mac-arm64.zip)  
-> **Intel Mac:** [⬇ Porter-0.2.21-mac-x64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.21-mac-x64.zip)  
-> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.21 · [All releases](https://github.com/Gtarafdar/porter/releases)
+> **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.22-mac-arm64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.22-mac-arm64.zip)  
+> **Intel Mac:** [⬇ Porter-0.2.22-mac-x64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.22-mac-x64.zip)  
+> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.22 · [All releases](https://github.com/Gtarafdar/porter/releases)
 
 Not sure which chip?  menu → About This Mac → look for “Chip” (Apple) or “Processor” (Intel).
 
@@ -27,6 +27,11 @@ Not sure which chip?  menu → About This Mac → look for “Chip” (Apple)
 **Chrome:** Everyday file copy never requires quitting Chrome. Optional Chrome-extension sync only: quit Chrome → share/copy folders → reopen (see [CHROME.md](CHROME.md)).
 
 **Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Chrome extensions:** [CHROME.md](CHROME.md) · **Roadmap:** [PLAN.md](PLAN.md)
+
+## What’s new in 0.2.22
+
+- Chrome guide in Settings with clear steps + **Open Extension Data** / **Open Extensions** in Finder
+- Easier to find Local Extension Settings folders for accurate copy
 
 ## What’s new in 0.2.21
 

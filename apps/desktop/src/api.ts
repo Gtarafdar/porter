@@ -205,13 +205,24 @@ export const porter = {
       readyToShare: boolean;
       note: string;
       shared: SharedFolder[];
+      sharedExtensions?: boolean;
+      sharedExtensionData?: boolean;
       paths: { extensions: string; localSettings: string };
+      extensionIds?: string[];
+      dataIds?: string[];
+      steps?: { id: string; title: string; detail: string; done: boolean }[];
+      chromeRoot?: string;
     }>("/api/chrome/status"),
   shareChromeExtensions: () =>
     api<{ ok: boolean; added: string[]; skipped: string[]; warning: string }>(
       "/api/chrome/share",
       { method: "POST", body: "{}" },
     ),
+  revealChromeFolder: (which: "extensions" | "data" | "root" = "data") =>
+    api<{ ok: boolean; path: string; note: string }>("/api/chrome/reveal", {
+      method: "POST",
+      body: JSON.stringify({ which }),
+    }),
   checkUpdate: () =>
     api<{
       ok: boolean;

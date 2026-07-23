@@ -1078,6 +1078,26 @@ input {
   margin: 8px 0;
 }
 
+.chrome-steps {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.chrome-steps li {
+  margin-bottom: 8px;
+}
+
+.chrome-steps li.done strong {
+  color: #1f7a4c;
+}
+
+.chrome-guide .row {
+  gap: 8px;
+}
+
 .side-hint {
   font-size: 12px;
   color: var(--muted);

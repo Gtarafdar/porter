@@ -46,7 +46,7 @@ import {
   maybeAutoStartTunnel,
 } from "./tunnel.js";
 import { installKeepAlive, maybeStartPreventSleep } from "./keepalive.js";
-import { chromeExtensionsStatus, shareChromeExtensions } from "./chrome.js";
+import { chromeExtensionsStatus, revealChromeFolder, shareChromeExtensions } from "./chrome.js";
 import { applyUpdate, checkForUpdate, currentVersion } from "./update.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -226,6 +226,20 @@ export async function startServer(opts?: {
     try {
       const result = shareChromeExtensions();
       res.json({ ok: true, ...result });
+    } catch (e) {
+      res.status(400).json({ error: humanError(e) });
+    }
+  });
+
+  app.post("/api/chrome/reveal", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    try {
+      const which = String(req.body?.which ?? "data") as "extensions" | "data" | "root";
+      if (which !== "extensions" && which !== "data" && which !== "root") {
+        res.status(400).json({ error: "which must be extensions, data, or root" });
+        return;
+      }
+      res.json(revealChromeFolder(which));
     } catch (e) {
       res.status(400).json({ error: humanError(e) });
     }

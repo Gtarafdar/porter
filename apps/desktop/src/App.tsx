@@ -142,6 +142,16 @@ export function App() {
     port: number;
   } | null>(null);
   const [linksBusy, setLinksBusy] = useState(false);
+  const [chromeInfo, setChromeInfo] = useState<{
+    chromeRunning: boolean;
+    note: string;
+    sharedExtensions?: boolean;
+    sharedExtensionData?: boolean;
+    paths: { extensions: string; localSettings: string };
+    dataIds?: string[];
+    steps?: { id: string; title: string; detail: string; done: boolean }[];
+  } | null>(null);
+  const [chromeBusy, setChromeBusy] = useState(false);
 
   const [left, setLeft] = useState<PaneState | null>(null);
   const [right, setRight] = useState<PaneState | null>(null);
@@ -371,6 +381,22 @@ export function App() {
   useEffect(() => {
     if (showSettings && settingsTab === "connect") {
       void refreshShareLinks();
+    }
+    if (showSettings && settingsTab === "more") {
+      void porter
+        .chromeStatus()
+        .then((st) =>
+          setChromeInfo({
+            chromeRunning: st.chromeRunning,
+            note: st.note,
+            sharedExtensions: st.sharedExtensions,
+            sharedExtensionData: st.sharedExtensionData,
+            paths: st.paths,
+            dataIds: st.dataIds,
+            steps: st.steps,
+          }),
+        )
+        .catch(() => undefined);
     }
   }, [showSettings, settingsTab, refreshShareLinks]);
 
@@ -1074,45 +1100,147 @@ export function App() {
                       ) : null}
                     </div>
                   </div>
-                  <div className="field">
+                  <div className="field chrome-guide">
                     <label>Chrome extensions (optional)</label>
                     <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: 13 }}>
-                      Everyday file copy never needs quitting Chrome. Only for syncing extension
-                      folders: quit Chrome → share → copy to the other Mac’s same paths → reopen.
+                      Syncs extension <strong>code + local storage data</strong> only — not
+                      passwords or cookies. Paste into Chrome’s Library folders, never Downloads.
                     </p>
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={() => {
-                        void porter
-                          .chromeStatus()
-                          .then((st) => {
-                            if (st.chromeRunning) {
-                              setSettingsMsg(st.note);
-                              showToast("Quit Google Chrome first");
-                              return null;
-                            }
-                            return porter.shareChromeExtensions();
-                          })
-                          .then((r) => {
-                            if (!r) return;
-                            showToast(
-                              r.added.length
-                                ? `Shared: ${r.added.join(", ")}`
-                                : "Chrome folders already shared",
-                            );
-                            setSettingsMsg(r.warning);
-                            void refreshMeta();
-                          })
-                          .catch((e) =>
-                            setSettingsMsg(
-                              friendlyError(e instanceof Error ? e.message : String(e)),
-                            ),
-                          );
-                      }}
-                    >
-                      Share Chrome extensions folders
-                    </button>
+                    {chromeInfo?.steps && (
+                      <ol className="chrome-steps">
+                        {chromeInfo.steps.map((s) => (
+                          <li key={s.id} className={s.done ? "done" : ""}>
+                            <strong>{s.title}</strong>
+                            <div className="fmeta">{s.detail}</div>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                    {chromeInfo?.note && (
+                      <p className={chromeInfo.chromeRunning ? "error-text" : "ok-text"}>
+                        {chromeInfo.note}
+                      </p>
+                    )}
+                    {chromeInfo?.dataIds && chromeInfo.dataIds.length > 0 && (
+                      <p className="fmeta" style={{ marginBottom: 8 }}>
+                        Extension data IDs on this Mac:{" "}
+                        <code style={{ fontSize: 11 }}>
+                          {chromeInfo.dataIds.slice(0, 4).join(", ")}
+                          {chromeInfo.dataIds.length > 4
+                            ? ` +${chromeInfo.dataIds.length - 4} more`
+                            : ""}
+                        </code>
+                      </p>
+                    )}
+                    <div className="row" style={{ justifyContent: "flex-start", flexWrap: "wrap" }}>
+                      <button
+                        className="btn primary"
+                        type="button"
+                        disabled={chromeBusy}
+                        onClick={() => {
+                          setChromeBusy(true);
+                          void porter
+                            .chromeStatus()
+                            .then((st) => {
+                              setChromeInfo({
+                                chromeRunning: st.chromeRunning,
+                                note: st.note,
+                                sharedExtensions: st.sharedExtensions,
+                                sharedExtensionData: st.sharedExtensionData,
+                                paths: st.paths,
+                                dataIds: st.dataIds,
+                                steps: st.steps,
+                              });
+                              if (st.chromeRunning) {
+                                setSettingsMsg(st.note);
+                                showToast("Quit Google Chrome first");
+                                return null;
+                              }
+                              return porter.shareChromeExtensions();
+                            })
+                            .then((r) => {
+                              if (!r) return;
+                              showToast(
+                                r.added.length
+                                  ? `Shared: ${r.added.join(", ")}`
+                                  : "Chrome folders already shared",
+                              );
+                              setSettingsMsg(r.warning);
+                              void refreshMeta();
+                              return porter.chromeStatus();
+                            })
+                            .then((st) => {
+                              if (!st) return;
+                              setChromeInfo({
+                                chromeRunning: st.chromeRunning,
+                                note: st.note,
+                                sharedExtensions: st.sharedExtensions,
+                                sharedExtensionData: st.sharedExtensionData,
+                                paths: st.paths,
+                                dataIds: st.dataIds,
+                                steps: st.steps,
+                              });
+                            })
+                            .catch((e) =>
+                              setSettingsMsg(
+                                friendlyError(e instanceof Error ? e.message : String(e)),
+                              ),
+                            )
+                            .finally(() => setChromeBusy(false));
+                        }}
+                      >
+                        Share Chrome folders
+                      </button>
+                      <button
+                        className="btn"
+                        type="button"
+                        disabled={chromeBusy}
+                        onClick={() => {
+                          setChromeBusy(true);
+                          void porter
+                            .revealChromeFolder("data")
+                            .then((r) => {
+                              setSettingsMsg(r.note);
+                              showToast("Opened Extension Data in Finder");
+                            })
+                            .catch((e) =>
+                              setSettingsMsg(
+                                friendlyError(e instanceof Error ? e.message : String(e)),
+                              ),
+                            )
+                            .finally(() => setChromeBusy(false));
+                        }}
+                      >
+                        Open Extension Data
+                      </button>
+                      <button
+                        className="btn"
+                        type="button"
+                        disabled={chromeBusy}
+                        onClick={() => {
+                          setChromeBusy(true);
+                          void porter
+                            .revealChromeFolder("extensions")
+                            .then((r) => {
+                              setSettingsMsg(r.note);
+                              showToast("Opened Extensions in Finder");
+                            })
+                            .catch((e) =>
+                              setSettingsMsg(
+                                friendlyError(e instanceof Error ? e.message : String(e)),
+                              ),
+                            )
+                            .finally(() => setChromeBusy(false));
+                        }}
+                      >
+                        Open Extensions
+                      </button>
+                    </div>
+                    {chromeInfo?.paths && (
+                      <p className="fmeta" style={{ marginTop: 8, wordBreak: "break-all" }}>
+                        Data path: <code>{chromeInfo.paths.localSettings}</code>
+                      </p>
+                    )}
                   </div>
                   <label className="check">
                     <input

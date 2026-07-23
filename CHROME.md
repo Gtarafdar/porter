@@ -35,33 +35,25 @@ This is a **manual copy**, not live sync. Changes on one Mac do not appear on th
 
 ### A. On Home Mac (once)
 
-1. Quit **Google Chrome** completely (Chrome menu → Quit, or Activity Monitor → quit “Google Chrome”).
-2. Open Porter → **Settings → This Mac** → **Share Chrome extensions folders**.
-3. You should see **Chrome Extensions** and **Chrome Extension Data** under Approved folders.
+1. Quit **Google Chrome** completely (Chrome menu → Quit).
+2. Open Porter → **Settings → This Mac**.
+3. Follow the on-screen steps, then **Share Chrome folders**.
+4. Tap **Open Extension Data** to see the real ID folders in Finder (optional, for confidence).
 
-### B. Copy with Porter
+### B. On Travel Mac (destination)
 
-1. On **travel Mac**, open Porter, connect to Home (Tailscale recommended).
-2. Quit Chrome on **both** Macs before copying these folders.
-3. Left pane: Home → open **Chrome Extensions** (or the parent if listed).
-4. Right pane: travel Mac — open the **same Chrome path** (see below), **not Downloads**.
-5. Copy the folder(s).
-6. Repeat for **Chrome Extension Data**.
+1. Quit Chrome.
+2. Porter → Settings → This Mac → **Share Chrome folders** (creates/approves the destination with write access).
+3. Tap **Open Extension Data** so you know exactly where files must land.
 
-**Tip:** If the travel Mac does not yet show those Chrome paths as shared folders:
+### C. Copy with Porter
 
-1. Quit Chrome on travel.
-2. Travel Porter → Settings → **Share Chrome extensions folders** (creates/approves the destinations with write access).
-3. Then copy **into** those folders from Home.
+1. Left pane: Home → **Chrome Extension Data** (and/or **Chrome Extensions**).
+2. Right pane: Travel → open the **same** shared Chrome folder (not Downloads).
+3. Copy the folders / ID folders you need.
+4. Reopen Chrome → `chrome://extensions`.
 
-### C. After copy — open Chrome
-
-1. Open Google Chrome on travel.
-2. Go to `chrome://extensions`.
-3. Extensions that were on Home should appear (same IDs).
-4. Open each extension and confirm settings.
-
-If an extension is missing, install it once from the Web Store on travel, quit Chrome, copy **only Extension Data** again (IDs must match).
+If an extension is missing on travel: install it once from the Web Store, quit Chrome, then copy **only that extension’s ID folder** from Extension Data.
 
 ---
 
