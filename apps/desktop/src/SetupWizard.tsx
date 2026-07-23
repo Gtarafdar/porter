@@ -6,10 +6,16 @@ const STEPS = [
   { id: 0, title: "Welcome", blurb: "Porter keeps AI and file sharing private on your Macs — no cloud bill." },
   { id: 1, title: "Name this Mac", blurb: "Pick a clear name so Cursor and your other Macs recognize it." },
   { id: 2, title: "Share folders", blurb: "Only approved folders are visible. Start with Projects; enable write on an inbox to receive copies." },
-  { id: 3, title: "Pair token", blurb: "Use the same secret on every Mac. Same pattern as linking Slack Agent Bridge securely on one machine." },
+  {
+    id: 3,
+    title: "Link Macs",
+    blurb: "There is no Porter account. One shared secret (pair token) + the other Mac’s address links them.",
+  },
   { id: 4, title: "Link Cursor", blurb: "One click merges Porter into ~/.cursor/mcp.json without removing Slack Agent Bridge or other MCP servers." },
   { id: 5, title: "You're set", blurb: "Open the Finder view, or ask Cursor to list Porter devices." },
 ];
+
+type PairRole = "home" | "join" | null;
 
 export function SetupWizard({
   onDone,
@@ -24,12 +30,16 @@ export function SetupWizard({
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [nativePicker, setNativePicker] = useState(false);
+  const [pairRole, setPairRole] = useState<PairRole>(null);
+  const [peerAddress, setPeerAddress] = useState("");
+  const [homeTokenSnapshot, setHomeTokenSnapshot] = useState("");
 
   async function refresh() {
     const s = await porter.setup();
     setSnap(s);
     setName(s.deviceName);
     setToken(s.token);
+    if (!homeTokenSnapshot) setHomeTokenSnapshot(s.token);
     return s;
   }
 
@@ -73,12 +83,26 @@ export function SetupWizard({
         }
       }
       if (snap!.step === 3) {
-        if (token.trim().length < 16) {
+        if (!pairRole) {
+          setMsg("Choose whether this Mac is Home or joining another Mac.");
+          setBusy(false);
+          return;
+        }
+        const t = token.trim();
+        if (t.length < 16) {
           setMsg("Token must be at least 16 characters.");
           setBusy(false);
           return;
         }
-        await porter.setToken(token.trim());
+        if (pairRole === "join" && t === homeTokenSnapshot) {
+          setMsg("Paste the pair token from your Home Mac (not this Mac’s generated token).");
+          setBusy(false);
+          return;
+        }
+        await porter.setToken(t);
+        if (pairRole === "join" && peerAddress.trim()) {
+          await porter.addPeer(peerAddress.trim());
+        }
       }
       if (snap!.step === 4) {
         // allow continue after install or acknowledge
@@ -151,8 +175,9 @@ export function SetupWizard({
             <div className="callout">
               <IconShield size={18} />
               <div>
-                <strong>Security default:</strong> whole-disk access is off. Secrets and browser
-                profiles stay blocked unless you turn them on later.
+                <strong>How linking works:</strong> pick one Mac as <em>Home</em> (usually stays on).
+                Other Macs <em>join</em> by pasting Home’s pair token, then adding Home’s address.
+                Same Apple ID is not enough — Porter does not use iCloud.
               </div>
             </div>
           )}
@@ -203,9 +228,80 @@ export function SetupWizard({
           )}
 
           {snap.step === 3 && (
-            <div className="field">
-              <label>Pair token (same on every Mac)</label>
-              <textarea rows={3} value={token} onChange={(e) => setToken(e.target.value)} />
+            <div className="pair-role">
+              <div className="role-cards">
+                <button
+                  type="button"
+                  className={`role-card ${pairRole === "home" ? "selected" : ""}`}
+                  onClick={() => {
+                    setPairRole("home");
+                    setToken(homeTokenSnapshot || token);
+                    setMsg(null);
+                  }}
+                >
+                  <strong>This is Home</strong>
+                  <span>First Mac / stays on. Keep this token and copy it to travel Macs.</span>
+                </button>
+                <button
+                  type="button"
+                  className={`role-card ${pairRole === "join" ? "selected" : ""}`}
+                  onClick={() => {
+                    setPairRole("join");
+                    setToken("");
+                    setMsg(null);
+                  }}
+                >
+                  <strong>Join Home Mac</strong>
+                  <span>Paste the token from Home, then add Home’s IP or Cloudflare URL.</span>
+                </button>
+              </div>
+
+              {pairRole === "home" && (
+                <>
+                  <div className="field">
+                    <label>Your pair token (copy this to the other Mac)</label>
+                    <textarea rows={3} value={token} readOnly />
+                  </div>
+                  <div className="row" style={{ justifyContent: "flex-start", marginTop: 0 }}>
+                    <button
+                      className="btn primary"
+                      type="button"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(token);
+                        setMsg("Token copied — paste it on the other Mac under “Join Home Mac”.");
+                      }}
+                    >
+                      Copy token
+                    </button>
+                  </div>
+                  <div className="callout">
+                    On the other Mac: choose <strong>Join Home Mac</strong>, paste this token, then
+                    add this Mac’s LAN IP, Tailscale IP, or Cloudflare HTTPS URL (Travel Ready).
+                  </div>
+                </>
+              )}
+
+              {pairRole === "join" && (
+                <>
+                  <div className="field">
+                    <label>Paste pair token from Home Mac</label>
+                    <textarea
+                      rows={3}
+                      value={token}
+                      onChange={(e) => setToken(e.target.value)}
+                      placeholder="Paste the token you copied from Home…"
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Home Mac address (optional now — can add later in Settings)</label>
+                    <input
+                      value={peerAddress}
+                      onChange={(e) => setPeerAddress(e.target.value)}
+                      placeholder="192.168.x.x · 100.x.x.x · https://….trycloudflare.com"
+                    />
+                  </div>
+                </>
+              )}
             </div>
           )}
 

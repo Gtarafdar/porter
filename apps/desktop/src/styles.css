@@ -574,6 +574,57 @@ input {
   white-space: nowrap;
 }
 
+.role-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+
+.role-card {
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font: inherit;
+  color: inherit;
+}
+
+.role-card strong {
+  font-size: 14px;
+}
+
+.role-card span {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.role-card:hover {
+  border-color: var(--accent);
+}
+
+.role-card.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.pair-role .field {
+  margin-top: 4px;
+}
+
+@media (max-width: 640px) {
+  .role-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
 .row {
   display: flex;
   gap: 8px;

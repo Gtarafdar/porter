@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${PORTER_VERSION:-0.2.7}"
+VERSION="${PORTER_VERSION:-0.2.8}"
 OUT="${ROOT}/dist/release"
 CACHE="${ROOT}/dist/cache"
 NODE_VER="${PORTER_NODE_VERSION:-20.18.2}"

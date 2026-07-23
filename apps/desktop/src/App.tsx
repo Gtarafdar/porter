@@ -624,9 +624,10 @@ export function App() {
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <h2>Settings</h2>
             <p>
-              Not automatic via Apple ID. On the other Mac: install Porter, paste the{" "}
-              <strong>same pair token</strong>, then add this Mac’s IP below (see{" "}
-              <code>CONNECTING.md</code>).
+              No Porter account and no Apple ID linking. Pick one Mac as{" "}
+              <strong>Home</strong> — copy its pair token. On the other Mac paste that{" "}
+              <strong>same</strong> token, then add Home’s address below (LAN IP, Tailscale, or
+              Cloudflare URL).
             </p>
             <div className="field">
               <label>Device name</label>
@@ -639,15 +640,27 @@ export function App() {
               />
             </div>
             <div className="field">
-              <label>Pair token (must match on both Macs)</label>
+              <label>Pair token (must be identical on every Mac you link)</label>
               <textarea
                 rows={3}
                 value={pairToken}
                 onChange={(e) => setPairToken(e.target.value)}
               />
+              <div className="row" style={{ justifyContent: "flex-start", marginTop: 8 }}>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(pairToken);
+                    showToast("Token copied — paste on the other Mac");
+                  }}
+                >
+                  Copy token
+                </button>
+              </div>
             </div>
             <div className="field">
-              <label>Add other Mac (LAN IP, Tailscale IP, or Cloudflare HTTPS URL)</label>
+              <label>Add other Mac (its LAN IP, Tailscale IP, or Cloudflare HTTPS URL)</label>
               <div style={{ display: "flex", gap: 8 }}>
                 <input
                   value={peerHost}
