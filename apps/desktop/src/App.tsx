@@ -66,6 +66,7 @@ export function App() {
   const [netHint, setNetHint] = useState<string>("");
   const [peerHost, setPeerHost] = useState("");
   const [peerPort, setPeerPort] = useState("47831");
+  const [peerFallback, setPeerFallback] = useState("");
 
   const [left, setLeft] = useState<PaneState | null>(null);
   const [right, setRight] = useState<PaneState | null>(null);
@@ -152,6 +153,7 @@ export function App() {
           const params = new URLSearchParams(window.location.search);
           if (!setup.completed || params.get("wizard") === "1") setShowWizard(true);
           if (params.get("settings") === "1") setShowSettings(true);
+          if (params.get("travel") === "1") setShowTravel(true);
         } catch {
           // ignore
         } finally {
@@ -556,12 +558,12 @@ export function App() {
               />
             </div>
             <div className="field">
-              <label>Add other Mac (LAN or Tailscale IP)</label>
+              <label>Add other Mac (LAN IP, Tailscale IP, or Cloudflare HTTPS URL)</label>
               <div style={{ display: "flex", gap: 8 }}>
                 <input
                   value={peerHost}
                   onChange={(e) => setPeerHost(e.target.value)}
-                  placeholder="192.168.0.50 or 100.x.x.x"
+                  placeholder="https://….trycloudflare.com or 100.x.x.x"
                   style={{ flex: 1 }}
                 />
                 <input
@@ -569,8 +571,17 @@ export function App() {
                   onChange={(e) => setPeerPort(e.target.value)}
                   style={{ width: 80 }}
                   placeholder="47831"
+                  title="Ignored when pasting a full https:// URL"
                 />
               </div>
+            </div>
+            <div className="field">
+              <label>Fallback (optional — Tailscale IP if primary is Cloudflare)</label>
+              <input
+                value={peerFallback}
+                onChange={(e) => setPeerFallback(e.target.value)}
+                placeholder="100.x.x.x:47831"
+              />
             </div>
             <label style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
               <input
@@ -593,10 +604,16 @@ export function App() {
                 type="button"
                 onClick={() => {
                   void porter
-                    .addPeer(peerHost.trim(), Number(peerPort) || 47831)
+                    .addPeer(
+                      peerHost.trim(),
+                      Number(peerPort) || 47831,
+                      undefined,
+                      peerFallback.trim() || undefined,
+                    )
                     .then((d) => {
                       showToast(`Connected to ${d.name}`);
                       setPeerHost("");
+                      setPeerFallback("");
                       void refreshMeta();
                     })
                     .catch((e) => setError(e instanceof Error ? e.message : String(e)));

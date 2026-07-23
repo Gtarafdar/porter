@@ -31,33 +31,100 @@ export function hydrateManualPeers(): void {
   }
 }
 
-/** Re-ping saved peers and mark online/offline (call on a timer). */
+function peerRoot(device: DeviceInfo): string {
+  if (device.baseUrl) return device.baseUrl.replace(/\/$/, "");
+  if (device.via === "cloudflare" || device.port === 443) {
+    return `https://${device.host}`;
+  }
+  return `http://${device.host}:${device.port}`;
+}
+
+function peerFallbackRoot(device: DeviceInfo): string | null {
+  if (device.fallbackBaseUrl) return device.fallbackBaseUrl.replace(/\/$/, "");
+  if (device.fallbackHost) {
+    if (
+      device.fallbackHost.endsWith(".trycloudflare.com") ||
+      (device.fallbackPort ?? 0) === 443
+    ) {
+      return `https://${device.fallbackHost}`;
+    }
+    return `http://${device.fallbackHost}:${device.fallbackPort ?? 47831}`;
+  }
+  return null;
+}
+
+async function probePeer(
+  root: string,
+  config: { token: string; deviceId: string },
+): Promise<boolean> {
+  const res = await fetch(`${root}/api/health`, {
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) return false;
+  const folders = await fetch(`${root}/api/folders`, {
+    headers: {
+      Authorization: `Bearer ${config.token}`,
+      "X-Porter-Device": config.deviceId,
+      "X-Porter-Pair": config.token,
+    },
+    signal: AbortSignal.timeout(8000),
+  });
+  return folders.ok;
+}
+
+/** Re-ping saved peers and mark online/offline (call on a timer). Tries primary then fallback. */
 export async function refreshPeerHealth(): Promise<void> {
   const config = loadConfig();
   for (const [id, device] of remoteDevices) {
     if (device.isLocal) continue;
-    try {
-      const res = await fetch(`http://${device.host}:${device.port}/api/health`, {
-        signal: AbortSignal.timeout(4000),
+    const roots: { root: string; via: DeviceInfo["activeVia"] }[] = [
+      {
+        root: peerRoot(device),
+        via: device.via === "local" ? "lan" : device.via,
+      },
+    ];
+    const fb = peerFallbackRoot(device);
+    if (fb) {
+      roots.push({
+        root: fb,
+        via: fb.startsWith("https")
+          ? "cloudflare"
+          : fb.includes("100.")
+            ? "tailscale"
+            : "lan",
       });
-      if (!res.ok) {
-        remoteDevices.set(id, { ...device, online: false });
-        continue;
-      }
-      // Confirm pair still works
-      const folders = await fetch(`http://${device.host}:${device.port}/api/folders`, {
-        headers: {
-          Authorization: `Bearer ${config.token}`,
-          "X-Porter-Device": config.deviceId,
-          "X-Porter-Pair": config.token,
-        },
-        signal: AbortSignal.timeout(4000),
-      });
-      remoteDevices.set(id, { ...device, online: folders.ok });
-    } catch {
-      remoteDevices.set(id, { ...device, online: false });
     }
+    // Prefer last active path first
+    if (device.activeVia === "tailscale" && roots.length > 1) {
+      roots.reverse();
+    }
+    let online = false;
+    let activeVia = device.activeVia;
+    for (const r of roots) {
+      try {
+        if (await probePeer(r.root, config)) {
+          online = true;
+          activeVia = r.via;
+          break;
+        }
+      } catch {
+        // try next
+      }
+    }
+    remoteDevices.set(id, { ...device, online, activeVia });
   }
+}
+
+export function updatePeerActivePath(
+  id: string,
+  via: DeviceInfo["activeVia"],
+  _base?: string,
+): void {
+  const device = remoteDevices.get(id);
+  if (!device || device.isLocal) return;
+  if (device.activeVia === via) return;
+  remoteDevices.set(id, { ...device, activeVia: via, online: true });
+  persistManualPeers();
 }
 
 export function registerManualPeer(input: {
@@ -65,8 +132,22 @@ export function registerManualPeer(input: {
   name: string;
   host: string;
   port: number;
+  via?: DeviceInfo["via"];
+  baseUrl?: string;
+  fallbackHost?: string;
+  fallbackPort?: number;
+  fallbackBaseUrl?: string;
+  activeVia?: DeviceInfo["activeVia"];
 }): DeviceInfo {
-  const via = input.host.startsWith("100.") ? "tailscale" : "lan";
+  const via: Exclude<DeviceInfo["via"], "local"> =
+    input.via && input.via !== "local"
+      ? input.via
+      : input.baseUrl?.startsWith("https") || input.host.endsWith(".trycloudflare.com")
+        ? "cloudflare"
+        : input.host.startsWith("100.")
+          ? "tailscale"
+          : "lan";
+  const existing = remoteDevices.get(input.id);
   const device: DeviceInfo = {
     id: input.id,
     name: input.name,
@@ -75,6 +156,11 @@ export function registerManualPeer(input: {
     online: true,
     isLocal: false,
     via,
+    baseUrl: input.baseUrl,
+    fallbackHost: input.fallbackHost ?? existing?.fallbackHost,
+    fallbackPort: input.fallbackPort ?? existing?.fallbackPort,
+    fallbackBaseUrl: input.fallbackBaseUrl ?? existing?.fallbackBaseUrl,
+    activeVia: input.activeVia ?? via,
   };
   remoteDevices.set(input.id, device);
   persistManualPeers();

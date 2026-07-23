@@ -1,38 +1,62 @@
 # Porter
 
-Private **AI + Finder-like** file bridge across your Macs. No cloud. No paid servers. No Apple Developer Program required.
+Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No paid servers.
 
 > Securely let Cursor (and you) find, browse, and copy approved folders between computers.
 
-**Full roadmap:** [PLAN.md](PLAN.md) · **Connect a second Mac:** [CONNECTING.md](CONNECTING.md) (not automatic — same pair token + Add peer IP)
+## Download (Mac — no git)
+
+**[⬇ Download Porter for Mac](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.1-mac.zip)** · [All releases](https://github.com/Gtarafdar/porter/releases)
+
+1. Unzip → double‑click **Porter.app** (first time: right‑click → **Open**)
+2. Follow the setup wizard
+3. For travel: **Travel Ready → Set & forget** (Cloudflare bundled). Install Tailscale from the in-app **official** button if you want the stable backup path.
+
+**Bundled:** Node + Porter + `cloudflared`  
+**Not bundled:** Tailscale (VPN app — must install from [tailscale.com/download/mac](https://tailscale.com/download/mac); one-click button inside Porter)
+
+**Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Roadmap:** [PLAN.md](PLAN.md)
+
+## What’s new in 0.2.1
+
+- Hardened tunnel auth (Cloudflare traffic can no longer look like “localhost”)
+- Admin UI / pair token / Travel Ready locked to this Mac only
+- Set & forget keep-alive + Cloudflare↔Tailscale failover
+- One-click official Tailscale download (not redistributed inside the zip)
 
 ## What’s new in 0.2
 
 - Setup wizard (Cursor MCP one-click install — keeps Slack Agent Bridge entries)
-- Professional Porter icons + Finder SVG icons (no emoji)
-- Menu bar app: `npm run menubar:build` → `open apps/mac-menubar/dist/Porter.app`
-- Sleep / Wake, Tailscale IP preference, chunked copy + SHA-256 + Mbps
-- **Add peer by IP**, **push to remote**, **one-way sync**
-- `npm run test:e2e` — 10 automated checks
+- **One-click `Porter.app`** — `npm run package` → share the zip (no git clone for users)
+- **Cloudflare Tunnel** away-from-home (travel Mac needs Porter only) **or** Tailscale
+- Sleep / Wake, chunked copy + SHA-256 + Mbps, push / one-way sync
+- `npm run test:e2e` — automated API checks
 
 ## What you get
 
-- **Finder-style UI** — browse approved folders on this Mac (and paired Macs) with icons/list, breadcrumbs, dual-pane copy
-- **Cursor MCP** — `list_devices`, `list_directory`, `search_files`, `read_file`, `copy_file`, `copy_folder`, …
-- **On-demand** — start when you need it; Disconnect all kills the process
-- **$0 infra** — LAN / Tailscale; no Porter cloud
-- **Security defaults** — folder allowlists, secret-file blocks, dangerous path blocks, activity log, pair token
+- **Finder-style UI** — browse approved folders on this Mac (and paired Macs)
+- **Cursor MCP** — list / search / read / copy across devices
+- **$0 infra** — LAN, Cloudflare Quick Tunnel, or Tailscale
+- **Security defaults** — folder allowlists, secret-file blocks, pair token, activity log
+
+## Easy install (build from source)
+
+```bash
+npm install
+npm run package
+```
+
+Share `dist/release/Porter-*-mac.zip`.
 
 ## Requirements
 
-- Node.js 20+
-- Two Macs on the same Wi‑Fi (or Tailscale)
-
-**No paid Apple Developer account.** Porter runs as Node + a local web UI.
+- macOS 12+
+- For **dev / packaging**: Node.js 20+
+- For **end users of Porter.app**: nothing else for LAN + Cloudflare (Tailscale optional, official installer)
 
 **Not Apple-ID sync. Not a phone app (yet).**
 
-## Install (each Mac)
+## Install from source (developers)
 
 ```bash
 cd /path/to/porter

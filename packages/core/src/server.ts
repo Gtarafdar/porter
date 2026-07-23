@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import fs from "node:fs";
 import path from "node:path";
+import { exec } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
   addSharedFolder,
@@ -36,11 +37,33 @@ import {
   wizardSnapshot,
 } from "./setup.js";
 import { copyFileResumable, copyFolderResumable, mapPool } from "./transfer.js";
-import { shareTravelPresets, travelReady } from "./travel.js";
+import { shareTravelPresets, travelReady, enableSetAndForget } from "./travel.js";
+import {
+  getTunnelStatus,
+  startCloudflareTunnel,
+  stopCloudflareTunnel,
+  maybeAutoStartTunnel,
+} from "./tunnel.js";
+import { installKeepAlive, maybeStartPreventSleep } from "./keepalive.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/**
+ * True only for the real local UI on this Mac.
+ * Cloudflare Quick Tunnel proxies via 127.0.0.1 — those MUST NOT count as local
+ * (otherwise the pair token / admin APIs would be open to the internet).
+ */
 function isLocalRequest(req: express.Request): boolean {
+  if (
+    req.header("cf-ray") ||
+    req.header("cf-connecting-ip") ||
+    req.header("cf-visitor") ||
+    req.header("x-forwarded-for") ||
+    req.header("x-real-ip") ||
+    req.header("forwarded")
+  ) {
+    return false;
+  }
   const ip = req.ip || req.socket.remoteAddress || "";
   return (
     ip === "127.0.0.1" ||
@@ -48,6 +71,12 @@ function isLocalRequest(req: express.Request): boolean {
     ip === "::ffff:127.0.0.1" ||
     ip.endsWith("127.0.0.1")
   );
+}
+
+function requireLocal(req: express.Request, res: express.Response): boolean {
+  if (isLocalRequest(req)) return true;
+  res.status(403).json({ error: "This action is only allowed on this Mac (localhost)." });
+  return false;
 }
 
 export async function startServer(opts?: {
@@ -81,28 +110,106 @@ export async function startServer(opts?: {
     next();
   });
 
-  app.get("/api/health", (_req, res) => {
+  app.get("/api/health", (req, res) => {
     const c = loadConfig();
+    const local = isLocalRequest(req);
     res.json({
       ok: true,
       name: "porter",
       deviceId: c.deviceId,
       deviceName: c.deviceName,
-      lan: localLanHint(),
       sleeping: c.sleeping,
       version: "0.2.0",
+      // Do not leak LAN details to remote/tunnel clients
+      ...(local ? { lan: localLanHint() } : {}),
     });
   });
 
-  app.get("/api/travel-ready", (_req, res) => {
-    res.json(travelReady());
+  app.get("/api/travel-ready", async (req, res) => {
+    if (!requireLocal(req, res)) return;
+    const travel = travelReady() as ReturnType<typeof travelReady> & {
+      tunnelReachable?: boolean | null;
+      tunnelReachNote?: string;
+    };
+    travel.tunnelReachable = null;
+    if (travel.cloudflareUrl) {
+      try {
+        const r = await fetch(`${travel.cloudflareUrl}/api/health`, {
+          signal: AbortSignal.timeout(6000),
+        });
+        travel.tunnelReachable = r.ok;
+      } catch (e) {
+        travel.tunnelReachable = false;
+        const msg = e instanceof Error ? e.message : String(e);
+        travel.tunnelReachNote = msg.includes("getaddrinfo") || msg.includes("ENOTFOUND")
+          ? "Tunnel process is up, but this Mac’s DNS cannot resolve trycloudflare.com. Travel Wi‑Fi usually works. Tailscale fallback is required for reliability."
+          : `Tunnel probe failed (${msg}). Tailscale fallback still works.`;
+      }
+    }
+    res.json(travel);
+  });
+
+  app.get("/api/tunnel", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    res.json(getTunnelStatus());
+  });
+
+  app.post("/api/tunnel/start", async (req, res) => {
+    if (!requireLocal(req, res)) return;
+    try {
+      const c = loadConfig();
+      const result = await startCloudflareTunnel(c.port);
+      res.json({ ok: true, ...result, ...getTunnelStatus(), travel: travelReady() });
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  app.post("/api/tunnel/stop", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    stopCloudflareTunnel();
+    const c = loadConfig();
+    c.tunnelUrl = null;
+    if (c.awayMode) c.awayMode.autoStartTunnel = false;
+    saveConfig(c);
+    res.json({ ok: true, ...getTunnelStatus(), travel: travelReady() });
+  });
+
+  app.post("/api/away/set-and-forget", async (req, res) => {
+    if (!requireLocal(req, res)) return;
+    try {
+      const result = await enableSetAndForget();
+      appendActivity("set_and_forget", result.warnings.join("; ") || "enabled", result.ok, "ui");
+      res.json(result);
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  app.post("/api/away/keepalive", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    try {
+      const result = installKeepAlive();
+      res.json({ ...result, travel: travelReady() });
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  app.post("/api/away/open-tailscale", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    // Official installer only — we do not bundle Tailscale (VPN system extension + login required).
+    exec('open "https://tailscale.com/download/mac"', () => undefined);
+    appendActivity("open_tailscale_download", "opened official Tailscale download", true, "ui");
+    res.json({
+      ok: true,
+      url: "https://tailscale.com/download/mac",
+      note: "Install Tailscale from the official site, sign in with the same account on both Macs. Porter cannot embed Tailscale’s VPN app.",
+    });
   });
 
   app.post("/api/travel-presets", (req, res) => {
-    if (!isLocalRequest(req)) {
-      res.status(403).json({ error: "Local only" });
-      return;
-    }
+    if (!requireLocal(req, res)) return;
     try {
       const result = shareTravelPresets();
       appendActivity("travel_presets", JSON.stringify(result.added), true, "ui");
@@ -112,15 +219,13 @@ export async function startServer(opts?: {
     }
   });
 
-  app.get("/api/setup", (_req, res) => {
+  app.get("/api/setup", (req, res) => {
+    if (!requireLocal(req, res)) return;
     res.json(wizardSnapshot());
   });
 
   app.patch("/api/setup", (req, res) => {
-    if (!isLocalRequest(req)) {
-      res.status(403).json({ error: "Setup is local only" });
-      return;
-    }
+    if (!requireLocal(req, res)) return;
     res.json(
       updateWizard({
         step: typeof req.body.step === "number" ? req.body.step : undefined,
@@ -134,15 +239,13 @@ export async function startServer(opts?: {
     );
   });
 
-  app.get("/api/mcp/snippet", (_req, res) => {
+  app.get("/api/mcp/snippet", (req, res) => {
+    if (!requireLocal(req, res)) return;
     res.json(buildMcpSnippet());
   });
 
   app.post("/api/mcp/install-cursor", (req, res) => {
-    if (!isLocalRequest(req)) {
-      res.status(403).json({ error: "MCP install is local only" });
-      return;
-    }
+    if (!requireLocal(req, res)) return;
     try {
       const result = installCursorMcp();
       res.json({ ok: true, ...result, snapshot: wizardSnapshot() });
@@ -152,10 +255,7 @@ export async function startServer(opts?: {
   });
 
   app.post("/api/sleep", (req, res) => {
-    if (!isLocalRequest(req)) {
-      res.status(403).json({ error: "Sleep is local only" });
-      return;
-    }
+    if (!requireLocal(req, res)) return;
     const c = loadConfig();
     c.sleeping = true;
     saveConfig(c);
@@ -164,10 +264,8 @@ export async function startServer(opts?: {
   });
 
   app.post("/api/wake", (req, res) => {
-    if (!isLocalRequest(req)) {
-      res.status(403).json({ error: "Wake is local only" });
-      return;
-    }
+    // Wake may be needed when UI is local; keep local-only for safety
+    if (!requireLocal(req, res)) return;
     const c = loadConfig();
     c.sleeping = false;
     saveConfig(c);
@@ -175,7 +273,8 @@ export async function startServer(opts?: {
     res.json({ ok: true, sleeping: false });
   });
 
-  app.get("/api/device", (_req, res) => {
+  app.get("/api/device", (req, res) => {
+    if (!requireLocal(req, res)) return;
     const c = loadConfig();
     res.json({
       id: c.deviceId,
@@ -192,6 +291,7 @@ export async function startServer(opts?: {
   });
 
   app.patch("/api/device", (req, res) => {
+    if (!requireLocal(req, res)) return;
     const c = loadConfig();
     if (typeof req.body.deviceName === "string") c.deviceName = req.body.deviceName;
     if (typeof req.body.sleepAfterMinutes === "number") {
@@ -212,6 +312,7 @@ export async function startServer(opts?: {
   });
 
   app.post("/api/pair/token", (req, res) => {
+    if (!requireLocal(req, res)) return;
     const token = String(req.body.token ?? "");
     if (token.length < 16) {
       res.status(400).json({ error: "Token must be at least 16 characters" });
@@ -222,7 +323,8 @@ export async function startServer(opts?: {
     res.json({ ok: true });
   });
 
-  app.get("/api/devices", (_req, res) => {
+  app.get("/api/devices", (req, res) => {
+    // Peers may list devices only after auth (middleware). Hide pair tokens / tunnel admin.
     res.json(listDevices());
   });
 
@@ -359,11 +461,12 @@ export async function startServer(opts?: {
       const host = String(req.body.host ?? "").trim();
       const port = Number(req.body.port ?? 47831);
       const name = req.body.name ? String(req.body.name) : undefined;
+      const fallback = req.body.fallback ? String(req.body.fallback).trim() : undefined;
       if (!host) {
         res.status(400).json({ error: "host required" });
         return;
       }
-      const device = await addPeerByAddress(host, port, name);
+      const device = await addPeerByAddress(host, port, name, fallback);
       res.json(device);
     } catch (e) {
       res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
@@ -414,7 +517,8 @@ export async function startServer(opts?: {
     }
   });
 
-  app.get("/api/network", (_req, res) => {
+  app.get("/api/network", (req, res) => {
+    if (!requireLocal(req, res)) return;
     res.json(networkInfo());
   });
 
@@ -549,27 +653,40 @@ export async function startServer(opts?: {
     }
   });
 
-  app.get("/api/activity", (_req, res) => {
+  app.get("/api/activity", (req, res) => {
+    if (!requireLocal(req, res)) return;
     res.json(loadActivity());
   });
 
   app.post("/api/kill", (req, res) => {
-    if (!isLocalRequest(req)) {
-      res.status(403).json({ error: "Kill switch is local only" });
-      return;
-    }
+    if (!requireLocal(req, res)) return;
     appendActivity("kill_switch", "disconnect requested", true, "ui");
     res.json({ ok: true, message: "Porter will stop accepting work. Process exit shortly." });
     setTimeout(() => process.exit(0), 300);
   });
 
-  // Static Finder UI
+  // Static Finder UI — localhost only (never expose the admin UI via Cloudflare URL)
   const staticDir =
     opts?.staticDir ||
     path.resolve(__dirname, "../../../apps/desktop/dist");
   if (fs.existsSync(staticDir)) {
+    app.use((req, res, next) => {
+      if (req.path.startsWith("/api")) return next();
+      if (!isLocalRequest(req)) {
+        res
+          .status(404)
+          .type("text/plain")
+          .send("Porter UI is only available on this Mac (http://127.0.0.1:47831).");
+        return;
+      }
+      next();
+    });
     app.use(express.static(staticDir));
-    app.get(/^(?!\/api).*/, (_req, res) => {
+    app.get(/^(?!\/api).*/, (req, res) => {
+      if (!isLocalRequest(req)) {
+        res.status(404).end();
+        return;
+      }
       res.sendFile(path.join(staticDir, "index.html"));
     });
   }
@@ -588,5 +705,8 @@ export async function startServer(opts?: {
   });
 
   appendActivity("server_start", `port ${config.port}`, true);
+  maybeStartPreventSleep();
+  // Fire-and-forget: away-mode auto tunnel (does not block listen)
+  void maybeAutoStartTunnel(config.port);
   return { port: config.port };
 }

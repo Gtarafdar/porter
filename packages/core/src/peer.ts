@@ -1,5 +1,5 @@
 import type { DeviceInfo, FileEntry, SearchHit, SharedFolder } from "@porter/protocol";
-import { getDevice, listDevices, registerManualPeer } from "./discovery.js";
+import { getDevice, listDevices, registerManualPeer, updatePeerActivePath } from "./discovery.js";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -8,18 +8,127 @@ import {
   saveConfig,
 } from "./config.js";
 
+/** Resolve http(s) base for a peer (LAN / Tailscale / Cloudflare). */
+export function deviceBaseUrl(device: DeviceInfo): string {
+  if (device.baseUrl) return device.baseUrl.replace(/\/$/, "");
+  if (device.via === "cloudflare" || device.port === 443) {
+    return `https://${device.host}`;
+  }
+  return `http://${device.host}:${device.port}`;
+}
+
+export function deviceFallbackBaseUrl(device: DeviceInfo): string | null {
+  if (device.fallbackBaseUrl) return device.fallbackBaseUrl.replace(/\/$/, "");
+  if (device.fallbackHost) {
+    if (
+      device.fallbackHost.endsWith(".trycloudflare.com") ||
+      (device.fallbackPort ?? 0) === 443
+    ) {
+      return `https://${device.fallbackHost}`;
+    }
+    return `http://${device.fallbackHost}:${device.fallbackPort ?? 47831}`;
+  }
+  return null;
+}
+
+/** Ordered bases to try: prefer last-known-good, then primary, then fallback. */
+export function peerBases(device: DeviceInfo): string[] {
+  const primary = deviceBaseUrl(device);
+  const fallback = deviceFallbackBaseUrl(device);
+  const ordered: string[] = [];
+  if (device.activeVia === "tailscale" && fallback) {
+    ordered.push(fallback, primary);
+  } else {
+    ordered.push(primary);
+    if (fallback) ordered.push(fallback);
+  }
+  return [...new Set(ordered)];
+}
+
+export function parsePeerAddress(input: string, defaultPort = 47831): {
+  host: string;
+  port: number;
+  baseUrl?: string;
+  via: "lan" | "tailscale" | "cloudflare";
+} {
+  const raw = input.trim().replace(/\/$/, "");
+  if (/^https?:\/\//i.test(raw)) {
+    const u = new URL(raw);
+    const isCf =
+      u.hostname.endsWith(".trycloudflare.com") ||
+      u.hostname.endsWith(".cfargotunnel.com");
+    const port = u.port
+      ? Number(u.port)
+      : u.protocol === "https:"
+        ? 443
+        : 80;
+    return {
+      host: u.hostname,
+      port,
+      baseUrl: `${u.protocol}//${u.host}`,
+      via: isCf || u.protocol === "https:" ? "cloudflare" : "lan",
+    };
+  }
+  // host:port or bare host / Tailscale IP
+  const [hostPart, portPart] = raw.includes(":")
+    ? (() => {
+        const idx = raw.lastIndexOf(":");
+        return [raw.slice(0, idx), raw.slice(idx + 1)];
+      })()
+    : [raw, String(defaultPort)];
+  const host = hostPart.trim();
+  const port = Number(portPart) || defaultPort;
+  const via = host.startsWith("100.")
+    ? "tailscale"
+    : host.endsWith(".trycloudflare.com")
+      ? "cloudflare"
+      : "lan";
+  const baseUrl =
+    via === "cloudflare" ? `https://${host}` : undefined;
+  return { host, port, baseUrl, via };
+}
+
+function viaForBase(base: string, device: DeviceInfo): DeviceInfo["activeVia"] {
+  if (base.startsWith("https")) return "cloudflare";
+  if (base.includes("100.")) return "tailscale";
+  if (device.via === "tailscale" || device.fallbackHost?.startsWith("100.")) {
+    if (base.includes(device.fallbackHost || "___")) return "tailscale";
+  }
+  if (device.host.startsWith("100.")) return "tailscale";
+  return device.via === "cloudflare" ? "cloudflare" : device.via === "tailscale" ? "tailscale" : "lan";
+}
+
 async function peerFetch(
   device: DeviceInfo,
   apiPath: string,
   init?: RequestInit,
 ): Promise<Response> {
   const config = loadConfig();
-  const url = `http://${device.host}:${device.port}${apiPath}`;
   const headers = new Headers(init?.headers);
   headers.set("Authorization", `Bearer ${config.token}`);
   headers.set("X-Porter-Device", config.deviceId);
   headers.set("X-Porter-Pair", config.token);
-  return fetch(url, { ...init, headers, signal: AbortSignal.timeout(120_000) });
+
+  const bases = peerBases(device);
+  let lastErr: unknown;
+  for (const base of bases) {
+    try {
+      const res = await fetch(`${base}${apiPath}`, {
+        ...init,
+        headers,
+        signal: AbortSignal.timeout(120_000),
+      });
+      if (res.ok || res.status < 500) {
+        // Mark which path worked (even 401 is "reachable")
+        updatePeerActivePath(device.id, viaForBase(base, device) || "lan", base);
+        return res;
+      }
+      lastErr = new Error(await res.text());
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("All peer paths failed");
 }
 
 export async function remoteListFolders(deviceId: string): Promise<SharedFolder[]> {
@@ -118,13 +227,13 @@ export async function remoteUploadFromLocal(
   return { bytes: buf.length };
 }
 
-export async function pingPeer(
-  host: string,
-  port: number,
+async function pingPeerUrl(
+  baseUrl: string,
 ): Promise<{ ok: boolean; deviceId?: string; deviceName?: string }> {
   const config = loadConfig();
-  const res = await fetch(`http://${host}:${port}/api/health`, {
-    signal: AbortSignal.timeout(5000),
+  const root = baseUrl.replace(/\/$/, "");
+  const res = await fetch(`${root}/api/health`, {
+    signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) return { ok: false };
   const data = (await res.json()) as {
@@ -132,13 +241,13 @@ export async function pingPeer(
     deviceId?: string;
     deviceName?: string;
   };
-  const folders = await fetch(`http://${host}:${port}/api/folders`, {
+  const folders = await fetch(`${root}/api/folders`, {
     headers: {
       Authorization: `Bearer ${config.token}`,
       "X-Porter-Device": config.deviceId,
       "X-Porter-Pair": config.token,
     },
-    signal: AbortSignal.timeout(5000),
+    signal: AbortSignal.timeout(8000),
   });
   if (!folders.ok) {
     throw new Error(
@@ -148,20 +257,73 @@ export async function pingPeer(
   return { ok: true, deviceId: data.deviceId, deviceName: data.deviceName };
 }
 
+export async function pingPeer(
+  host: string,
+  port: number,
+): Promise<{ ok: boolean; deviceId?: string; deviceName?: string }> {
+  const parsed = parsePeerAddress(
+    host.includes("://") ? host : `${host}:${port}`,
+    port,
+  );
+  return pingPeerUrl(parsed.baseUrl ?? `http://${parsed.host}:${parsed.port}`);
+}
+
 export async function addPeerByAddress(
   host: string,
   port: number,
   label?: string,
+  fallback?: string,
 ): Promise<DeviceInfo> {
-  const ping = await pingPeer(host, port);
+  const parsed = parsePeerAddress(
+    host.includes("://") || host.includes(".trycloudflare.com")
+      ? host
+      : `${host}:${port}`,
+    port,
+  );
+  const ping = await pingPeerUrl(
+    parsed.baseUrl ?? `http://${parsed.host}:${parsed.port}`,
+  );
   if (!ping.ok || !ping.deviceId) throw new Error("Could not reach peer health endpoint");
+
+  let fallbackHost: string | undefined;
+  let fallbackPort: number | undefined;
+  let fallbackBaseUrl: string | undefined;
+  if (fallback?.trim()) {
+    const fb = parsePeerAddress(fallback.trim(), 47831);
+    // Verify fallback is reachable (best-effort — don't fail add if only primary works)
+    try {
+      await pingPeerUrl(fb.baseUrl ?? `http://${fb.host}:${fb.port}`);
+      fallbackHost = fb.host;
+      fallbackPort = fb.port;
+      fallbackBaseUrl = fb.baseUrl;
+    } catch {
+      // still store it — may come online later (Tailscale)
+      fallbackHost = fb.host;
+      fallbackPort = fb.port;
+      fallbackBaseUrl = fb.baseUrl;
+    }
+  }
+
   const device = registerManualPeer({
     id: ping.deviceId,
-    name: label || ping.deviceName || host,
-    host,
-    port,
+    name: label || ping.deviceName || parsed.host,
+    host: parsed.host,
+    port: parsed.port,
+    via: parsed.via,
+    baseUrl: parsed.baseUrl,
+    fallbackHost,
+    fallbackPort,
+    fallbackBaseUrl,
+    activeVia: parsed.via,
   });
-  appendActivity("peer_add", `${device.name} @ ${host}:${port}`, true, "ui");
+  appendActivity(
+    "peer_add",
+    `${device.name} @ ${device.baseUrl || `${parsed.host}:${parsed.port}`}${
+      fallbackHost ? ` (fallback ${fallbackBaseUrl || fallbackHost})` : ""
+    }`,
+    true,
+    "ui",
+  );
   return device;
 }
 
@@ -184,7 +346,16 @@ export function authorizePeer(
     return true;
   }
 
-  if (process.env.PORTER_OPEN_LAN === "1") return true;
+  // Dangerous opt-in only. Never set in LaunchAgent / packaged app.
+  if (
+    process.env.PORTER_OPEN_LAN === "1" &&
+    process.env.PORTER_I_UNDERSTAND_OPEN_LAN === "1"
+  ) {
+    console.warn(
+      "[porter] WARNING: PORTER_OPEN_LAN is enabled — peer auth is disabled. Do not use on untrusted networks.",
+    );
+    return true;
+  }
 
   return Boolean(
     peerId &&

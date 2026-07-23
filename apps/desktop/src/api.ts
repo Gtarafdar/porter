@@ -5,7 +5,8 @@ export interface DeviceInfo {
   port: number;
   online: boolean;
   isLocal: boolean;
-  via: "local" | "lan" | "tailscale";
+  via: "local" | "lan" | "tailscale" | "cloudflare";
+  baseUrl?: string;
 }
 
 export interface SharedFolder {
@@ -126,10 +127,36 @@ export const porter = {
       method: "POST",
       body: JSON.stringify({ token }),
     }),
-  addPeer: (host: string, port = 47831, name?: string) =>
+  addPeer: (host: string, port = 47831, name?: string, fallback?: string) =>
     api<DeviceInfo>("/api/peers", {
       method: "POST",
-      body: JSON.stringify({ host, port, name }),
+      body: JSON.stringify({ host, port, name, fallback: fallback || undefined }),
+    }),
+  startTunnel: () =>
+    api<{ ok: boolean; publicUrl?: string; cloudflaredInstalled?: boolean }>(
+      "/api/tunnel/start",
+      { method: "POST", body: "{}" },
+    ),
+  stopTunnel: () =>
+    api<{ ok: boolean }>("/api/tunnel/stop", { method: "POST", body: "{}" }),
+  tunnelStatus: () =>
+    api<{
+      running: boolean;
+      publicUrl: string | null;
+      cloudflaredInstalled: boolean;
+    }>("/api/tunnel"),
+  setAndForget: () =>
+    api<{
+      ok: boolean;
+      tunnelUrl: string | null;
+      warnings: string[];
+      keepalive: { ok: boolean; detail: string };
+      folders: { added: string[]; skipped: string[] };
+    }>("/api/away/set-and-forget", { method: "POST", body: "{}" }),
+  openTailscaleDownload: () =>
+    api<{ ok: boolean; url: string; note: string }>("/api/away/open-tailscale", {
+      method: "POST",
+      body: "{}",
     }),
   syncOneWay: (body: { sourcePath: string; destDeviceId: string; destPath: string }) =>
     api<{ ok: boolean; result?: { files: number; mbps: number; ms: number } }>(
@@ -153,14 +180,26 @@ export const porter = {
   travelReady: () =>
     api<{
       ready: boolean;
+      unattendedReady?: boolean;
       deviceName: string;
       pairToken: string;
       tailscaleIp: string | null;
+      cloudflareUrl: string | null;
+      peerAddress: string | null;
+      fallbackAddress: string | null;
       lanIp: string | null;
       port: number;
       checks: { id: string; label: string; ok: boolean; detail: string }[];
       travelSteps: string[];
       safetyNote: string;
+      keepAliveInstalled?: boolean;
+      tunnel: {
+        running: boolean;
+        publicUrl: string | null;
+        cloudflaredInstalled: boolean;
+        wantRunning?: boolean;
+        restartAttempts?: number;
+      };
     }>("/api/travel-ready"),
   shareTravelPresets: () =>
     api<{ ok: boolean; added: string[]; skipped: string[] }>("/api/travel-presets", {

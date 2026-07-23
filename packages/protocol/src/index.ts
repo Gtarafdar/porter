@@ -7,7 +7,18 @@ export interface DeviceInfo {
   port: number;
   online: boolean;
   isLocal: boolean;
-  via: "local" | "lan" | "tailscale";
+  via: "local" | "lan" | "tailscale" | "cloudflare";
+  /** Full base URL for HTTPS tunnels (Cloudflare). When set, host/port are informational. */
+  baseUrl?: string;
+  /**
+   * Backup path when primary fails (e.g. Cloudflare down → Tailscale IP).
+   * Travel Macs should set Cloudflare as primary and Tailscale as fallback for unattended home.
+   */
+  fallbackHost?: string;
+  fallbackPort?: number;
+  fallbackBaseUrl?: string;
+  /** Which path last succeeded. */
+  activeVia?: "lan" | "tailscale" | "cloudflare";
 }
 
 export interface SharedFolder {

@@ -64,7 +64,10 @@ Config: ${PORTER_DIR}
   }
 
   if (cmd === "serve") {
-    const { port } = await startServer();
+    const staticDir = process.env.PORTER_UI_DIR
+      ? path.resolve(process.env.PORTER_UI_DIR)
+      : undefined;
+    const { port } = await startServer({ staticDir });
     const url = `http://127.0.0.1:${port}`;
     console.log(`Porter is awake on ${url}`);
     console.log(`Device: ${config.deviceName} (${config.deviceId})`);

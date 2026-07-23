@@ -29,6 +29,21 @@ export interface PorterConfig {
   token: string;
   wizard: WizardState;
   sleeping: boolean;
+  /** Last Cloudflare Quick Tunnel URL (home Mac), if started. */
+  tunnelUrl?: string | null;
+  /**
+   * Unattended away-mode (home Mac). When enabled:
+   * - auto-start Cloudflare tunnel on Porter boot
+   * - restart tunnel if it crashes
+   * - keep Mac awake while Porter runs (caffeinate)
+   * Tailscale remains the stable backup if the Quick Tunnel URL changes after a full reboot.
+   */
+  awayMode?: {
+    enabled: boolean;
+    autoStartTunnel: boolean;
+    preventSleep: boolean;
+    keepAliveInstalled: boolean;
+  };
 }
 
 function defaultName(): string {
@@ -61,6 +76,13 @@ export function loadConfig(): PorterConfig {
         mcpInstalled: false,
       },
       sleeping: false,
+      tunnelUrl: null,
+      awayMode: {
+        enabled: false,
+        autoStartTunnel: false,
+        preventSleep: false,
+        keepAliveInstalled: false,
+      },
     };
     saveConfig(config);
     return config;
@@ -84,6 +106,13 @@ export function loadConfig(): PorterConfig {
       mcpInstalled: loaded.wizard?.mcpInstalled ?? false,
     },
     sleeping: loaded.sleeping ?? false,
+    tunnelUrl: loaded.tunnelUrl ?? null,
+    awayMode: {
+      enabled: loaded.awayMode?.enabled ?? false,
+      autoStartTunnel: loaded.awayMode?.autoStartTunnel ?? false,
+      preventSleep: loaded.awayMode?.preventSleep ?? false,
+      keepAliveInstalled: loaded.awayMode?.keepAliveInstalled ?? false,
+    },
   };
   return config;
 }
