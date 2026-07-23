@@ -67,8 +67,16 @@ function pathLabel(d: DeviceInfo): { badge: string; detail: string; kind: string
 }
 
 function friendlyError(msg: string): string {
-  if (/<!DOCTYPE html|<html|Error 1033|Cloudflare Tunnel error|unable to resolve/i.test(msg)) {
+  // Only Porter Cloudflare *tunnel* failures — not generic HTML (e.g. missing API routes)
+  if (
+    /Error 1033|Cloudflare Tunnel error|trycloudflare\.com|tunnel URL is dead|unable to resolve.*trycloudflare/i.test(
+      msg,
+    )
+  ) {
     return "Cloudflare tunnel URL is dead or changed. On Home Mac: Add Mac → Copy Cloudflare URL + Tailscale fallback. On this Mac: paste the NEW URL (and Tailscale as Fallback).";
+  }
+  if (/Cannot GET \/api\/updates/i.test(msg) || /updates\/check/i.test(msg) && /Cannot GET|404|Not Found/i.test(msg)) {
+    return "This Porter build is too old for in-app updates. Install 0.2.22+ from GitHub Releases once, then Updates will work.";
   }
   if (msg.includes("Unauthorized") || msg.includes("pair token")) {
     return "Pair token mismatch — paste the same token on both Macs (Settings → Save token).";
@@ -268,9 +276,14 @@ export function App() {
         if (u.updateAvailable) setUpdateNudgeHidden(false);
       }
     } catch (e) {
+      const raw = e instanceof Error ? e.message : String(e);
+      // Missing route = outdated core still running
+      const msg = /Cannot GET|404|Not Found|updates\/check/i.test(raw)
+        ? "This Porter is outdated (update API missing). Quit Porter fully, install 0.2.22+ from GitHub, open from Applications."
+        : friendlyError(raw);
       if (fromUser) {
-        setSettingsMsg(friendlyError(e instanceof Error ? e.message : String(e)));
-        showToast(friendlyError(e instanceof Error ? e.message : String(e)));
+        setSettingsMsg(msg);
+        showToast(msg);
       }
     }
   }

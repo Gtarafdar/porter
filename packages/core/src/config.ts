@@ -186,10 +186,8 @@ export function appendActivity(
 export function humanError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
   const msg = sanitizePeerBody(raw);
-  if (
-    /cloudflare tunnel|error 1033|trycloudflare|unable to resolve/i.test(msg) ||
-    /<!DOCTYPE html|<html/i.test(raw)
-  ) {
+  // Only Quick Tunnel / peer tunnel failures — not random HTML (GitHub, Express 404, etc.)
+  if (/error 1033|cloudflare tunnel error|trycloudflare\.com/i.test(msg + raw)) {
     return "Cloudflare tunnel URL is dead or changed. On Home: Travel Ready or Add Mac → Copy the new Cloudflare URL (and Tailscale fallback). On this Mac: Add Mac → paste the new URL.";
   }
   if (msg.includes("Unauthorized") || msg.includes("pair token")) {
@@ -220,11 +218,14 @@ export function humanError(err: unknown): string {
 export function sanitizePeerBody(text: string): string {
   const t = (text || "").trim();
   if (!t) return "Peer request failed";
-  if (/<!DOCTYPE html|<html|Cloudflare Tunnel error|Error 1033/i.test(t)) {
-    if (/1033|unable to resolve|trycloudflare/i.test(t)) {
-      return "Cloudflare tunnel error 1033 — URL expired or tunnel offline";
-    }
-    return "Remote Mac returned an HTML error page (tunnel/network)";
+  if (/Cannot GET \/api\//i.test(t)) {
+    return "This Porter build is missing that feature — update Porter from GitHub Releases.";
+  }
+  if (/Error 1033|Cloudflare Tunnel error|trycloudflare\.com/i.test(t)) {
+    return "Cloudflare tunnel error 1033 — URL expired or tunnel offline";
+  }
+  if (/<!DOCTYPE html|<html/i.test(t)) {
+    return "Remote returned an HTML error page (network or outdated Porter).";
   }
   if (t.length > 280) return `${t.slice(0, 240)}…`;
   return t;
