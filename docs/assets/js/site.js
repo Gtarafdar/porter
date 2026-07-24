@@ -8,6 +8,47 @@
   const yearEl = document.getElementById("year");
   if (yearEl) yearEl.textContent = String(new Date().getFullYear());
 
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* Apple liquid glass layers (lucasromerodb/liquid-glass-effect-macos) */
+  function layerEl(className) {
+    const el = document.createElement("span");
+    el.className = className;
+    el.setAttribute("aria-hidden", "true");
+    return el;
+  }
+
+  function enhanceLiquidGlass(root) {
+    const nodes = root.querySelectorAll(".glass, .btn");
+    nodes.forEach((el) => {
+      if (el.classList.contains("liquidGlass-ready")) return;
+      if (el.querySelector(":scope > .liquidGlass-effect")) {
+        el.classList.add("liquidGlass-wrapper", "liquidGlass-ready");
+        return;
+      }
+
+      el.classList.add("liquidGlass-wrapper", "liquidGlass-ready");
+
+      const effect = layerEl("liquidGlass-effect");
+      const tint = layerEl("liquidGlass-tint");
+      const shine = layerEl("liquidGlass-shine");
+
+      if (el.classList.contains("glass-strong")) tint.classList.add("is-strong");
+      if (reduce) effect.style.filter = "none";
+
+      if (el.classList.contains("btn")) {
+        const label = document.createElement("span");
+        label.className = "liquidGlass-text";
+        while (el.firstChild) label.appendChild(el.firstChild);
+        el.append(effect, tint, shine, label);
+      } else {
+        el.prepend(effect, tint, shine);
+      }
+    });
+  }
+
+  enhanceLiquidGlass(document);
+
   /* Mobile nav */
   const drawer = document.getElementById("mobile-drawer");
   const openBtn = document.getElementById("menu-open");
@@ -28,8 +69,9 @@
     a.addEventListener("click", () => setNavOpen(false));
   });
 
-  /* Side nav current section + sliding liquid pill */
-  const navMenu = document.getElementById("side-nav-menu");
+  /* Side nav current section + sliding frosted pill */
+  const navShell = document.getElementById("side-nav-menu");
+  const navTrack = document.getElementById("side-nav-links") || navShell;
   const navIndicator = document.getElementById("nav-indicator");
   const navLinks = [...document.querySelectorAll("[data-nav]")];
   const sections = navLinks
@@ -44,17 +86,17 @@
   let hoverNav = null;
 
   function moveNavIndicator(target) {
-    if (!navMenu || !navIndicator || !target) {
+    if (!navTrack || !navIndicator || !target) {
       if (navIndicator) navIndicator.style.opacity = "0";
       return;
     }
-    const menuRect = navMenu.getBoundingClientRect();
+    const menuRect = navTrack.getBoundingClientRect();
     const linkRect = target.getBoundingClientRect();
-    const top = linkRect.top - menuRect.top + navMenu.scrollTop;
+    const top = linkRect.top - menuRect.top + navTrack.scrollTop;
     navIndicator.style.transform = `translateY(${Math.max(0, top)}px)`;
     navIndicator.style.height = `${linkRect.height}px`;
     navIndicator.style.opacity = "1";
-    navMenu.classList.add("has-indicator");
+    navShell?.classList.add("has-indicator");
   }
 
   function refreshCurrent() {
@@ -73,14 +115,14 @@
   window.addEventListener("resize", () => moveNavIndicator(hoverNav || activeNav), { passive: true });
   refreshCurrent();
 
-  if (navMenu) {
+  if (navTrack) {
     navLinks.forEach((a) => {
       a.addEventListener("pointerenter", () => {
         hoverNav = a;
         moveNavIndicator(a);
       });
     });
-    navMenu.addEventListener("pointerleave", () => {
+    navTrack.addEventListener("pointerleave", () => {
       hoverNav = null;
       moveNavIndicator(activeNav);
     });
@@ -123,7 +165,6 @@
   });
 
   /* Reveal */
-  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (!reduce && "IntersectionObserver" in window) {
     const io = new IntersectionObserver(
       (entries) => {
@@ -139,34 +180,6 @@
     document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
   } else {
     document.querySelectorAll(".reveal").forEach((el) => el.classList.add("in"));
-  }
-
-  /* Liquid glass specular + lens follow (CodePen-style mouse tracking) */
-  if (!reduce) {
-    const setSpecular = (el, clientX, clientY) => {
-      const r = el.getBoundingClientRect();
-      const x = ((clientX - r.left) / Math.max(r.width, 1)) * 100;
-      const y = ((clientY - r.top) / Math.max(r.height, 1)) * 100;
-      el.style.setProperty("--mx", `${x}%`);
-      el.style.setProperty("--my", `${y}%`);
-    };
-    document.querySelectorAll(".glass").forEach((el) => {
-      el.addEventListener(
-        "pointerenter",
-        () => el.classList.add("is-lens"),
-        { passive: true },
-      );
-      el.addEventListener(
-        "pointerleave",
-        () => el.classList.remove("is-lens"),
-        { passive: true },
-      );
-      el.addEventListener(
-        "pointermove",
-        (e) => setSpecular(el, e.clientX, e.clientY),
-        { passive: true },
-      );
-    });
   }
 
   function pickAsset(assets, kind) {
@@ -185,7 +198,6 @@
   function setDownloads(tag, dmgUrl, zipUrl) {
     const label = document.getElementById("release-label");
     const chip = document.getElementById("version-chip");
-    const ids = ["btn-dmg", "download-dmg", "btn-zip", "download-zip"];
     if (label) label.textContent = tag ? `${tag} for Apple Silicon` : "Latest for Apple Silicon";
     if (chip) chip.textContent = tag || "Latest release";
     const dmg = dmgUrl || FALLBACK_DMG;
@@ -198,7 +210,6 @@
       const el = document.getElementById(id);
       if (el) el.href = zip;
     });
-    void ids;
   }
 
   function renderChangelog(releases) {
