@@ -348,17 +348,20 @@
         let scale = 1;
         let opacity = 1;
         let z = 100 + idx;
-        if (d < 0) {
-          y = d * 18;
-          scale = Math.max(0.86, 1 + d * 0.045);
-          opacity = Math.max(0.25, 1 + d * 0.4);
+        if (d < -0.02) {
+          y = Math.max(-28, d * 12);
+          scale = Math.max(0.92, 1 + d * 0.028);
+          opacity = 1;
           z = 40 + idx;
-        } else if (d > 0) {
-          y = Math.min(110, 28 + d * 52);
+        } else if (d > 0.02) {
+          y = Math.min(120, 36 + d * 56);
           scale = 1;
-          opacity = d > 0.95 ? 0 : Math.max(0, 1 - d * 0.75);
+          opacity = d > 0.9 ? 0 : 1;
           z = 200 - Math.floor(d * 20);
         } else {
+          opacity = 1;
+          scale = 1;
+          y = 0;
           z = 300;
         }
         card.style.transform = `translate3d(0, ${y}px, 0) scale(${scale})`;
@@ -409,6 +412,47 @@
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll, { passive: true });
     update();
+  })();
+
+  /* Scroll to top + percent ring */
+  (function initScrollTop() {
+    const btn = document.getElementById("scroll-top");
+    const pctEl = document.getElementById("scroll-top-pct");
+    const ring = document.getElementById("scroll-top-progress");
+    if (!btn || !pctEl || !ring) return;
+    const circumference = 2 * Math.PI * 24;
+    ring.style.strokeDasharray = String(circumference);
+
+    function refresh() {
+      const doc = document.documentElement;
+      const max = Math.max(1, doc.scrollHeight - window.innerHeight);
+      const scrolled = Math.min(max, Math.max(0, window.scrollY || doc.scrollTop));
+      const pct = Math.round((scrolled / max) * 100);
+      pctEl.textContent = `${pct}%`;
+      ring.style.strokeDashoffset = String(circumference - (pct / 100) * circumference);
+      btn.hidden = scrolled < 240;
+    }
+
+    btn.addEventListener("click", () => {
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+    });
+
+    let ticking = false;
+    window.addEventListener(
+      "scroll",
+      () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          refresh();
+          ticking = false;
+        });
+      },
+      { passive: true },
+    );
+    window.addEventListener("resize", refresh, { passive: true });
+    refresh();
   })();
 
   loadReleases();

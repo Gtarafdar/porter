@@ -1034,9 +1034,23 @@ a.btn-primary:visited,
   overflow: hidden;
   transform-origin: center 85%;
   will-change: transform, opacity;
+  /* Solid surface so stacked cards stay readable */
+  background: #171c24 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   transition: box-shadow 0.25s ease, border-color 0.25s ease;
   box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.45),
+    0 24px 60px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.howto-card.is-active {
+  background: #1b222c !important;
+  border-color: rgba(var(--accent-rgb), 0.35);
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(var(--accent-rgb), 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
@@ -1046,6 +1060,11 @@ a.btn-primary:visited,
   flex-direction: column;
   justify-content: center;
   z-index: 1;
+  background: #171c24;
+}
+
+.howto-card.is-active .howto-card-copy {
+  background: #1b222c;
 }
 
 .howto-step {
@@ -1068,11 +1087,12 @@ a.btn-primary:visited,
   font-weight: 400;
   font-size: clamp(1.35rem, 2.4vw, 1.85rem);
   margin: 0 0 10px;
+  color: var(--ink);
 }
 
 .howto-card-copy p {
   margin: 0;
-  color: var(--muted);
+  color: #b7c0ca;
   font-size: 0.98rem;
   max-width: 38ch;
 }
@@ -1510,6 +1530,92 @@ a.btn-primary:visited,
   .feat:hover,
   .workshop a:hover {
     transform: none;
+  }
+}
+
+.glass-svg {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* Scroll to top with fluid ring + percent */
+.scroll-top {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 70;
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  color: var(--ink);
+  background: rgba(18, 22, 28, 0.88);
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: grid;
+  place-items: center;
+  transition: transform 0.22s ease, opacity 0.22s ease, box-shadow 0.22s ease;
+}
+
+.scroll-top[hidden] {
+  display: none !important;
+}
+
+.scroll-top:hover {
+  transform: translateY(-3px) scale(1.04);
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.4),
+    0 0 24px rgba(var(--accent-rgb), 0.28);
+}
+
+.scroll-top-ring {
+  position: absolute;
+  inset: 0;
+  width: 56px;
+  height: 56px;
+  transform: rotate(-90deg);
+}
+
+.scroll-top-track,
+.scroll-top-progress {
+  fill: none;
+  stroke-width: 3.5;
+}
+
+.scroll-top-track {
+  stroke: rgba(255, 255, 255, 0.12);
+}
+
+.scroll-top-progress {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-dasharray: 150.8;
+  stroke-dashoffset: 150.8;
+  transition: stroke-dashoffset 0.12s linear;
+  filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.55));
+}
+
+.scroll-top-pct {
+  position: relative;
+  z-index: 1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--accent-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-top,
+  .scroll-top-progress {
+    transition: none;
   }
 }
 

@@ -102,10 +102,10 @@
           <a href="#security" data-nav>Security</a>
           <a href="#audience" data-nav>Who it's for</a>
           <a href="#download" data-nav>Download</a>
-          <a href="#changelog" data-nav>Changelog</a>
-          <a href="#faq" data-nav>FAQ</a>
           <a href="#maker" data-nav>Maker</a>
           <a href="#story" data-nav>Why free</a>
+          <a href="#changelog" data-nav>Changelog</a>
+          <a href="#faq" data-nav>FAQ</a>
         </nav>
         <div class="side-cta">
           <a class="btn btn-primary" href="#download" id="nav-download">Download</a>
@@ -137,10 +137,10 @@
               <a href="#security">Security</a>
               <a href="#audience">Who it's for</a>
               <a href="#download">Download</a>
-              <a href="#changelog">Changelog</a>
-              <a href="#faq">FAQ</a>
               <a href="#maker">Maker</a>
               <a href="#story">Why free</a>
+              <a href="#changelog">Changelog</a>
+              <a href="#faq">FAQ</a>
             </nav>
             <a class="btn btn-primary" href="#download">Download</a>
           </div>
@@ -608,65 +608,9 @@
           </div>
         </section>
 
-        <section class="section reveal" id="changelog">
-          <p class="eyebrow">History</p>
-          <h2>Changelog</h2>
-          <p class="lede">Full notes from GitHub Releases. Newest tag stays on top when a release ships.</p>
-          <ol class="changelog-tree" id="changelog-tree">
-            <li>
-              <time>…</time>
-              <strong><a href="https://github.com/Gtarafdar/porter/releases">Loading releases</a></strong>
-              <p>Fetching release notes.</p>
-            </li>
-          </ol>
-        </section>
+        
 
-        <section class="section faq reveal" id="faq">
-          <p class="eyebrow">FAQ</p>
-          <h2>Common questions</h2>
-          <details class="glass">
-            <summary>Is Porter malware? macOS warns me.</summary>
-            <p>
-              No. Porter is an MIT-licensed app from GitHub Releases. Without Apple notarization, Gatekeeper shows a warning.
-              Install to Applications, then right-click → Open, or use Privacy and Security → Open Anyway.
-            </p>
-          </details>
-          <details class="glass">
-            <summary>Is this like TeamViewer?</summary>
-            <p>
-              No. TeamViewer-style tools remote a whole computer. Porter bridges approved folders between your Macs and exposes
-              those same folders to AI IDEs through MCP.
-            </p>
-          </details>
-          <details class="glass">
-            <summary>Why Tailscale?</summary>
-            <p>
-              Tailscale gives a private mesh with stable addresses for travel. Your Tailscale account gates reachability.
-              Porter’s pair token gates what the app allows. Cloudflare Quick Tunnel is optional and can change after reboot.
-            </p>
-          </details>
-          <details class="glass">
-            <summary>Do I need Tailscale on the same Wi‑Fi?</summary>
-            <p>No. Same LAN works with the pair token and LAN address. Tailscale is required for reliable travel and unattended home access.</p>
-          </details>
-          <details class="glass">
-            <summary>Intel Macs? iPhone?</summary>
-            <p>
-              Current builds target Apple Silicon. Intel may exist in older releases. There is no iPhone or iPad app in this version.
-            </p>
-          </details>
-          <details class="glass">
-            <summary>Two-way Dropbox-style sync?</summary>
-            <p>Not in V1. Porter focuses on explicit copy and one-way sync without conflict UI.</p>
-          </details>
-          <details class="glass">
-            <summary>What about licensing?</summary>
-            <p>
-              Porter is MIT licensed. Free to use, modify, and share.
-              See <a href="https://github.com/Gtarafdar/porter/blob/main/LICENSE">LICENSE</a>.
-            </p>
-          </details>
-        </section>
+        
 
         <section class="section reveal" id="maker">
           <p class="eyebrow">Maker</p>
@@ -793,6 +737,67 @@
           </div>
         </section>
 
+<section class="section reveal" id="changelog">
+          <p class="eyebrow">History</p>
+          <h2>Changelog</h2>
+          <p class="lede">Full notes from GitHub Releases. Newest tag stays on top when a release ships.</p>
+          <ol class="changelog-tree" id="changelog-tree">
+            <li>
+              <time>…</time>
+              <strong><a href="https://github.com/Gtarafdar/porter/releases">Loading releases</a></strong>
+              <p>Fetching release notes.</p>
+            </li>
+          </ol>
+        </section>
+
+<section class="section faq reveal" id="faq">
+          <p class="eyebrow">FAQ</p>
+          <h2>Common questions</h2>
+          <details class="glass">
+            <summary>Is Porter malware? macOS warns me.</summary>
+            <p>
+              No. Porter is an MIT-licensed app from GitHub Releases. Without Apple notarization, Gatekeeper shows a warning.
+              Install to Applications, then right-click → Open, or use Privacy and Security → Open Anyway.
+            </p>
+          </details>
+          <details class="glass">
+            <summary>Is this like TeamViewer?</summary>
+            <p>
+              No. TeamViewer-style tools remote a whole computer. Porter bridges approved folders between your Macs and exposes
+              those same folders to AI IDEs through MCP.
+            </p>
+          </details>
+          <details class="glass">
+            <summary>Why Tailscale?</summary>
+            <p>
+              Tailscale gives a private mesh with stable addresses for travel. Your Tailscale account gates reachability.
+              Porter’s pair token gates what the app allows. Cloudflare Quick Tunnel is optional and can change after reboot.
+            </p>
+          </details>
+          <details class="glass">
+            <summary>Do I need Tailscale on the same Wi‑Fi?</summary>
+            <p>No. Same LAN works with the pair token and LAN address. Tailscale is required for reliable travel and unattended home access.</p>
+          </details>
+          <details class="glass">
+            <summary>Intel Macs? iPhone?</summary>
+            <p>
+              Current builds target Apple Silicon. Intel may exist in older releases. There is no iPhone or iPad app in this version.
+            </p>
+          </details>
+          <details class="glass">
+            <summary>Two-way Dropbox-style sync?</summary>
+            <p>Not in V1. Porter focuses on explicit copy and one-way sync without conflict UI.</p>
+          </details>
+          <details class="glass">
+            <summary>What about licensing?</summary>
+            <p>
+              Porter is MIT licensed. Free to use, modify, and share.
+              See <a href="https://github.com/Gtarafdar/porter/blob/main/LICENSE">LICENSE</a>.
+            </p>
+          </details>
+        </section>
+
+
         <section class="section reveal" id="support">
           <div class="support-band glass">
             <h2 style="margin-top: 0">If Porter saves you a trip through zip and chat</h2>
@@ -830,6 +835,14 @@
       <button type="button" class="btn btn-ghost lightbox-close" id="lightbox-close">Close</button>
       <img src="" alt="" id="lightbox-img" />
     </div>
+
+    <button type="button" class="scroll-top" id="scroll-top" aria-label="Scroll to top" hidden>
+      <svg class="scroll-top-ring" viewBox="0 0 56 56" aria-hidden="true">
+        <circle class="scroll-top-track" cx="28" cy="28" r="24" />
+        <circle class="scroll-top-progress" id="scroll-top-progress" cx="28" cy="28" r="24" />
+      </svg>
+      <span class="scroll-top-pct" id="scroll-top-pct">0%</span>
+    </button>
 
     <script src="assets/js/site.js" defer></script>
   </body>
