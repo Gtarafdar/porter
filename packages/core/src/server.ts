@@ -891,14 +891,17 @@ export async function startServer(opts?: {
   appendActivity("server_start", `port ${config.port}`, true);
   maybeStartPreventSleep();
   maybeRepairKeepAlivePaths();
-  // Away-mode: prefer Tailscale Serve; Cloudflare only if user opted into autoStartTunnel
+  // Away-mode: prefer Tailscale Serve; Cloudflare only if user opted into autoStartTunnel.
+  // Defer Serve: execFileSync Tailscale must not block HTTP accept /api/health (keep-alive).
   const away = loadConfig().awayMode;
   if (away?.enabled && away.preferTailscaleServe !== false) {
-    try {
-      startTailscaleServe(config.port);
-    } catch {
-      // non-fatal
-    }
+    setTimeout(() => {
+      try {
+        startTailscaleServe(config.port);
+      } catch {
+        // non-fatal — Travel Ready / Set & forget can retry
+      }
+    }, 0);
   }
   void maybeAutoStartTunnel(config.port);
   return { port: config.port };

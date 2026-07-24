@@ -196,11 +196,11 @@ fi
 # CRITICAL: always bound curl — a half-open listener on 47831 used to hang forever here
 # (log stopped at node-ok; window timed out before serve started).
 health_ok() {
-  curl -sf -m 1 --connect-timeout 1 "http://127.0.0.1:47831/api/health" >/dev/null 2>&1
+  curl -sf -m 12 --connect-timeout 2 "http://127.0.0.1:47831/api/health" >/dev/null 2>&1
 }
 
 health_version() {
-  curl -sf -m 1 --connect-timeout 1 "http://127.0.0.1:47831/api/health" 2>/dev/null \\
+  curl -sf -m 12 --connect-timeout 2 "http://127.0.0.1:47831/api/health" 2>/dev/null \\
     | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' | head -1
 }
 
@@ -219,19 +219,33 @@ if health_ok; then
   fi
 fi
 
-# Port held by a dead/stuck Porter? Free it so we can bind.
+# Port held by a dead/stuck Porter? Give a slow-starting core a grace period first.
 if lsof -nP -iTCP:47831 -sTCP:LISTEN >/dev/null 2>&1; then
-  log "warning: port 47831 is listening but /api/health failed — stopping stale Porter"
-  pkill -f 'packages/core/dist/cli.js serve' 2>/dev/null || true
-  pkill -f 'Porter.app/Contents/Resources/node' 2>/dev/null || true
-  sleep 0.6
+  sleep 2
   if health_ok; then
     HAVE_VER="$(health_version)"
     if [[ -n "$HAVE_VER" && "$HAVE_VER" != "$WANT_VER" ]]; then
-      log "still wrong version after clear — continuing start"
+      log "healthy after grace but wrong version — taking over"
+      pkill -f 'packages/core/dist/cli.js serve' 2>/dev/null || true
+      pkill -f 'Porter.app/Contents/Resources/node' 2>/dev/null || true
+      sleep 0.6
     else
-      log "became healthy after clearing stale process"
+      log "became healthy after grace — nothing to start"
       exit 0
+    fi
+  else
+    log "warning: port 47831 is listening but /api/health failed — stopping stale Porter"
+    pkill -f 'packages/core/dist/cli.js serve' 2>/dev/null || true
+    pkill -f 'Porter.app/Contents/Resources/node' 2>/dev/null || true
+    sleep 0.6
+    if health_ok; then
+      HAVE_VER="$(health_version)"
+      if [[ -n "$HAVE_VER" && "$HAVE_VER" != "$WANT_VER" ]]; then
+        log "still wrong version after clear — continuing start"
+      else
+        log "became healthy after clearing stale process"
+        exit 0
+      fi
     fi
   fi
 fi

@@ -348,6 +348,16 @@ export function SetupWizard({
                 Porter uses <strong>Tailscale</strong> so your Macs stay private and reachable when
                 you travel. Same Tailscale account on every Mac.
               </p>
+              {tsStatus?.connected && tsStatus.selfIp ? (
+                <div className="callout ok" style={{ marginTop: 12 }}>
+                  <IconShield size={18} />
+                  <div>
+                    <strong>Tailscale is on</strong> — {tsStatus.selfIp}. Use this on both Macs. On
+                    the <em>Home</em> Mac, finish setup then open <strong>Travel Ready → Set &amp;
+                    forget</strong> before you leave.
+                  </div>
+                </div>
+              ) : null}
               <div className="travel-checks" style={{ marginTop: 12 }}>
                 <div className={`travel-check ${tsStatus?.installed ? "ok" : "bad"}`}>
                   <span className="wiz-dot">{tsStatus?.installed ? <IconCheck size={12} /> : "!"}</span>

@@ -1624,7 +1624,7 @@ export function App() {
             setShowWizard(false);
             void refreshMeta();
             setShowTravel(true);
-            showToast("Setup ready — check Travel Ready");
+            showToast("Setup ready — on Home, open Travel Ready → Set & forget before you travel");
           }}
         />
       )}

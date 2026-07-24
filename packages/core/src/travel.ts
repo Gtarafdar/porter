@@ -114,7 +114,7 @@ export function travelReady() {
       detail: serveUrl
         ? `Live: ${serveUrl}`
         : tsIp
-          ? "Not configured yet — Set & forget enables it"
+          ? "Porter is starting private Serve — wait a few seconds, or tap Set & forget"
           : "Needs Tailscale first",
     },
     {
