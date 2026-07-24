@@ -1,6 +1,13 @@
 import Bonjour from "bonjour-service";
 import type { DeviceInfo } from "@porter/protocol";
-import { loadConfig, localDevice, PORTER_DIR } from "./config.js";
+import {
+  clearForgottenDeviceId,
+  forgetDeviceId,
+  isDeviceForgotten,
+  loadConfig,
+  localDevice,
+  PORTER_DIR,
+} from "./config.js";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
@@ -23,6 +30,7 @@ export function hydrateManualPeers(): void {
     const peers = JSON.parse(fs.readFileSync(MANUAL_PEERS_PATH, "utf8")) as DeviceInfo[];
     for (const p of peers) {
       if (!p?.id || p.isLocal) continue;
+      if (isDeviceForgotten(p.id)) continue;
       // Prefer Tailscale IP if we can map the device name later; keep saved host for now
       remoteDevices.set(p.id, { ...p, online: false });
     }
@@ -176,7 +184,21 @@ export function registerManualPeer(input: {
     activeVia: input.activeVia ?? via,
   };
   remoteDevices.set(input.id, device);
+  clearForgottenDeviceId(input.id);
   persistManualPeers();
+  return device;
+}
+
+/**
+ * Drop a Mac from this device list and soft-forget it so Bonjour / inbound
+ * sightings do not immediately re-add it.
+ */
+export function removeManualPeer(id: string): DeviceInfo | null {
+  const device = remoteDevices.get(id);
+  if (!device || device.isLocal) return null;
+  remoteDevices.delete(id);
+  persistManualPeers();
+  forgetDeviceId(id);
   return device;
 }
 
@@ -192,6 +214,7 @@ export function noteSeenPeer(input: {
 }): void {
   const config = loadConfig();
   if (!input.id || input.id === config.deviceId) return;
+  if (isDeviceForgotten(input.id)) return;
   const existing = remoteDevices.get(input.id);
   const ts = getTailscaleStatus();
   const nameHint = (input.name?.trim() || existing?.name || "").toLowerCase();
@@ -347,6 +370,7 @@ export function startDiscovery(onChange?: () => void): void {
     }) => {
       const id = String(service.txt?.id ?? "");
       if (!id || id === config.deviceId) return;
+      if (isDeviceForgotten(id)) return;
       const host =
         service.referer?.address ||
         service.addresses?.find((a: string) => a.includes(".")) ||

@@ -32,6 +32,11 @@ export interface PorterConfig {
   allowSecretFiles: boolean;
   requireConfirmWrites: boolean;
   pairedDeviceIds: string[];
+  /**
+   * Device IDs intentionally removed from this Mac’s list.
+   * Blocks Bonjour / noteSeenPeer re-add until the user Adds that Mac again.
+   */
+  forgottenDeviceIds: string[];
   token: string;
   wizard: WizardState;
   sleeping: boolean;
@@ -78,6 +83,7 @@ export function loadConfig(): PorterConfig {
       allowSecretFiles: false,
       requireConfirmWrites: true,
       pairedDeviceIds: [],
+      forgottenDeviceIds: [],
       token: randomBytes(24).toString("hex"),
       wizard: {
         completed: false,
@@ -120,6 +126,7 @@ export function loadConfig(): PorterConfig {
     allowSecretFiles: loaded.allowSecretFiles ?? false,
     requireConfirmWrites: loaded.requireConfirmWrites ?? true,
     pairedDeviceIds: loaded.pairedDeviceIds ?? [],
+    forgottenDeviceIds: loaded.forgottenDeviceIds ?? [],
     token: loaded.token ?? randomBytes(24).toString("hex"),
     wizard: {
       completed: loaded.wizard?.completed ?? false,
@@ -172,6 +179,61 @@ export function loadActivity(): ActivityEvent[] {
   } catch {
     return [];
   }
+}
+
+export function queryActivity(opts?: {
+  q?: string;
+  ok?: boolean | null;
+  limit?: number;
+  offset?: number;
+}): { events: ActivityEvent[]; total: number; limit: number; offset: number } {
+  let events = loadActivity();
+  const q = opts?.q?.trim().toLowerCase();
+  if (q) {
+    events = events.filter((e) => {
+      const hay = [e.action, e.detail, e.humanMessage, e.source, e.via]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }
+  if (opts?.ok === true || opts?.ok === false) {
+    events = events.filter((e) => e.ok === opts.ok);
+  }
+  const total = events.length;
+  const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 200);
+  const offset = Math.max(opts?.offset ?? 0, 0);
+  return {
+    events: events.slice(offset, offset + limit),
+    total,
+    limit,
+    offset,
+  };
+}
+
+export function isDeviceForgotten(deviceId: string): boolean {
+  if (!deviceId) return false;
+  return loadConfig().forgottenDeviceIds.includes(deviceId);
+}
+
+export function forgetDeviceId(deviceId: string): void {
+  if (!deviceId) return;
+  const config = loadConfig();
+  if (!config.forgottenDeviceIds.includes(deviceId)) {
+    config.forgottenDeviceIds.push(deviceId);
+  }
+  config.pairedDeviceIds = config.pairedDeviceIds.filter((id) => id !== deviceId);
+  saveConfig(config);
+}
+
+export function clearForgottenDeviceId(deviceId: string): void {
+  if (!deviceId) return;
+  const config = loadConfig();
+  const next = config.forgottenDeviceIds.filter((id) => id !== deviceId);
+  if (next.length === config.forgottenDeviceIds.length) return;
+  config.forgottenDeviceIds = next;
+  saveConfig(config);
 }
 
 export function appendActivity(

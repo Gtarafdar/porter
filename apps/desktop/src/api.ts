@@ -161,7 +161,24 @@ export const porter = {
       bonjour: { enabled: boolean; disabledByEnv: boolean };
       guidance: string[];
     }>("/api/network"),
-  activity: () => api<ActivityEvent[]>("/api/activity"),
+  activity: (opts?: {
+    q?: string;
+    ok?: "true" | "false" | "";
+    limit?: number;
+    offset?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (opts?.q) params.set("q", opts.q);
+    if (opts?.ok === "true" || opts?.ok === "false") params.set("ok", opts.ok);
+    params.set("limit", String(opts?.limit ?? 50));
+    params.set("offset", String(opts?.offset ?? 0));
+    return api<{
+      events: ActivityEvent[];
+      total: number;
+      limit: number;
+      offset: number;
+    }>(`/api/activity?${params.toString()}`);
+  },
   kill: () => api<{ ok: boolean }>("/api/kill", { method: "POST", body: "{}" }),
   setToken: (token: string) =>
     api<{ ok: boolean }>("/api/pair/token", {
@@ -173,6 +190,14 @@ export const porter = {
       method: "POST",
       body: JSON.stringify({ host, port, name, fallback: fallback || undefined }),
     }),
+  removePeer: (deviceId: string, opts?: { notifyRemote?: boolean }) =>
+    api<{ ok: boolean; notified: boolean; detail: string }>(
+      `/api/peers/${encodeURIComponent(deviceId)}`,
+      {
+        method: "DELETE",
+        body: JSON.stringify({ notifyRemote: opts?.notifyRemote !== false }),
+      },
+    ),
   startTunnel: () =>
     api<{ ok: boolean; publicUrl?: string; cloudflaredInstalled?: boolean }>(
       "/api/tunnel/start",

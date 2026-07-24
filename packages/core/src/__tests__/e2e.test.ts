@@ -231,4 +231,90 @@ describe("Porter e2e", { timeout: 60_000 }, () => {
     );
     assert.equal(res.status, 400);
   });
+
+  it("activity API returns paged object with search", async () => {
+    const page = await json<{
+      events: Array<{ action: string; durationMs?: number }>;
+      total: number;
+      limit: number;
+      offset: number;
+    }>(`${BASE}/api/activity?limit=5&offset=0`);
+    assert.ok(typeof page.total === "number");
+    assert.equal(page.limit, 5);
+    assert.equal(page.offset, 0);
+    assert.ok(Array.isArray(page.events));
+    assert.ok(page.events.length <= 5);
+
+    const filtered = await json<{ events: Array<{ ok: boolean }>; total: number }>(
+      `${BASE}/api/activity?ok=true&limit=20&offset=0`,
+    );
+    assert.ok(filtered.events.every((e) => e.ok === true));
+  });
+
+  it("removes a peer locally and logs peer_remove", async () => {
+    const peer = await json<{ id: string; name: string }>(`${BASE}/api/peers`, {
+      method: "POST",
+      body: JSON.stringify({
+        host: "127.0.0.1",
+        port: 1,
+        name: "E2E-Remove-Me",
+      }),
+    });
+    assert.ok(peer.id);
+
+    const removed = await json<{ ok: boolean; notified: boolean; detail: string }>(
+      `${BASE}/api/peers/${encodeURIComponent(peer.id)}`,
+      {
+        method: "DELETE",
+        body: JSON.stringify({ notifyRemote: false }),
+      },
+    );
+    assert.equal(removed.ok, true);
+    assert.equal(removed.notified, false);
+
+    const devices = await json<Array<{ id: string }>>(`${BASE}/api/devices`);
+    assert.ok(!devices.some((d) => d.id === peer.id));
+
+    const activity = await json<{
+      events: Array<{ action: string; humanMessage?: string; durationMs?: number }>;
+    }>(`${BASE}/api/activity?q=peer_remove&limit=10&offset=0`);
+    assert.ok(activity.events.some((e) => e.action === "peer_remove"));
+    assert.ok(
+      activity.events.some(
+        (e) => e.action === "peer_remove" && typeof e.durationMs === "number",
+      ),
+    );
+  });
+
+  it("forget-remote requires auth and drops caller", async () => {
+    const device = await json<{ id: string; token: string }>(`${BASE}/api/device`);
+    const foreignId = "foreign-device-e2e";
+
+    const denied = await fetch(`${BASE}/api/peers/forget-remote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    // Local without auth headers → 401
+    assert.equal(denied.status, 401);
+
+    const ok = await fetch(`${BASE}/api/peers/forget-remote`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${device.token}`,
+        "X-Porter-Pair": device.token,
+        "X-Porter-Device": foreignId,
+      },
+      body: "{}",
+    });
+    assert.equal(ok.status, 200);
+    const body = (await ok.json()) as { ok: boolean };
+    assert.equal(body.ok, true);
+
+    const cfg = JSON.parse(
+      fs.readFileSync(path.join(home, ".porter", "config.json"), "utf8"),
+    ) as { forgottenDeviceIds: string[] };
+    assert.ok(cfg.forgottenDeviceIds.includes(foreignId));
+  });
 });
