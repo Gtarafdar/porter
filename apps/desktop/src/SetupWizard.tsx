@@ -402,10 +402,10 @@ export function SetupWizard({
                     {tsStatus?.sshLikelyEnabled === true ? <IconCheck size={12} /> : "·"}
                   </span>
                   <div>
-                    <strong>Tailscale SSH (recommended before travel)</strong>
+                    <strong>Break-glass revive (recommended before travel)</strong>
                     <div className="fmeta">
-                      Enable in Tailscale → Settings so you can revive Porter while away. Not required
-                      to continue setup.
+                      Tailscale’s Mac app has no SSH menu. Use System Settings → Sharing → Remote
+                      Login so you can revive Porter while away. Not required to continue setup.
                     </div>
                   </div>
                 </div>
@@ -457,21 +457,40 @@ export function SetupWizard({
                   type="button"
                   disabled={busy}
                   onClick={() => {
+                    setBusy(true);
                     void porter
                       .openTailscaleSshSettings()
                       .then((r) => setMsg(r.detail))
-                      .catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
+                      .catch((e) => setMsg(e instanceof Error ? e.message : String(e)))
+                      .finally(() => setBusy(false));
                   }}
                 >
-                  Open SSH settings
+                  Open Remote Login
                 </button>
                 <button
                   className="btn"
                   type="button"
                   disabled={busy}
-                  onClick={() => void refreshTailscaleStatus()}
+                  onClick={() => {
+                    setBusy(true);
+                    setMsg("Checking Tailscale…");
+                    void porter
+                      .tailscaleSetupStatus()
+                      .then((st) => {
+                        setTsStatus(st);
+                        setMsg(
+                          st.connected
+                            ? `Checked — still connected (${st.selfIp || "100.x"}).`
+                            : st.installed
+                              ? "Checked — Tailscale installed but not connected yet. Open Tailscale and sign in."
+                              : "Checked — Tailscale not found. Tap Get Tailscale.",
+                        );
+                      })
+                      .catch((e) => setMsg(e instanceof Error ? e.message : String(e)))
+                      .finally(() => setBusy(false));
+                  }}
                 >
-                  Refresh
+                  {busy ? "Checking…" : "Refresh"}
                 </button>
               </div>
               {!tsStatus?.connected && (

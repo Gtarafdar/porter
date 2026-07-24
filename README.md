@@ -8,9 +8,9 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 
 Pick your Mac chip. Prefer the **DMG** (drag Porter → Applications). Zip is for in-app updates / CI:
 
-> **Apple Silicon only (M1/M2/M3/M4):** [⬇ Porter-0.2.29-mac-arm64.dmg](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.29-mac-arm64.dmg) · [zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.29-mac-arm64.zip)  
+> **Apple Silicon only (M1/M2/M3/M4):** [⬇ Porter-0.2.30-mac-arm64.dmg](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.30-mac-arm64.dmg) · [zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.30-mac-arm64.zip)  
 > **Intel Mac:** not in this release — use an older [Intel build](https://github.com/Gtarafdar/porter/releases) or ask for a rebuild.  
-> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.29 · [All releases](https://github.com/Gtarafdar/porter/releases)
+> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.30 · [All releases](https://github.com/Gtarafdar/porter/releases)
 
 Not sure which chip?  menu → About This Mac → look for “Chip” (Apple) or “Processor” (Intel).
 
@@ -19,7 +19,7 @@ Not sure which chip?  menu → About This Mac → look for “Chip” (Apple)
 3. If still blocked: System Settings → Privacy & Security → **Open Anyway**
 4. Setup: **Get Tailscale** → sign up / sign in (same account on every Mac) → **Open Tailscale** → approve VPN prompts → wait for green
 5. Share folders with **Choose folder…** (Finder picker) — no typing paths
-6. Travel: **Travel Ready → Set & forget**; enable **Tailscale SSH** before you leave. Cloudflare optional under Advanced.
+6. Travel: **Travel Ready → Set & forget**; enable **Remote Login** (Sharing) for break-glass — Tailscale’s Mac app has no SSH menu. Cloudflare optional under Advanced.
 7. Later updates: **Settings → This Mac → Check for updates** — public GitHub releases work without a token; optional PAT only if rate-limited. Installs the **zip**.
 
 **Bundled:** Node + native Mac window + Finder UI + `cloudflared` (for that chip only)  
@@ -29,6 +29,13 @@ Not sure which chip?  menu → About This Mac → look for “Chip” (Apple)
 **Chrome:** Everyday file copy never requires quitting Chrome. Optional Chrome-extension sync only: quit Chrome → share/copy folders → reopen (see [CHROME.md](CHROME.md)).
 
 **Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Chrome extensions:** [CHROME.md](CHROME.md) · **Roadmap:** [PLAN.md](PLAN.md)
+
+## What’s new in 0.2.30
+
+- Fix broken Tailscale “SSH settings” deeplink (Mac GUI has no SSH menu / cannot host Tailscale SSH)
+- Break-glass now opens **System Settings → Sharing → Remote Login**; revive via `ssh user@100.x`
+- Refresh buttons show checking feedback; honest copy about Tailscale sandbox limits
+- Builds on 0.2.29 launch-ready setup
 
 ## What’s new in 0.2.29
 

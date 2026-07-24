@@ -37,7 +37,7 @@ Installing Tailscale asks macOS to approve a **VPN / Network Extension**. That i
 
 1. Keep the **pair token** secret (treat like a password).  
 2. Prefer **Tailscale** for travel; treat Cloudflare Quick Tunnel URLs as optional and secret.  
-3. Enable **Tailscale SSH** on the home Mac before you leave (break-glass revive).  
+3. Enable **Remote Login** on the home Mac before you leave (break-glass revive). Tailscale’s Mac app has no SSH menu.  
 4. Share only work folders — never the whole disk.  
 5. Install Porter into **Applications** (not Downloads) so updates and keep-alive stay reliable.
 

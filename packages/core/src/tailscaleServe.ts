@@ -126,25 +126,67 @@ export function getTailscaleSelfIp(): string | null {
   }
 }
 
-/** Best-effort: Tailscale SSH on this node (needed to revive Porter while away). */
+export function isSandboxedTailscaleGui(): boolean {
+  const bin = tailscaleBin();
+  // App Store + Standalone GUI both run sandboxed Network Extension — cannot host Tailscale SSH.
+  return bin.includes("Tailscale.app/Contents/MacOS/Tailscale");
+}
+
+/** Best-effort: can this Mac accept break-glass SSH to revive Porter while away? */
 export function detectTailscaleSsh(): boolean | null {
+  // GUI Tailscale on macOS cannot run the Tailscale SSH *server* (Apple sandbox).
+  // CapMap often still lists ssh caps — do not treat that as “SSH enabled”.
+  if (process.platform === "darwin" && isSandboxedTailscaleGui()) {
+    return false;
+  }
   try {
     const raw = runTs(["status", "--json"], 8000);
     const parsed = JSON.parse(raw) as {
-      Self?: { CapMap?: Record<string, unknown>; Online?: boolean };
+      Self?: { CapMap?: Record<string, unknown> };
     };
     const caps = parsed.Self?.CapMap || {};
-    // Cap names vary by version; treat any ssh-related cap as enabled
     for (const key of Object.keys(caps)) {
       if (/ssh/i.test(key)) return true;
     }
-    // Fallback: prefs file (Standalone / App Store variants differ)
-    const prefs = path.join(os.homedir(), "Library/Application Support/Tailscale");
-    // Unknown → null (UI shows as “check Tailscale → SSH”)
-    void prefs;
     return null;
   } catch {
     return null;
+  }
+}
+
+/** macOS Remote Login (sshd) — practical break-glass when Tailscale SSH server is unavailable. */
+export function detectRemoteLogin(): boolean | null {
+  if (process.platform !== "darwin") return null;
+  try {
+    execFileSync("nc", ["-z", "127.0.0.1", "22"], {
+      timeout: 1500,
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function openRemoteLoginSettings(): { ok: boolean; detail: string } {
+  if (process.platform !== "darwin") {
+    return { ok: false, detail: "Remote Login settings are only available on macOS" };
+  }
+  try {
+    // Sequoia / Sonoma Sharing pane
+    execSync('open "x-apple.systempreferences:com.apple.Sharing-Settings.extension"', {
+      timeout: 4000,
+    });
+    return {
+      ok: true,
+      detail:
+        "Opened System Settings → Sharing. Turn on Remote Login, then return here and tap Refresh.",
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      detail: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 
@@ -345,7 +387,15 @@ export function listTailnetPeersForPorter(port = 47831): TailnetPeerHint[] {
   }
 }
 
-export function reviveCommandForPeer(hostName: string): string {
+export function reviveCommandForPeer(
+  hostName: string,
+  opts?: { preferOsSsh?: boolean; selfIp?: string | null },
+): string {
   const safe = hostName.replace(/\.local$/i, "").split(".")[0] || hostName;
+  const user = os.userInfo().username || "$(whoami)";
+  if (opts?.preferOsSsh) {
+    const host = opts.selfIp || safe;
+    return `ssh ${user}@${host} 'open -a Porter'`;
+  }
   return `tailscale ssh ${safe} 'open -a Porter'`;
 }

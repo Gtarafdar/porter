@@ -22,6 +22,7 @@ type TravelStatus = {
   keepAliveInstalled?: boolean;
   reviveCommand?: string;
   sshEnabled?: boolean | null;
+  remoteLoginEnabled?: boolean | null;
   tunnel: {
     running: boolean;
     publicUrl: string | null;
@@ -93,9 +94,9 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
               <h2 id="travel-title">Travel Ready</h2>
               <p className="wizard-sub">
                 {status.unattendedReady && status.sshEnabled === true
-                  ? "Safe to leave — Tailscale + SSH + auto-start ready"
+                  ? "Safe to leave — Tailscale + break-glass + auto-start ready"
                   : status.ready && status.sshEnabled !== true
-                    ? "Almost — enable Tailscale SSH before you leave"
+                    ? "Almost — enable Remote Login (Sharing) for break-glass"
                     : status.ready
                       ? "Almost — tap Set & forget before you leave"
                       : "Finish what’s left, then Set & forget"}
@@ -137,13 +138,30 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
               type="button"
               disabled={busy}
               onClick={() => {
+                setBusy(true);
                 void porter
                   .openTailscaleSshSettings()
                   .then((r) => setMsg(r.detail))
-                  .catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
+                  .catch((e) => setMsg(e instanceof Error ? e.message : String(e)))
+                  .finally(() => setBusy(false));
               }}
             >
-              Enable SSH settings
+              Open Remote Login
+            </button>
+            <button
+              className="btn"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                setMsg("Refreshing travel checklist…");
+                void refresh()
+                  .then(() => setMsg("Checklist updated"))
+                  .catch((e) => setMsg(e instanceof Error ? e.message : String(e)))
+                  .finally(() => setBusy(false));
+              }}
+            >
+              {busy ? "Checking…" : "Refresh"}
             </button>
             {!status.tailscaleIp ? (
               <button
