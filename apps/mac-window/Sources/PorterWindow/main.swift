@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import WebKit
+import QuartzCore
 
 /// Native Mac window shell for Porter.
 /// Loads the existing Finder UI at http://127.0.0.1:47831 — does not replace the Node core.
@@ -20,14 +21,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     private var window: NSWindow!
     private var webView: WKWebView!
     private var statusStack: NSStackView!
+    private var splashMark: SplashMarkView!
+    private var brandLabel: NSTextField!
     private var statusLabel: NSTextField!
     private var detailScroll: NSScrollView!
     private var detailText: NSTextView!
     private var actionRow: NSStackView!
+    private var openAppsButton: NSButton!
     private let port = 47831
     private var healthTimer: Timer?
     private var loadAttempts = 0
     private var lastFailureText = ""
+    private var phaseTimer: Timer?
+    private var splashPhase = 0
 
     private var baseURL: URL { URL(string: "http://127.0.0.1:\(port)/")! }
     private var healthURL: URL { URL(string: "http://127.0.0.1:\(port)/api/health")! }
@@ -79,11 +85,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
 
         let container = NSView(frame: rect)
         container.wantsLayer = true
+        // Warm paper backdrop matching the React UI while the engine starts
+        container.layer?.backgroundColor = NSColor(calibratedRed: 0.91, green: 0.894, blue: 0.863, alpha: 1).cgColor
 
-        statusLabel = NSTextField(labelWithString: "Starting Porter…")
+        splashMark = SplashMarkView(frame: NSRect(x: 0, y: 0, width: 88, height: 88))
+        splashMark.translatesAutoresizingMaskIntoConstraints = false
+        splashMark.widthAnchor.constraint(equalToConstant: 88).isActive = true
+        splashMark.heightAnchor.constraint(equalToConstant: 88).isActive = true
+
+        brandLabel = NSTextField(labelWithString: "Porter")
+        brandLabel.alignment = .center
+        brandLabel.font = NSFont(name: "Georgia", size: 28) ?? .systemFont(ofSize: 28, weight: .regular)
+        brandLabel.textColor = NSColor(calibratedRed: 0.11, green: 0.098, blue: 0.082, alpha: 1)
+        brandLabel.isHidden = false
+
+        statusLabel = NSTextField(labelWithString: "Starting engine…")
         statusLabel.alignment = .center
-        statusLabel.font = .systemFont(ofSize: 15, weight: .semibold)
-        statusLabel.textColor = .labelColor
+        statusLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        statusLabel.textColor = NSColor(calibratedRed: 0.42, green: 0.392, blue: 0.353, alpha: 1)
         statusLabel.maximumNumberOfLines = 3
         statusLabel.lineBreakMode = .byWordWrapping
 
@@ -107,15 +126,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         let retry = NSButton(title: "Try again", target: self, action: #selector(reloadUI))
         let copy = NSButton(title: "Copy error", target: self, action: #selector(copyFailure))
         let showLog = NSButton(title: "Show log folder", target: self, action: #selector(revealLog))
-        actionRow = NSStackView(views: [retry, copy, showLog])
+        openAppsButton = NSButton(title: "Open Applications", target: self, action: #selector(openApplicationsFolder))
+        openAppsButton.bezelStyle = .rounded
+        if #available(macOS 11.0, *) {
+            openAppsButton.hasDestructiveAction = false
+        }
+        openAppsButton.isHidden = true
+        actionRow = NSStackView(views: [openAppsButton, retry, copy, showLog])
         actionRow.orientation = .horizontal
         actionRow.spacing = 10
         actionRow.alignment = .centerY
         actionRow.isHidden = true
 
-        statusStack = NSStackView(views: [statusLabel, detailScroll, actionRow])
+        statusStack = NSStackView(views: [splashMark, brandLabel, statusLabel, detailScroll, actionRow])
         statusStack.orientation = .vertical
-        statusStack.spacing = 14
+        statusStack.spacing = 12
         statusStack.alignment = .centerX
         statusStack.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(statusStack)
@@ -220,32 +245,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     // MARK: - Core lifecycle
 
     private func ensureCoreThenLoad() {
+        showSplashChrome(animating: true)
         if Bundle.main.bundlePath.contains("AppTranslocation") {
-            statusLabel.stringValue = "Move Porter.app to Applications first (don’t open from Downloads)…"
+            setSplashPhaseText("Move Porter to Applications")
+            brandLabel.isHidden = false
+            splashMark.stopAnimating()
             detailScroll.isHidden = false
             detailText.string = """
 macOS is running Porter from a temporary folder (App Translocation).
 
 1. Quit Porter
-2. Drag Porter.app into /Applications
+2. Drag Porter.app into /Applications (or use Open Applications below)
 3. Open it from Applications (right‑click → Open the first time)
 
 Then the engine can start reliably.
 """
+            openAppsButton.isHidden = false
             actionRow.isHidden = false
             // Still attempt start — some Macs work — but keep the warning visible until healthy.
         } else {
-            statusLabel.stringValue = "Starting Porter…"
+            setSplashPhaseText("Starting engine…")
+            startSplashPhaseCycle()
             detailScroll.isHidden = true
+            openAppsButton.isHidden = true
             actionRow.isHidden = true
         }
         webView.isHidden = true
+        webView.alphaValue = 1
         loadAttempts = 0
 
         checkHealth { [weak self] ok in
             guard let self else { return }
             if ok {
-                self.loadWebUI()
+                self.revealWebUI()
             } else {
                 self.launchCore()
                 self.pollUntilHealthy()
@@ -253,31 +285,72 @@ Then the engine can start reliably.
         }
     }
 
+    private func showSplashChrome(animating: Bool) {
+        statusStack.isHidden = false
+        statusStack.alphaValue = 1
+        splashMark.isHidden = false
+        brandLabel.isHidden = false
+        statusLabel.isHidden = false
+        if animating {
+            splashMark.startAnimating()
+        } else {
+            splashMark.stopAnimating()
+        }
+    }
+
+    private func startSplashPhaseCycle() {
+        phaseTimer?.invalidate()
+        splashPhase = 0
+        // Only advance on a slow timer while waiting — labels map to real wait, not fake %.
+        phaseTimer = Timer.scheduledTimer(withTimeInterval: 2.4, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            guard self.webView.isHidden, self.actionRow.isHidden || self.openAppsButton.isHidden else { return }
+            self.splashPhase = min(self.splashPhase + 1, 1)
+            if self.splashPhase == 1 {
+                self.setSplashPhaseText("Waiting for local bridge…")
+            }
+        }
+    }
+
+    private func setSplashPhaseText(_ text: String) {
+        statusLabel.stringValue = text
+        statusLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        statusLabel.textColor = NSColor(calibratedRed: 0.42, green: 0.392, blue: 0.353, alpha: 1)
+    }
+
+    private func stopSplashPhaseCycle() {
+        phaseTimer?.invalidate()
+        phaseTimer = nil
+    }
+
     private func pollUntilHealthy() {
         healthTimer?.invalidate()
         healthTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self else { return }
-                self.loadAttempts += 1
-                if self.loadAttempts > 75 {
+            guard let self = self else { return }
+            self.loadAttempts += 1
+            if self.loadAttempts > 75 {
+                self.healthTimer?.invalidate()
+                self.showStartupFailure()
+                return
+            }
+            self.checkHealth { [weak self] ok in
+                guard let self = self else { return }
+                if ok {
                     self.healthTimer?.invalidate()
-                    self.showStartupFailure()
-                    return
-                }
-                self.checkHealth { ok in
-                    if ok {
-                        self.healthTimer?.invalidate()
-                        self.loadWebUI()
-                    }
+                    self.revealWebUI()
                 }
             }
         }
     }
 
     private func showStartupFailure() {
+        stopSplashPhaseCycle()
+        splashMark.stopAnimating()
         let logTail = readRecentLog()
         let hint = diagnoseFailure(logTail: logTail)
         statusLabel.stringValue = hint
+        statusLabel.font = .systemFont(ofSize: 14, weight: .semibold)
+        statusLabel.textColor = .labelColor
         let body = """
 \(hint)
 
@@ -289,8 +362,12 @@ Log file: \(logPath)
         lastFailureText = body
         detailText.string = body
         detailScroll.isHidden = false
+        openAppsButton.isHidden = !(Bundle.main.bundlePath.contains("AppTranslocation") || hint.lowercased().contains("applications"))
         actionRow.isHidden = false
         webView.isHidden = true
+        statusStack.isHidden = false
+        splashMark.isHidden = false
+        brandLabel.isHidden = false
     }
 
     private func diagnoseFailure(logTail: String) -> String {
@@ -351,7 +428,8 @@ Log file: \(logPath)
                (json["ok"] as? Bool) == true {
                 ok = true
             }
-            DispatchQueue.main.async { completion(ok) }
+            let healthy = ok
+            DispatchQueue.main.async { completion(healthy) }
         }.resume()
     }
 
@@ -455,12 +533,32 @@ Log file: \(logPath)
     }
 
     private func loadWebUI() {
-        statusLabel.isHidden = true
+        revealWebUI()
+    }
+
+    private func revealWebUI() {
+        stopSplashPhaseCycle()
+        setSplashPhaseText("Opening Porter…")
+        splashMark.stopAnimating()
         detailScroll.isHidden = true
         actionRow.isHidden = true
-        statusStack.isHidden = true
+        openAppsButton.isHidden = true
+
+        webView.alphaValue = 0
         webView.isHidden = false
         webView.load(URLRequest(url: baseURL))
+
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0.01 : 0.22
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            self.statusStack.animator().alphaValue = 0
+            self.webView.animator().alphaValue = 1
+        }, completionHandler: {
+            self.statusStack.isHidden = true
+            self.statusStack.alphaValue = 1
+            self.splashMark.stopAnimating()
+        })
+
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -488,9 +586,13 @@ Log file: \(logPath)
     }
 
     @objc private func reloadUI() {
-        statusStack.isHidden = false
+        showSplashChrome(animating: true)
         statusLabel.isHidden = false
         ensureCoreThenLoad()
+    }
+
+    @objc private func openApplicationsFolder() {
+        NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications"))
     }
 
     @objc private func copyFailure() {
@@ -639,13 +741,17 @@ This is Gatekeeper — not a virus scan finding malware inside Porter.
 
     // MARK: - Navigation
 
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        statusStack.isHidden = false
-        statusLabel.isHidden = false
-        webView.isHidden = true
-        statusLabel.stringValue = "Waiting for Porter… (\(error.localizedDescription))"
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
-            self?.ensureCoreThenLoad()
+    nonisolated func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        let message = error.localizedDescription
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.showSplashChrome(animating: true)
+            self.setSplashPhaseText("Waiting for Porter…")
+            webView.isHidden = true
+            self.statusLabel.stringValue = "Waiting for Porter… (\(message))"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+                self?.ensureCoreThenLoad()
+            }
         }
     }
 }
