@@ -1034,6 +1034,96 @@ input {
   color: var(--muted);
 }
 
+.activity-bulkbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.activity-bulkbar select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  font: inherit;
+}
+
+.activity-select-all {
+  margin-right: 4px;
+}
+
+.activity-table .col-check {
+  width: 36px;
+  position: sticky;
+  left: 0;
+  background: rgba(250, 247, 240, 0.95);
+  z-index: 1;
+}
+
+.activity-table .col-time {
+  position: sticky;
+  left: 36px;
+  background: rgba(250, 247, 240, 0.95);
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.activity-table thead .col-check,
+.activity-table thead .col-time {
+  z-index: 2;
+}
+
+.activity-table tbody td.col-check,
+.activity-table tbody td.col-time {
+  background: rgba(255, 252, 247, 0.92);
+}
+
+.activity-table tr.selected td {
+  background: var(--accent-soft);
+}
+
+.activity-table tr.selected td.col-check,
+.activity-table tr.selected td.col-time {
+  background: var(--accent-soft);
+}
+
+.activity-table input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.activity-cat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+
+.modal-backdrop.activity-modal {
+  z-index: 55;
+}
+
+@media (max-width: 720px) {
+  .activity-view {
+    padding: 14px 12px 12px;
+  }
+
+  .activity-view-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .activity-cat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .activity-table .col-time {
+    left: 32px;
+  }
+}
+
 .ctx-menu {
   position: fixed;
   z-index: 80;

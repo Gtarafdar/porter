@@ -3,6 +3,8 @@ import {
   porter,
   canPickFolderNative,
   type ActivityEvent,
+  type ActivityLogCategories,
+  type ActivityLogSettings,
   type DeviceInfo,
   type DeviceSettings,
   type FileEntry,
@@ -29,6 +31,40 @@ function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+const DEFAULT_ACTIVITY_LOG: ActivityLogSettings = {
+  retainDays: 90,
+  maxEvents: 500,
+  categories: {
+    transfers: true,
+    devices: true,
+    shares: true,
+    travel: true,
+    mcp: true,
+    system: true,
+  },
+  keepFailures: true,
+};
+
+const ACTIVITY_CATEGORY_LABELS: { key: keyof ActivityLogCategories; label: string }[] = [
+  { key: "transfers", label: "Transfers" },
+  { key: "devices", label: "Devices & pairing" },
+  { key: "shares", label: "Shares" },
+  { key: "travel", label: "Travel & network" },
+  { key: "mcp", label: "Cursor / MCP" },
+  { key: "system", label: "System" },
+];
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function pathLabel(d: DeviceInfo): { badge: string; detail: string; kind: string } {
@@ -117,6 +153,15 @@ export function App() {
   const [activityQ, setActivityQ] = useState("");
   const [activityOk, setActivityOk] = useState<"" | "true" | "false">("");
   const [activityBusy, setActivityBusy] = useState(false);
+  const [activitySelected, setActivitySelected] = useState<Set<string>>(() => new Set());
+  const [activityExportFormat, setActivityExportFormat] = useState<"json" | "csv">("json");
+  const [showActivityLogSettings, setShowActivityLogSettings] = useState(false);
+  const [activityDeleteConfirm, setActivityDeleteConfirm] = useState<
+    null | { mode: "selected"; count: number } | { mode: "all"; count: number }
+  >(null);
+  const [activityDeleteBusy, setActivityDeleteBusy] = useState(false);
+  const [activityDeleteAck, setActivityDeleteAck] = useState(false);
+  const [activityLogDraft, setActivityLogDraft] = useState<ActivityLogSettings>(DEFAULT_ACTIVITY_LOG);
   const [view, setView] = useState<"icons" | "list">("icons");
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -234,7 +279,12 @@ export function App() {
   }, []);
 
   const loadActivityPage = useCallback(
-    async (opts?: { offset?: number; q?: string; ok?: "" | "true" | "false" }) => {
+    async (opts?: {
+      offset?: number;
+      q?: string;
+      ok?: "" | "true" | "false";
+      clearSelection?: boolean;
+    }) => {
       setActivityBusy(true);
       try {
         const q = opts?.q ?? activityQ;
@@ -247,6 +297,9 @@ export function App() {
           offset,
         });
         setActivityPage(page);
+        if (opts?.clearSelection !== false) {
+          setActivitySelected(new Set());
+        }
       } catch (e) {
         setError(friendlyError(e instanceof Error ? e.message : String(e)));
       } finally {
@@ -258,6 +311,7 @@ export function App() {
 
   const openActivityView = useCallback(() => {
     setShowActivityView(true);
+    setActivityLogDraft(settings?.activityLog ?? DEFAULT_ACTIVITY_LOG);
     try {
       const url = new URL(window.location.href);
       url.searchParams.set("activity", "1");
@@ -265,10 +319,13 @@ export function App() {
     } catch {
       // ignore
     }
-  }, []);
+  }, [settings?.activityLog]);
 
   const closeActivityView = useCallback(() => {
     setShowActivityView(false);
+    setShowActivityLogSettings(false);
+    setActivityDeleteConfirm(null);
+    setActivitySelected(new Set());
     try {
       const url = new URL(window.location.href);
       url.searchParams.delete("activity");
@@ -277,6 +334,66 @@ export function App() {
       // ignore
     }
   }, []);
+
+  const saveActivityLogSettings = useCallback(
+    async (next: ActivityLogSettings) => {
+      const normalized = {
+        ...DEFAULT_ACTIVITY_LOG,
+        ...next,
+        categories: { ...DEFAULT_ACTIVITY_LOG.categories, ...next.categories },
+      };
+      setActivityLogDraft(normalized);
+      await porter.updateDevice({ activityLog: normalized });
+      await refreshMeta();
+      showToast("Activity log settings saved");
+      void loadActivityPage({ offset: 0 });
+    },
+    [loadActivityPage, refreshMeta],
+  );
+
+  const downloadActivity = useCallback(
+    async (scope: "selected" | "filtered") => {
+      try {
+        const ids =
+          scope === "selected" ? [...activitySelected] : undefined;
+        if (scope === "selected" && (!ids || ids.length === 0)) {
+          showToast("Select events to download");
+          return;
+        }
+        const { blob, filename, count } = await porter.activityExport({
+          q: activityQ.trim() || undefined,
+          ok: activityOk || undefined,
+          ids,
+          format: activityExportFormat,
+        });
+        downloadBlob(blob, filename);
+        showToast(`Downloaded ${count} event${count === 1 ? "" : "s"}`);
+      } catch (e) {
+        setError(friendlyError(e instanceof Error ? e.message : String(e)));
+      }
+    },
+    [activitySelected, activityQ, activityOk, activityExportFormat],
+  );
+
+  const doDeleteActivity = useCallback(async () => {
+    if (!activityDeleteConfirm) return;
+    setActivityDeleteBusy(true);
+    try {
+      const result =
+        activityDeleteConfirm.mode === "all"
+          ? await porter.deleteActivity({ all: true })
+          : await porter.deleteActivity({ ids: [...activitySelected] });
+      setActivityDeleteConfirm(null);
+      setActivityDeleteAck(false);
+      setActivitySelected(new Set());
+      showToast(`Deleted ${result.deleted} event${result.deleted === 1 ? "" : "s"}`);
+      await loadActivityPage({ offset: 0 });
+    } catch (e) {
+      setError(friendlyError(e instanceof Error ? e.message : String(e)));
+    } finally {
+      setActivityDeleteBusy(false);
+    }
+  }, [activityDeleteConfirm, activitySelected, loadActivityPage]);
 
   const confirmRemoveDevice = useCallback((device: DeviceInfo) => {
     setDeviceMenu(null);
@@ -1657,6 +1774,46 @@ export function App() {
                     />
                     Allow secret-like files (.env, keys)
                   </label>
+
+                  <div className="field" style={{ marginTop: 16 }}>
+                    <label>Activity log</label>
+                    <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: 13 }}>
+                      Keep for{" "}
+                      {(settings.activityLog ?? DEFAULT_ACTIVITY_LOG).retainDays === 0
+                        ? "forever"
+                        : `${(settings.activityLog ?? DEFAULT_ACTIVITY_LOG).retainDays} days`}
+                      , max {(settings.activityLog ?? DEFAULT_ACTIVITY_LOG).maxEvents} events.
+                      Failed events are{" "}
+                      {(settings.activityLog ?? DEFAULT_ACTIVITY_LOG).keepFailures
+                        ? "always kept"
+                        : "subject to type filters"}
+                      .
+                    </p>
+                    <div className="row" style={{ justifyContent: "flex-start", marginTop: 0 }}>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => {
+                          setActivityLogDraft(settings.activityLog ?? DEFAULT_ACTIVITY_LOG);
+                          setShowSettings(false);
+                          openActivityView();
+                          setShowActivityLogSettings(true);
+                        }}
+                      >
+                        Edit log settings
+                      </button>
+                      <button
+                        className="btn linkish"
+                        type="button"
+                        onClick={() => {
+                          setShowSettings(false);
+                          openActivityView();
+                        }}
+                      >
+                        Open Activity for download / delete →
+                      </button>
+                    </div>
+                  </div>
                 </>
               )}
             </div>
@@ -1771,11 +1928,29 @@ export function App() {
           <div className="activity-view-header">
             <div>
               <h2>Activity</h2>
-              <p>Transfers, pairing, Cursor/MCP calls, and errors — with timing when known.</p>
+              <p>
+                Browse, download, or delete events on this Mac. Retention:{" "}
+                {(settings?.activityLog ?? activityLogDraft).retainDays === 0
+                  ? "forever"
+                  : `${(settings?.activityLog ?? activityLogDraft).retainDays} days`}
+                , max {(settings?.activityLog ?? activityLogDraft).maxEvents}.
+              </p>
             </div>
-            <button className="btn" type="button" onClick={() => closeActivityView()}>
-              Back to Finder
-            </button>
+            <div className="row" style={{ marginTop: 0, gap: 8 }}>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  setActivityLogDraft(settings?.activityLog ?? DEFAULT_ACTIVITY_LOG);
+                  setShowActivityLogSettings(true);
+                }}
+              >
+                Log settings
+              </button>
+              <button className="btn" type="button" onClick={() => closeActivityView()}>
+                Back to Finder
+              </button>
+            </div>
           </div>
           <div className="activity-toolbar">
             <input
@@ -1808,11 +1983,97 @@ export function App() {
               {activityBusy ? "Loading…" : "Refresh"}
             </button>
           </div>
+          <div className="activity-bulkbar">
+            <label className="check activity-select-all">
+              <input
+                type="checkbox"
+                checked={
+                  activityPage.events.length > 0 &&
+                  activityPage.events.every((e) => activitySelected.has(e.id))
+                }
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setActivitySelected(new Set(activityPage.events.map((x) => x.id)));
+                  } else {
+                    setActivitySelected(new Set());
+                  }
+                }}
+              />
+              Select page
+            </label>
+            <button
+              className="btn"
+              type="button"
+              disabled={activityPage.total === 0}
+              onClick={() => {
+                setActivitySelected(new Set(activityPage.events.map((x) => x.id)));
+                showToast(
+                  `Selected ${activityPage.events.length} on this page (${activityPage.total} match filter)`,
+                );
+              }}
+            >
+              Select page ({activityPage.events.length})
+            </button>
+            <select
+              value={activityExportFormat}
+              onChange={(e) =>
+                setActivityExportFormat(e.target.value === "csv" ? "csv" : "json")
+              }
+              title="Download format"
+            >
+              <option value="json">JSON</option>
+              <option value="csv">CSV</option>
+            </select>
+            <button
+              className="btn"
+              type="button"
+              disabled={activitySelected.size === 0}
+              onClick={() => void downloadActivity("selected")}
+            >
+              Download selected ({activitySelected.size})
+            </button>
+            <button
+              className="btn"
+              type="button"
+              disabled={activityPage.total === 0}
+              onClick={() => void downloadActivity("filtered")}
+            >
+              Download filtered ({activityPage.total})
+            </button>
+            <button
+              className="btn danger-outline"
+              type="button"
+              disabled={activitySelected.size === 0}
+              onClick={() =>
+                setActivityDeleteConfirm({
+                  mode: "selected",
+                  count: activitySelected.size,
+                })
+              }
+            >
+              Delete selected…
+            </button>
+            <button
+              className="btn danger-outline"
+              type="button"
+              disabled={activityPage.total === 0}
+              onClick={() => {
+                setActivityDeleteAck(false);
+                setActivityDeleteConfirm({
+                  mode: "all",
+                  count: activityPage.total,
+                });
+              }}
+            >
+              Delete all…
+            </button>
+          </div>
           <div className="activity-table-wrap">
             <table className="activity-table">
               <thead>
                 <tr>
-                  <th>Time</th>
+                  <th className="col-check"> </th>
+                  <th className="col-time">Time</th>
                   <th>Action</th>
                   <th>Detail</th>
                   <th>Source</th>
@@ -1824,14 +2085,33 @@ export function App() {
               <tbody>
                 {activityPage.events.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="empty">
+                    <td colSpan={8} className="empty">
                       {activityBusy ? "Loading…" : "No events yet"}
                     </td>
                   </tr>
                 )}
                 {activityPage.events.map((a) => (
-                  <tr key={a.id} className={a.ok ? "" : "fail"}>
-                    <td>{new Date(a.at).toLocaleString()}</td>
+                  <tr
+                    key={a.id}
+                    className={`${a.ok ? "" : "fail"} ${
+                      activitySelected.has(a.id) ? "selected" : ""
+                    }`}
+                  >
+                    <td className="col-check">
+                      <input
+                        type="checkbox"
+                        checked={activitySelected.has(a.id)}
+                        onChange={(e) => {
+                          setActivitySelected((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(a.id);
+                            else next.delete(a.id);
+                            return next;
+                          });
+                        }}
+                      />
+                    </td>
+                    <td className="col-time">{new Date(a.at).toLocaleString()}</td>
                     <td>{a.action}</td>
                     <td title={a.detail}>{a.humanMessage || a.detail}</td>
                     <td>{a.source || "—"}</td>
@@ -1857,6 +2137,7 @@ export function App() {
                     activityPage.offset + activityPage.events.length,
                     activityPage.total,
                   )} of ${activityPage.total}`}
+              {activitySelected.size > 0 ? ` · ${activitySelected.size} selected` : ""}
             </span>
             <div className="row" style={{ marginTop: 0 }}>
               <button
@@ -1885,6 +2166,179 @@ export function App() {
                 }
               >
                 Next
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showActivityLogSettings && (
+        <div
+          className="modal-backdrop activity-modal"
+          onClick={() => setShowActivityLogSettings(false)}
+        >
+          <div
+            className="sheet"
+            style={{ width: "min(480px, 100%)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ marginTop: 0 }}>Activity log settings</h2>
+            <p className="connect-hint">
+              Controls what Porter records going forward, how long events are kept, and the max
+              size of the log on this Mac.
+            </p>
+            <div className="field">
+              <label>Keep for</label>
+              <select
+                value={activityLogDraft.retainDays}
+                onChange={(e) =>
+                  setActivityLogDraft((d) => ({
+                    ...d,
+                    retainDays: Number(e.target.value),
+                  }))
+                }
+              >
+                <option value={7}>7 days</option>
+                <option value={30}>30 days</option>
+                <option value={90}>90 days</option>
+                <option value={365}>365 days</option>
+                <option value={0}>Forever (still capped)</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Max events</label>
+              <input
+                type="number"
+                min={50}
+                max={5000}
+                value={activityLogDraft.maxEvents}
+                onChange={(e) =>
+                  setActivityLogDraft((d) => ({
+                    ...d,
+                    maxEvents: Number(e.target.value) || 500,
+                  }))
+                }
+              />
+            </div>
+            <div className="field">
+              <label>Record these types</label>
+              <div className="activity-cat-grid">
+                {ACTIVITY_CATEGORY_LABELS.map(({ key, label }) => (
+                  <label className="check" key={key}>
+                    <input
+                      type="checkbox"
+                      checked={activityLogDraft.categories[key]}
+                      onChange={(e) =>
+                        setActivityLogDraft((d) => ({
+                          ...d,
+                          categories: { ...d.categories, [key]: e.target.checked },
+                        }))
+                      }
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={activityLogDraft.keepFailures}
+                onChange={(e) =>
+                  setActivityLogDraft((d) => ({
+                    ...d,
+                    keepFailures: e.target.checked,
+                  }))
+                }
+              />
+              Always keep failed events (even if that type is off)
+            </label>
+            <div className="row">
+              <button
+                className="btn"
+                type="button"
+                onClick={() => setShowActivityLogSettings(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn primary"
+                type="button"
+                onClick={() => {
+                  void saveActivityLogSettings(activityLogDraft).then(() =>
+                    setShowActivityLogSettings(false),
+                  );
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activityDeleteConfirm && (
+        <div
+          className="modal-backdrop activity-modal"
+          onClick={() => !activityDeleteBusy && setActivityDeleteConfirm(null)}
+        >
+          <div
+            className="sheet"
+            style={{ width: "min(420px, 100%)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {activityDeleteConfirm.mode === "selected" ? (
+              <>
+                <h2 style={{ marginTop: 0 }}>
+                  Delete {activityDeleteConfirm.count} activity event
+                  {activityDeleteConfirm.count === 1 ? "" : "s"}?
+                </h2>
+                <p>
+                  This permanently removes the selected events from this Mac. Downloads you already
+                  saved are unaffected.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 style={{ marginTop: 0 }}>Delete all activity?</h2>
+                <p>
+                  Clears the entire activity log on this Mac (up to{" "}
+                  {(settings?.activityLog ?? activityLogDraft).maxEvents} events). This cannot be
+                  undone.
+                </p>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={activityDeleteAck}
+                    onChange={(e) => setActivityDeleteAck(e.target.checked)}
+                  />
+                  I understand
+                </label>
+              </>
+            )}
+            <div className="row">
+              <button
+                className="btn"
+                type="button"
+                disabled={activityDeleteBusy}
+                onClick={() => setActivityDeleteConfirm(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn danger"
+                type="button"
+                disabled={
+                  activityDeleteBusy ||
+                  (activityDeleteConfirm.mode === "all" && !activityDeleteAck)
+                }
+                onClick={() => void doDeleteActivity()}
+              >
+                {activityDeleteBusy
+                  ? "Deleting…"
+                  : activityDeleteConfirm.mode === "all"
+                    ? "Delete all"
+                    : "Delete"}
               </button>
             </div>
           </div>

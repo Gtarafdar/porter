@@ -3,7 +3,14 @@ import path from "node:path";
 import fs from "node:fs";
 import { createHash, randomBytes } from "node:crypto";
 import type { ActivityEvent, DeviceInfo, PermissionMode, SharedFolder } from "@porter/protocol";
-
+import {
+  filterActivityEvents,
+  getActivityLogSettings,
+  loadAndPruneActivity,
+  pruneActivityEvents,
+  saveActivity,
+  shouldRecordActivity,
+} from "./activityLog.js";
 const HOME = os.homedir();
 export const PORTER_DIR = path.join(HOME, ".porter");
 export const CONFIG_PATH = path.join(PORTER_DIR, "config.json");
@@ -23,6 +30,25 @@ export interface WizardState {
 
 export const WIZARD_SCHEMA_VERSION = 2;
 
+export interface ActivityLogCategories {
+  transfers: boolean;
+  devices: boolean;
+  shares: boolean;
+  travel: boolean;
+  mcp: boolean;
+  system: boolean;
+}
+
+export interface ActivityLogSettings {
+  /** 0 = forever (still capped by maxEvents). Allowed: 0, 7, 30, 90, 365. */
+  retainDays: number;
+  /** Hard cap after age prune. Clamped 50–5000. */
+  maxEvents: number;
+  categories: ActivityLogCategories;
+  /** When true, failed events are recorded even if their category is off. */
+  keepFailures: boolean;
+}
+
 export interface PorterConfig {
   deviceId: string;
   deviceName: string;
@@ -40,6 +66,8 @@ export interface PorterConfig {
   token: string;
   wizard: WizardState;
   sleeping: boolean;
+  /** Activity log retention / recording preferences (additive; defaults applied on load). */
+  activityLog: ActivityLogSettings;
   /** Last Cloudflare Quick Tunnel URL (home Mac), if started. */
   tunnelUrl?: string | null;
   /**
@@ -58,6 +86,50 @@ export interface PorterConfig {
     preferTailscaleServe?: boolean;
     /** Last known Tailscale Serve HTTPS URL (MagicDNS). */
     serveUrl?: string | null;
+  };
+}
+
+function defaultActivityLog(): ActivityLogSettings {
+  return {
+    retainDays: 90,
+    maxEvents: 500,
+    categories: {
+      transfers: true,
+      devices: true,
+      shares: true,
+      travel: true,
+      mcp: true,
+      system: true,
+    },
+    keepFailures: true,
+  };
+}
+
+/** Normalize partial / legacy activityLog blobs into a full settings object. */
+export function normalizeActivityLog(
+  input?: Partial<ActivityLogSettings> | null,
+): ActivityLogSettings {
+  const base = defaultActivityLog();
+  if (!input || typeof input !== "object") return base;
+  const allowed = new Set([0, 7, 30, 90, 365]);
+  let retainDays = Number(input.retainDays);
+  if (!allowed.has(retainDays)) retainDays = base.retainDays;
+  let maxEvents = Number(input.maxEvents);
+  if (!Number.isFinite(maxEvents)) maxEvents = base.maxEvents;
+  maxEvents = Math.min(5000, Math.max(50, Math.round(maxEvents)));
+  const cats = (input.categories ?? {}) as Partial<ActivityLogCategories>;
+  return {
+    retainDays,
+    maxEvents,
+    categories: {
+      transfers: cats.transfers !== false,
+      devices: cats.devices !== false,
+      shares: cats.shares !== false,
+      travel: cats.travel !== false,
+      mcp: cats.mcp !== false,
+      system: cats.system !== false,
+    },
+    keepFailures: input.keepFailures !== false,
   };
 }
 
@@ -95,6 +167,7 @@ export function loadConfig(): PorterConfig {
       },
       sleeping: false,
       tunnelUrl: null,
+      activityLog: defaultActivityLog(),
       awayMode: {
         enabled: false,
         autoStartTunnel: false,
@@ -138,6 +211,7 @@ export function loadConfig(): PorterConfig {
     },
     sleeping: loaded.sleeping ?? false,
     tunnelUrl: loaded.tunnelUrl ?? null,
+    activityLog: normalizeActivityLog(loaded.activityLog),
     awayMode: {
       enabled: loaded.awayMode?.enabled ?? false,
       autoStartTunnel: loaded.awayMode?.autoStartTunnel ?? false,
@@ -148,7 +222,7 @@ export function loadConfig(): PorterConfig {
     },
   };
   // Persist migration once so step bump does not re-apply incorrectly after user goes back
-  if ((loaded.wizard?.schemaVersion ?? 1) < WIZARD_SCHEMA_VERSION) {
+  if ((loaded.wizard?.schemaVersion ?? 1) < WIZARD_SCHEMA_VERSION || !loaded.activityLog) {
     saveConfig(config);
   }
   return config;
@@ -187,20 +261,10 @@ export function queryActivity(opts?: {
   limit?: number;
   offset?: number;
 }): { events: ActivityEvent[]; total: number; limit: number; offset: number } {
-  let events = loadActivity();
-  const q = opts?.q?.trim().toLowerCase();
-  if (q) {
-    events = events.filter((e) => {
-      const hay = [e.action, e.detail, e.humanMessage, e.source, e.via]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
-    });
-  }
-  if (opts?.ok === true || opts?.ok === false) {
-    events = events.filter((e) => e.ok === opts.ok);
-  }
+  const events = filterActivityEvents(loadAndPruneActivity(), {
+    q: opts?.q,
+    ok: opts?.ok,
+  });
   const total = events.length;
   const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 200);
   const offset = Math.max(opts?.offset ?? 0, 0);
@@ -249,7 +313,7 @@ export function appendActivity(
     via?: string;
   },
 ): ActivityEvent {
-  const events = loadActivity();
+  const settings = getActivityLogSettings();
   const event: ActivityEvent = {
     id: randomBytes(8).toString("hex"),
     at: new Date().toISOString(),
@@ -263,14 +327,11 @@ export function appendActivity(
     mbps: meta?.mbps,
     via: meta?.via,
   };
-  events.unshift(event);
-  try {
-    fs.writeFileSync(ACTIVITY_PATH, JSON.stringify(events.slice(0, 500), null, 2), {
-      mode: 0o600,
-    });
-  } catch (err) {
-    console.warn("[porter] could not write activity log:", err instanceof Error ? err.message : err);
+  if (!shouldRecordActivity(settings, action, ok, source)) {
+    return event;
   }
+  const events = pruneActivityEvents([event, ...loadActivity()], settings);
+  saveActivity(events);
   return event;
 }
 
