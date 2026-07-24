@@ -23,7 +23,7 @@ Not sure which chip?  menu → About This Mac → look for “Chip” (Apple)
 7. Later updates: **Settings → This Mac → Check for updates** — public GitHub releases work without a token; optional PAT only if rate-limited. Installs the **zip**.
 
 **Bundled:** Node + native Mac window + Finder UI + `cloudflared` (for that chip only)  
-**Not bundled:** Tailscale  
+**Not bundled:** Tailscale · menu-bar tray (use the **Dock** — close the window anytime and reopen from Dock; an old optional `apps/mac-menubar` companion exists for local builds only, not in the DMG)  
 **License:** [MIT](LICENSE)
 
 **Chrome:** Everyday file copy never requires quitting Chrome. Optional Chrome-extension sync only: quit Chrome → share/copy folders → reopen (see [CHROME.md](CHROME.md)).

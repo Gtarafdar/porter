@@ -750,8 +750,9 @@ export function SetupWizard({
 
           {snap.step === 6 && (
             <div className="callout ok">
-              Menu bar app (optional): build with <code>apps/mac-menubar</code> for one-click Open /
-              Sleep / Setup — same tray pattern as Slack Agent Bridge.
+              Close the window anytime — Porter stays in the <strong>Dock</strong>. Click the Dock
+              icon to reopen. Use <strong>Travel Ready → Set &amp; forget</strong> on the home Mac
+              before you travel.
             </div>
           )}
 

@@ -12,6 +12,8 @@
 
 Porter does not bundle Tailscale. Same Wi‑Fi desk use can skip Tailscale; travel cannot.
 
+Reopen Porter from the **Dock** (closing the window hides it; the engine can keep running). There is no menu-bar tray in the DMG install.
+
 ---
 
 ## What actually works when you are away
