@@ -100,10 +100,12 @@
           <a href="#features" data-nav>Features</a>
           <a href="#mcp" data-nav>AI tools</a>
           <a href="#security" data-nav>Security</a>
+          <a href="#audience" data-nav>Who it's for</a>
           <a href="#download" data-nav>Download</a>
           <a href="#changelog" data-nav>Changelog</a>
           <a href="#faq" data-nav>FAQ</a>
           <a href="#maker" data-nav>Maker</a>
+          <a href="#story" data-nav>Why free</a>
         </nav>
         <div class="side-cta">
           <a class="btn btn-primary" href="#download" id="nav-download">Download</a>
@@ -133,10 +135,12 @@
               <a href="#features">Features</a>
               <a href="#mcp">AI tools</a>
               <a href="#security">Security</a>
+              <a href="#audience">Who it's for</a>
               <a href="#download">Download</a>
               <a href="#changelog">Changelog</a>
               <a href="#faq">FAQ</a>
               <a href="#maker">Maker</a>
+              <a href="#story">Why free</a>
             </nav>
             <a class="btn btn-primary" href="#download">Download</a>
           </div>
@@ -378,6 +382,73 @@
           </div>
         </section>
 
+        <section class="section reveal" id="audience">
+          <p class="eyebrow">Ideal fit</p>
+          <h2>Who Porter is for</h2>
+          <p class="lede">
+            If you keep real work on one Mac and live on another, Porter is aimed at you. If you want a whole-desktop
+            remote session or a cloud that mirrors everything, it is not.
+          </p>
+          <div class="audience-grid reveal-stagger">
+            <article class="audience-card glass">
+              <img
+                src="assets/img/illust/audience-travel.jpg"
+                width="600"
+                height="400"
+                alt="Cartoon scene of a home desk Mac and a travel laptop linked by a folder path"
+                loading="lazy"
+              />
+              <h3>Home desk + travel Mac</h3>
+              <p>
+                Your heavy machine stays home with the real projects. Your lighter Mac is what you open in hotels,
+                cafés, and other countries. You need tonight’s folder, not a second life in the cloud.
+              </p>
+            </article>
+            <article class="audience-card glass">
+              <img
+                src="assets/img/illust/audience-lan.jpg"
+                width="600"
+                height="400"
+                alt="Cartoon scene of two Macs on one desk copying a folder over Wi-Fi"
+                loading="lazy"
+              />
+              <h3>Same roof, two Macs</h3>
+              <p>
+                Both machines are on the home Wi‑Fi. One holds design files, client work, or a repo the other needs
+                right now. AirDrop is fine for a photo. Porter is for the folder you will keep coming back to.
+              </p>
+            </article>
+            <article class="audience-card glass">
+              <img
+                src="assets/img/illust/audience-ai.jpg"
+                width="600"
+                height="400"
+                alt="Cartoon scene of a coding laptop with an AI helper near a folder bridge to another Mac"
+                loading="lazy"
+              />
+              <h3>You and your AI IDE</h3>
+              <p>
+                Cursor, Claude, or Copilot should read and pull from folders you already trust, with the same rules as
+                the Finder panes. You are past pasting half a project into chat just so the model can see it.
+              </p>
+            </article>
+            <article class="audience-card glass audience-card-not">
+              <img
+                src="assets/img/illust/audience-not.jpg"
+                width="600"
+                height="400"
+                alt="Cartoon scene rejecting full remote desktop and bulk cloud sync in favor of one approved folder"
+                loading="lazy"
+              />
+              <h3>Honest mismatch</h3>
+              <p>
+                Skip Porter if you need full remote mouse and screen control, an iPhone app, or Dropbox-style two-way
+                sync with conflict UI. Those are different jobs. Porter stays a private folder bridge on purpose.
+              </p>
+            </article>
+          </div>
+        </section>
+
         <section class="section reveal" id="download">
           <p class="eyebrow">Get Porter</p>
           <h2>Download for Mac</h2>
@@ -488,8 +559,7 @@
                 Before that, I helped a single plugin cross <strong>400,000+ active users</strong>.
               </p>
               <p>
-                When the day-job owl flies home, I tinker on my own workshop. Porter is one of those spells: a private
-                Finder-like bridge so you and your AI tools can reach approved folders across your Macs.
+                When the day-job owl flies home, I tinker on my own workshop of spells.
               </p>
               <div class="btn-row">
                 <a class="btn btn-ghost" href="https://x.com/Gtarafdarr" rel="noopener">X / Twitter</a>
@@ -499,8 +569,49 @@
               </div>
             </div>
           </div>
+        </section>
 
-          <h3 style="font-family: var(--display); font-weight: 400; margin: 28px 0 12px">Also from the workshop</h3>
+        <section class="section reveal" id="story" aria-labelledby="story-title">
+          <p class="eyebrow">Case study</p>
+          <h2 id="story-title">Why I built Porter, and why it stays free</h2>
+          <div class="story-layout glass">
+            <img
+              class="story-art"
+              src="assets/img/illust/story-workshop.jpg"
+              width="600"
+              height="400"
+              alt="Cartoon night workshop with two Macs and folders forming a bridge under a lamp"
+              loading="lazy"
+            />
+            <div class="story-body">
+              <h3>The bind</h3>
+              <p>
+                I kept hitting the same quiet failure: the Mac in my bag was ready to work, and the files that mattered
+                were still on the Mac at home. Shipping a zip through chat felt small and clumsy. Turning on full remote
+                desktop felt like lending someone the whole house for a single drawer. Cloud sync wanted more of my disk
+                than the problem deserved.
+              </p>
+              <h3>What I needed instead</h3>
+              <p>
+                A bridge that behaved like Finder: pick the folders, pair the machines, copy what I meant to copy.
+                At home that meant the LAN. On the road it meant a private path without opening the house to the public
+                internet. And when I asked an AI IDE for help, it had to use those same folders, not a second back door.
+              </p>
+              <h3>What I shipped</h3>
+              <p>
+                Porter is that bridge. I built it in the workshop for my own travel and desk loop first. The activity log,
+                allowlists, and MCP connectors exist because I needed to see what moved and keep the power narrow.
+              </p>
+              <h3>Why free (MIT)</h3>
+              <p>
+                I am not selling a Porter cloud. The hard part was the private path between my own Macs, and that gap is
+                common enough that locking it behind a subscription felt wrong. MIT means you can use it, fork it, and
+                keep the workshop going with a star or a tip if it saves you a night of zip-and-hope.
+              </p>
+            </div>
+          </div>
+
+          <h3 class="workshop-heading">Also from the workshop</h3>
           <div class="workshop">
             <a class="glass" href="https://gtarafdar.github.io/aligner/" rel="noopener">
               <strong>Aligner</strong>
