@@ -4,7 +4,7 @@
  * Reliability model (when you cannot touch this Mac):
  * 1. LaunchAgent keeps Porter alive across login/crash
  * 2. Tailscale (required) — stable private mesh; Serve gives MagicDNS HTTPS
- * 3. Tailscale SSH (required for unattended revive) — open -a Porter from travel
+ * 3. Break-glass revive — macOS Remote Login (GUI Tailscale) or Tailscale SSH (CLI/daemon)
  * 4. caffeinate reduces sleep risk while Porter runs
  * 5. Cloudflare Quick Tunnel — optional advanced only (URLs rotate)
  */
@@ -27,6 +27,9 @@ import {
   reviveCommandForPeer,
   startTailscaleServe,
   detectTailscaleSsh,
+  detectRemoteLogin,
+  openRemoteLoginSettings,
+  isSandboxedTailscaleGui,
 } from "./tailscaleServe.js";
 
 export function openTailscaleApp(): { ok: boolean; detail: string } {
@@ -45,20 +48,42 @@ export function openTailscaleApp(): { ok: boolean; detail: string } {
   }
 }
 
+/**
+ * Break-glass revive settings.
+ * Tailscale’s Mac GUI app has no SSH toggle and cannot host Tailscale SSH (sandbox).
+ * On macOS we open System Settings → Sharing → Remote Login instead.
+ */
 export function openTailscaleSshSettings(): { ok: boolean; detail: string } {
-  try {
-    execSync('open "tailscale://"', { timeout: 3000 });
-    return {
-      ok: true,
-      detail: "Opened Tailscale — enable SSH in Settings, then return here and tap Repair",
-    };
-  } catch {
-    const opened = openTailscaleApp();
+  if (process.platform === "darwin" && isSandboxedTailscaleGui()) {
+    const opened = openRemoteLoginSettings();
     return {
       ok: opened.ok,
       detail: opened.ok
-        ? "Opened Tailscale — go to Settings and enable SSH"
+        ? "Tailscale’s Mac app has no SSH menu (Apple sandbox). Opened System Settings → Sharing — turn on Remote Login, then return here and tap Refresh. Docs: https://tailscale.com/kb/1193/tailscale-ssh"
         : opened.detail,
+    };
+  }
+  // Non-GUI / Linux / open-source tailscaled: try enabling Tailscale SSH via CLI
+  try {
+    execSync("tailscale set --ssh", { timeout: 8000 });
+    return {
+      ok: true,
+      detail: "Enabled Tailscale SSH on this node. Return here and tap Refresh / Repair.",
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/sandbox|does not run/i.test(msg) || process.platform === "darwin") {
+      const opened = openRemoteLoginSettings();
+      return {
+        ok: opened.ok,
+        detail: opened.ok
+          ? "This Tailscale install cannot host Tailscale SSH. Opened System Settings → Sharing — turn on Remote Login."
+          : opened.detail,
+      };
+    }
+    return {
+      ok: false,
+      detail: `Could not enable Tailscale SSH (${msg.slice(0, 120)}). See https://tailscale.com/kb/1193/tailscale-ssh`,
     };
   }
 }
@@ -76,7 +101,11 @@ export function travelReady() {
     (f) => f.permissions.includes("write") || f.permissions.includes("sync"),
   );
   const keepAlive = isKeepAliveInstalled() || Boolean(c.awayMode?.keepAliveInstalled);
-  const ssh = serve.sshLikelyEnabled ?? detectTailscaleSsh();
+  const tsSsh = serve.sshLikelyEnabled ?? detectTailscaleSsh();
+  const remoteLogin = detectRemoteLogin();
+  const guiTs = process.platform === "darwin" && isSandboxedTailscaleGui();
+  // Break-glass: Tailscale SSH when available; otherwise macOS Remote Login
+  const breakGlassOk = tsSsh === true || remoteLogin === true;
   const serveUrl = serve.url || c.awayMode?.serveUrl || null;
 
   // Travel path: Tailscale required; Serve URL preferred; CF optional
@@ -141,14 +170,19 @@ export function travelReady() {
     },
     {
       id: "ssh",
-      label: "Tailscale SSH (break-glass revive while away)",
-      ok: ssh === true,
-      detail:
-        ssh === true
+      label: guiTs
+        ? "Break-glass revive (macOS Remote Login)"
+        : "Tailscale SSH (break-glass revive while away)",
+      ok: breakGlassOk,
+      detail: guiTs
+        ? remoteLogin === true
+          ? "Remote Login is on — from travel: ssh user@100.x 'open -a Porter'"
+          : "Tailscale’s Mac app has no SSH menu. System Settings → Sharing → turn on Remote Login"
+        : tsSsh === true
           ? "Enabled — from travel you can restart Porter"
-          : ssh === false
-            ? "Open Tailscale → Settings → enable SSH, then Repair"
-            : "Required before you leave — Open SSH settings, enable SSH, then Repair",
+          : tsSsh === false
+            ? "Enable Tailscale SSH (CLI) or use Remote Login, then Refresh"
+            : "Enable break-glass access before you leave",
     },
     {
       id: "cloudflare",
@@ -173,9 +207,9 @@ export function travelReady() {
     !c.sleeping &&
     remoteOk;
   const ready = coreOk;
-  // Unattended: keepalive + Tailscale + SSH confirmed on (never “safe” when SSH unknown)
+  // Unattended: keepalive + Tailscale + some break-glass path (Tailscale SSH or Remote Login)
   const unattendedReady = Boolean(
-    coreOk && keepAlive && tsIp && ssh === true && (serve.configured || tsIp),
+    coreOk && keepAlive && tsIp && breakGlassOk && (serve.configured || tsIp),
   );
 
   const peerHint =
@@ -206,11 +240,18 @@ export function travelReady() {
     sharedFolders: c.sharedFolders,
     remoteOnline,
     checks,
-    sshEnabled: ssh,
-    reviveCommand: reviveCommandForPeer(hostname),
+    sshEnabled: breakGlassOk ? true : tsSsh === false && remoteLogin === false ? false : null,
+    remoteLoginEnabled: remoteLogin,
+    tailscaleSshSupported: !guiTs,
+    reviveCommand: reviveCommandForPeer(hostname, {
+      preferOsSsh: guiTs || tsSsh !== true,
+      selfIp: tsIp,
+    }),
     travelSteps: [
       "On THIS (home) Mac: tap Set & forget once.",
-      "Enable Tailscale SSH on this Mac (Break-glass) before you leave.",
+      guiTs
+        ? "Enable macOS Remote Login (System Settings → Sharing) for break-glass revive — Tailscale’s Mac app has no SSH menu."
+        : "Enable Tailscale SSH (or Remote Login) before you leave.",
       "On travel Mac: same pair token → Add Mac → pick this Mac from Tailscale list (or paste Tailscale IP).",
       tsIp
         ? `Primary: ${serveUrl || `${tsIp}:${c.port}`}`
@@ -220,8 +261,9 @@ export function travelReady() {
     ],
     peerAddress: peerHint,
     fallbackAddress: tsIp ? `${tsIp}:${c.port}` : null,
-    safetyNote:
-      "Travel uses your Tailscale account (private). Set & forget keeps Porter alive. Enable Tailscale SSH so you can revive Porter if it ever stops while you are away. Cloudflare Quick Tunnel is optional and can change after reboot.",
+    safetyNote: guiTs
+      ? "Travel uses your Tailscale account (private). Set & forget keeps Porter alive. Tailscale’s Mac app cannot host Tailscale SSH — turn on System Settings → Sharing → Remote Login so you can revive Porter with ssh while away. Cloudflare is optional."
+      : "Travel uses your Tailscale account (private). Set & forget keeps Porter alive. Enable Tailscale SSH (or Remote Login) so you can revive Porter if it ever stops while you are away. Cloudflare Quick Tunnel is optional and can change after reboot.",
   };
 }
 
@@ -288,9 +330,16 @@ export async function enableSetAndForget(opts?: {
   }
 
   const ssh = detectTailscaleSsh();
-  if (ssh === false || ssh === null) {
+  const remoteLogin = detectRemoteLogin();
+  if (process.platform === "darwin" && isSandboxedTailscaleGui()) {
+    if (remoteLogin !== true) {
+      warnings.push(
+        "Tailscale’s Mac app has no SSH menu (cannot host Tailscale SSH). Turn on System Settings → Sharing → Remote Login before you leave so you can revive Porter with ssh.",
+      );
+    }
+  } else if (ssh === false || ssh === null) {
     warnings.push(
-      "Enable Tailscale SSH on this Mac before you leave (Tailscale app → Settings → SSH). Without it you cannot revive Porter while away.",
+      "Enable Tailscale SSH (or macOS Remote Login) before you leave so you can revive Porter while away.",
     );
   }
 

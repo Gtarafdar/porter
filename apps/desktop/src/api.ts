@@ -343,6 +343,8 @@ export const porter = {
       keepAliveInstalled?: boolean;
       reviveCommand?: string;
       sshEnabled?: boolean | null;
+      remoteLoginEnabled?: boolean | null;
+      tailscaleSshSupported?: boolean;
       tunnel: {
         running: boolean;
         publicUrl: string | null;
