@@ -1,0 +1,151 @@
+[
+  {
+    "out": "/tmp/porter-plan/docs/images/public-safe/01-finder-dual-pane.png",
+    "hits": 22,
+    "samples": [
+      "Private bridge \u2022 Gobindas-MacBook-Pro \u2022 192.168.0.100 \u2022 LAN",
+      "192.168.0.100 \u2022 Tailscale 100.104.91.108 \u2022 Bonjour on",
+      "\u2022 Gobindas-MacBook-Pro",
+      "\u2022 Gobindas-Mac-mini",
+      "Last path: cloudflare \u2022 has Tailscale",
+      "/Users/gtarafdar/Downloads",
+      "/Users/gtarafdar/Documents",
+      "read, copy\u2022 /Users/gtarafdar/Desktop",
+      "/Users/gtarafdar/Librarv/Application",
+      "Support/Google/Chrome/Default/Extension",
+      "/Users/gtarafdar/Library/Application",
+      "Support/Google/Chrome/Default/Local"
+    ]
+  },
+  {
+    "out": "/tmp/porter-plan/docs/images/public-safe/02-setup-link-macs-choice.png",
+    "hits": 16,
+    "samples": [
+      "Private bridge \u2022 Gobindas-MacBook-Pro \u2022 192.168.0.100 \u2022 LAN",
+      "192.168.0.100 \u2022 Tailscale 100.104.91.108 \u2022 Bonjour on",
+      "\u2022 Gobindas-MacBook-Pro",
+      "\u2022 Gobindas-Mac-mini",
+      "Last path: cloudflare \u2022 has Tailscale",
+      "/Users/gtarafdar/Downloads",
+      "/Users/gtarafdar/Documents",
+      "read, copy \u2022 /Users/gtarafdar/Desktop",
+      "365.Day",
+      "afk_slac",
+      "/Users/gtarafdar/Library/Application",
+      "Support/Google/Chrome/Default/Extension"
+    ]
+  },
+  {
+    "out": "/tmp/porter-plan/docs/images/public-safe/03-setup-join-home.png",
+    "hits": 16,
+    "samples": [
+      "Private bridge \u2022 Gobindas-MacBook-Pro \u2022 192.",
+      "192.168.0.100 \u2022 Tailscale 100.104.91.108 \u2022 E",
+      "\u2022 Gobindas-MacBook-Pro",
+      "\u2022 Gobindas-Mac-mini",
+      "Last path: cloudflare \u2022 has Tailscale",
+      "/Users/gtarafdar/Downloads",
+      "/Users/gtarafdar/Documents",
+      "read, copy \u2022 /Users/gtarafdar/Desktop",
+      "/Users/gtarafdar/Library/Application",
+      "Support/Google/Chrome/Default/Extension",
+      "365.Day",
+      "afk_slac"
+    ]
+  },
+  {
+    "out": "/tmp/porter-plan/docs/images/public-safe/04-setup-home-copy-token.png",
+    "hits": 13,
+    "samples": [
+      "\u2022 Gobindas-MacBook-Pro",
+      "\u2022 Gobindas-Mac-mini",
+      "Last path: cloudflare \u2022 has Tailscale",
+      "/Users/gtarafdar/Downloads",
+      "/Users/gtarafdar/Documents",
+      "read, copy \u2022 /Users/gtarafdar/Desktop",
+      "/Users/gtarafdar/Library/Application",
+      "Support/Google/Chrome/Default/Extension",
+      "/Users/gtarafdar/Library/Application",
+      "Support/Google/Chrome/Default/Local",
+      "365.Day",
+      "afk_slac"
+    ]
+  },
+  {
+    "out": "/tmp/porter-plan/docs/images/public-safe/05-setup-ai-tools.png",
+    "hits": 15,
+    "samples": [
+      "Private bridge \u2022 Gobindas-MacBook-Pro \u2022 192.",
+      "192.168.0.100 \u2022 Tailscale 100.104.91.108 \u2022 E",
+      "\u2022 Gobindas-MacBook-Pro",
+      "\u2022 Gobindas-Mac-mini",
+      "Last path: cloudflare \u2022 has Tailscale",
+      "/Users/gtarafdar/Downloads",
+      "/Users/gtarafdar/Documents",
+      "read, copy \u2022 /Users/gtarafdar/Desktop",
+      "/Users/gtarafdar/Library/Application",
+      "Support/Google/Chrome/Default/Extension",
+      "365.Day",
+      "afk_slac"
+    ]
+  },
+  {
+    "out": "/tmp/porter-plan/docs/images/public-safe/06-travel-ready.png",
+    "hits": 17,
+    "samples": [
+      "\u2022 Gobindas-MacBook-Pro",
+      "\u2022 Gobindas-Mac-mini",
+      "Last path: cloudflare \u2022 has Tailscale",
+      "/Users/gtarafdar/Downloads",
+      "/Users/gtarafdar/Documents",
+      "read, copy \u2022 /Users/gtarafdar/Desktop",
+      "/Users/gtarafdar/Library/Application",
+      "Support/Google/Chrome/Default/Extension",
+      "/Users/gtarafdar/Library/Application",
+      "Support/Google/Chrome/Default/Local",
+      "365.Days.2020",
+      "F.WEBRip.800M"
+    ]
+  },
+  {
+    "out": "/tmp/porter-plan/docs/images/public-safe/07-add-mac-settings.png",
+    "hits": 17,
+    "samples": [
+      "\u2022 Gobindas-MacBook-Pro",
+      "\u2022 Gobindas-Mac-mini",
+      "Last path: cloudflare \u2022 has Tailscale",
+      "/Users/gtarafdar/Downloads",
+      "/Users/gtarafdar/Documents",
+      "read, copy \u2022 /Users/gtarafdar/Desktop",
+      "/Users/gtarafdar/Library/Application",
+      "Support/Google/Chrome/Default/Extension",
+      "/Users/gtarafdar/Library/Application",
+      "Support/Google/Chrome/Default/Local",
+      "365.Days.2020.",
+      "F.WEBRip.800M"
+    ]
+  },
+  {
+    "out": "/tmp/porter-plan/docs/images/public-safe/08-settings-ai-tools.png",
+    "hits": 18,
+    "samples": [
+      "Private bridge \u2022 Gobindas-MacBook-Pro \u2022 192.168.0.1",
+      "192.168.0.100 \u2022 Tailscale 100.104.91.108 \u2022 Bonjour",
+      "\u2022 Gobindas-MacBook-Pro",
+      "\u2022 Gobindas-Mac-mini",
+      "Last path: cloudflare \u2022 has Tailscale",
+      "/Users/gtarafdar/Downloads",
+      "/Users/gtarafdar/Documents",
+      "read, copy \u2022 /Users/gtarafdar/Desktop",
+      "/Users/gtarafdar/Library/Application",
+      "Support/Google/Chrome/Default/Extension",
+      "365.Days.2020.",
+      "F.WEBRip.800M"
+    ]
+  },
+  {
+    "out": "/tmp/porter-plan/docs/images/public-safe/09-activity.png",
+    "hits": 0,
+    "samples": []
+  }
+]

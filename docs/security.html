@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Security · Porter</title>
+    <meta
+      name="description"
+      content="How Porter keeps access narrow: Tailscale, pair token, folder allowlists, secret blocks, Gatekeeper notes."
+    />
+    <link rel="canonical" href="https://gtarafdar.github.io/porter/security.html" />
+    <link rel="icon" href="assets/favicon.png" type="image/png" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/site.css" />
+  </head>
+  <body>
+    <main class="main" style="max-width: 760px; margin: 0 auto; padding: 40px 20px 80px">
+      <p><a href="index.html">← Porter</a></p>
+      <h1 style="font-family: var(--display); font-weight: 400">Security</h1>
+      <div class="glass" style="padding: 24px; margin-top: 16px">
+        <h2 style="font-family: var(--display); font-weight: 400; font-size: 1.4rem">Trust layers</h2>
+        <ol>
+          <li><strong>Tailscale account</strong> (travel): who can reach your Mac on the private mesh.</li>
+          <li><strong>Pair token</strong>: what Porter allows after connect. Exact match required.</li>
+          <li><strong>Folder allowlists</strong>: only shared paths may be listed or copied.</li>
+          <li><strong>Secret and dangerous path blocks</strong>: .env, keys, keychains, cookies, full Chrome profiles blocked by default.</li>
+        </ol>
+        <p>
+          Settings, Travel Ready, and tunnel controls stay on <strong>localhost</strong>. Remote file APIs require the
+          pair token. Confirm writes are on by default. Activity log shows what happened.
+        </p>
+        <h2 style="font-family: var(--display); font-weight: 400; font-size: 1.4rem">Honest residual risk</h2>
+        <p>
+          Anything inside an allowlisted folder can be read by a connected AI or peer with your token. A stolen pair
+          token on your mesh is dangerous. A compromised Mac can abuse a running agent. Porter keeps power narrow and
+          visible. It does not claim zero risk.
+        </p>
+        <h2 style="font-family: var(--display); font-weight: 400; font-size: 1.4rem">Gatekeeper / notarization</h2>
+        <p>
+          Porter is not Apple-notarized in current releases. macOS may warn on first open. That is Gatekeeper distribution
+          policy for unidentified developers, not a verdict that Porter is malware. Install to Applications, then
+          right-click → Open, or use Privacy and Security → Open Anyway. Download only from official GitHub Releases.
+        </p>
+        <p>
+          Full write-up:
+          <a href="https://github.com/Gtarafdar/porter/blob/main/SECURITY.md">SECURITY.md</a>
+        </p>
+      </div>
+    </main>
+  </body>
+</html>
