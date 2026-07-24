@@ -55,6 +55,7 @@ import {
   updateWizard,
   wizardSnapshot,
 } from "./setup.js";
+import { getMcpClientDef, installMcpClient, listMcpClients } from "./mcpClients.js";
 import { copyFileResumable, copyFolderResumable, mapPool } from "./transfer.js";
 import {
   shareTravelPresets,
@@ -428,6 +429,36 @@ export async function startServer(opts?: {
   app.get("/api/mcp/snippet", (req, res) => {
     if (!requireLocal(req, res)) return;
     res.json(buildMcpSnippet());
+  });
+
+  app.get("/api/mcp/clients", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    res.json({
+      clients: listMcpClients(),
+      entryPath: buildMcpSnippet().entryPath,
+      snippet: buildMcpSnippet(),
+      wizard: {
+        mcpInstalled: loadConfig().wizard.mcpInstalled,
+        mcpClients: loadConfig().wizard.mcpClients ?? {},
+      },
+    });
+  });
+
+  app.post("/api/mcp/install", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    try {
+      const clientId = String((req.body as { clientId?: string })?.clientId ?? "").trim();
+      if (!clientId || !getMcpClientDef(clientId)) {
+        res.status(400).json({
+          error: `Unknown clientId. Use one of: cursor, claudeDesktop, claudeCode, vscode`,
+        });
+        return;
+      }
+      const result = installMcpClient(clientId);
+      res.json({ ok: true, ...result, snapshot: wizardSnapshot() });
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+    }
   });
 
   app.post("/api/mcp/install-cursor", (req, res) => {

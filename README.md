@@ -8,9 +8,9 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 
 Pick your Mac chip. Prefer the **DMG** (drag Porter → Applications). Zip is for in-app updates / CI:
 
-> **Apple Silicon only (M1/M2/M3/M4):** [⬇ Porter-0.2.33-mac-arm64.dmg](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.33-mac-arm64.dmg) · [zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.33-mac-arm64.zip)  
+> **Apple Silicon only (M1/M2/M3/M4):** [⬇ Porter-0.2.34-mac-arm64.dmg](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.34-mac-arm64.dmg) · [zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.34-mac-arm64.zip)  
 > **Intel Mac:** not in this release — use an older [Intel build](https://github.com/Gtarafdar/porter/releases) or ask for a rebuild.  
-> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.33 · [All releases](https://github.com/Gtarafdar/porter/releases)
+> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.34 · [All releases](https://github.com/Gtarafdar/porter/releases)
 
 Not sure which chip?  menu → About This Mac → look for “Chip” (Apple) or “Processor” (Intel).
 
@@ -29,6 +29,12 @@ Not sure which chip?  menu → About This Mac → look for “Chip” (Apple)
 **Chrome:** Everyday file copy never requires quitting Chrome. Optional Chrome-extension sync only: quit Chrome → share/copy folders → reopen (see [CHROME.md](CHROME.md)).
 
 **Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Chrome extensions:** [CHROME.md](CHROME.md) · **Roadmap:** [PLAN.md](PLAN.md)
+
+## What’s new in 0.2.34
+
+- **AI tools (MCP):** one-click Connect for Cursor, Claude Desktop, Claude Code, and VS Code/Copilot — same `mcp.js` capabilities
+- Setup → Link AI tools + Settings → This Mac → AI tools (Repair / Copy snippet)
+- Cursor install path unchanged (`install-cursor` kept); merges never wipe other MCP servers
 
 ## What’s new in 0.2.33
 
@@ -232,7 +238,7 @@ Not sure which chip?  menu → About This Mac → look for “Chip” (Apple)
 
 ## What’s new in 0.2
 
-- Setup wizard (Cursor MCP one-click install — keeps Slack Agent Bridge entries)
+- Setup wizard (AI tools MCP one-click — Cursor, Claude, VS Code; keeps other MCP servers)
 - **One-click `Porter.app`** — `npm run package` → share the zip (no git clone for users)
 - **Cloudflare Tunnel** away-from-home (travel Mac needs Porter only) **or** Tailscale
 - Sleep / Wake, chunked copy + SHA-256 + Mbps, push / one-way sync
@@ -240,7 +246,7 @@ Not sure which chip?  menu → About This Mac → look for “Chip” (Apple)
 ## What you get
 
 - **Finder-style UI** — browse approved folders on this Mac (and paired Macs)
-- **Cursor MCP** — list / search / read / copy across devices
+- **AI / MCP** — list / search / read / copy across devices (Cursor, Claude, VS Code, …)
 - **$0 infra** — LAN, Cloudflare Quick Tunnel, or Tailscale
 - **Security defaults** — folder allowlists, secret-file blocks, pair token, activity log
 
@@ -289,9 +295,13 @@ Opens `http://127.0.0.1:47831` — Porter’s Finder-like window.
 Terminal A: `npm start`  
 Terminal B: `npm run dev:ui` → http://127.0.0.1:5173
 
-## Connect Cursor (MCP)
+## Connect AI tools (MCP)
 
-Add to Cursor MCP settings (`~/.cursor/mcp.json` or project config):
+Porter ships **one** MCP server with the same tools for Cursor, Claude Desktop, Claude Code, and VS Code/Copilot.
+
+**Easiest:** Porter setup → **Link AI tools**, or **Settings → This Mac → AI tools** → Connect (merges without removing other MCP servers). See the matrix in [CONNECTING.md](CONNECTING.md).
+
+Manual (Cursor / Claude `mcpServers` shape):
 
 ```json
 {
@@ -304,7 +314,9 @@ Add to Cursor MCP settings (`~/.cursor/mcp.json` or project config):
 }
 ```
 
-Keep `npm start` running on each Mac you want reachable. MCP tools talk to the local agent; remote devices appear after Bonjour discovery + matching pair token.
+VS Code user MCP uses a `servers` root key and `"type": "stdio"` — use **Copy snippet** in Porter for the exact JSON.
+
+Keep Porter running on each Mac you want reachable. MCP talks to the local agent; remote devices appear after pairing + matching pair token.
 
 Example prompts:
 

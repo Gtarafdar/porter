@@ -239,6 +239,27 @@ input {
   max-height: 180px;
 }
 
+.mcp-client-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 8px 0 4px;
+}
+
+.mcp-client-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
+  border-radius: 10px;
+  background: var(--surface-2, rgba(0, 0, 0, 0.03));
+}
+
+.mcp-client-meta strong {
+  font-size: 13px;
+}
+
 .check {
   display: flex;
   gap: 8px;

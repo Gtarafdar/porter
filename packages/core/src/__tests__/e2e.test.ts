@@ -216,6 +216,44 @@ describe("Porter e2e", { timeout: 60_000 }, () => {
     assert.match(snip.json, /porter/);
   });
 
+  it("mcp clients list includes cursor and vscode", async () => {
+    const body = await json<{
+      clients: Array<{ id: string; rootKey: string; snippetJson: string }>;
+    }>(`${BASE}/api/mcp/clients`);
+    const ids = body.clients.map((c) => c.id);
+    assert.ok(ids.includes("cursor"));
+    assert.ok(ids.includes("claudeDesktop"));
+    assert.ok(ids.includes("claudeCode"));
+    assert.ok(ids.includes("vscode"));
+    const vscode = body.clients.find((c) => c.id === "vscode");
+    assert.equal(vscode?.rootKey, "servers");
+    assert.match(vscode?.snippetJson ?? "", /"type": "stdio"/);
+  });
+
+  it("mcp install-cursor still merges porter", async () => {
+    const r = await json<{ ok: boolean; path: string; merged: boolean }>(
+      `${BASE}/api/mcp/install-cursor`,
+      { method: "POST", body: "{}" },
+    );
+    assert.equal(r.ok, true);
+    assert.match(r.path, /mcp\.json$/);
+    const raw = fs.readFileSync(r.path, "utf8");
+    assert.match(raw, /"porter"/);
+  });
+
+  it("mcp install claudeDesktop via generic endpoint", async () => {
+    const r = await json<{ ok: boolean; clientId: string; path: string }>(
+      `${BASE}/api/mcp/install`,
+      { method: "POST", body: JSON.stringify({ clientId: "claudeDesktop" }) },
+    );
+    assert.equal(r.ok, true);
+    assert.equal(r.clientId, "claudeDesktop");
+    assert.match(r.path, /claude_desktop_config\.json$/);
+    assert.ok(fs.existsSync(r.path));
+    const raw = fs.readFileSync(r.path, "utf8");
+    assert.match(raw, /"porter"/);
+  });
+
   it("sleep and wake", async () => {
     await json(`${BASE}/api/sleep`, { method: "POST", body: "{}" });
     let h = await json<{ sleeping: boolean }>(`${BASE}/api/health`);

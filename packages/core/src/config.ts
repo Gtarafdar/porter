@@ -21,7 +21,10 @@ export interface WizardState {
   completed: boolean;
   step: number;
   agentLinkAcknowledged: boolean;
+  /** Cursor MCP connected (legacy flag; kept for older UI/tests). */
   mcpInstalled: boolean;
+  /** Per-IDE connect flags (cursor, claudeDesktop, claudeCode, vscode, …). */
+  mcpClients?: Record<string, boolean>;
   /** Bump when wizard step layout changes (Tailscale step inserted). */
   schemaVersion?: number;
   /** User chose same-Wi‑Fi only (skipped Tailscale gate). */
@@ -162,6 +165,7 @@ export function loadConfig(): PorterConfig {
         step: 0,
         agentLinkAcknowledged: false,
         mcpInstalled: false,
+        mcpClients: {},
         schemaVersion: WIZARD_SCHEMA_VERSION,
         tailscaleSkipped: false,
       },
@@ -206,6 +210,7 @@ export function loadConfig(): PorterConfig {
       step: wizardStep,
       agentLinkAcknowledged: loaded.wizard?.agentLinkAcknowledged ?? false,
       mcpInstalled: loaded.wizard?.mcpInstalled ?? false,
+      mcpClients: migrateMcpClients(loaded.wizard),
       schemaVersion,
       tailscaleSkipped: loaded.wizard?.tailscaleSkipped ?? false,
     },
@@ -221,11 +226,30 @@ export function loadConfig(): PorterConfig {
       serveUrl: loaded.awayMode?.serveUrl ?? null,
     },
   };
+  const needsWizardMcpMigrate =
+    loaded.wizard?.mcpInstalled &&
+    (!loaded.wizard?.mcpClients || Object.keys(loaded.wizard.mcpClients).length === 0);
   // Persist migration once so step bump does not re-apply incorrectly after user goes back
-  if ((loaded.wizard?.schemaVersion ?? 1) < WIZARD_SCHEMA_VERSION || !loaded.activityLog) {
+  if (
+    (loaded.wizard?.schemaVersion ?? 1) < WIZARD_SCHEMA_VERSION ||
+    !loaded.activityLog ||
+    needsWizardMcpMigrate
+  ) {
     saveConfig(config);
   }
   return config;
+}
+
+/** Seed mcpClients.cursor from legacy mcpInstalled when the map is missing. */
+function migrateMcpClients(
+  wizard?: Partial<WizardState> | null,
+): Record<string, boolean> {
+  const raw = wizard?.mcpClients;
+  if (raw && typeof raw === "object" && Object.keys(raw).length > 0) {
+    return { ...raw };
+  }
+  if (wizard?.mcpInstalled) return { cursor: true };
+  return {};
 }
 
 export function saveConfig(config: PorterConfig): void {

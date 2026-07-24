@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { porter, canPickFolderNative, type SetupSnapshot } from "./api";
+import {
+  porter,
+  canPickFolderNative,
+  type SetupSnapshot,
+  type McpClientStatus,
+} from "./api";
 import { IconCheck, IconPorterMark, IconShield } from "./Icons";
 
 const STEPS = [
@@ -16,8 +21,12 @@ const STEPS = [
     title: "Link Macs",
     blurb: "There is no Porter account. One shared secret (pair token) + the other Mac’s address links them.",
   },
-  { id: 5, title: "Link Cursor", blurb: "One click merges Porter into ~/.cursor/mcp.json without removing Slack Agent Bridge or other MCP servers." },
-  { id: 6, title: "You're set", blurb: "Open the Finder view, or ask Cursor to list Porter devices." },
+  {
+    id: 5,
+    title: "Link AI tools",
+    blurb: "Same Porter MCP for Cursor, Claude Desktop, Claude Code, and VS Code/Copilot. One click merges without removing other servers.",
+  },
+  { id: 6, title: "You're set", blurb: "Open the Finder view, or ask your AI tool to list Porter devices." },
 ];
 
 type PairRole = "home" | "join" | null;
@@ -53,6 +62,7 @@ export function SetupWizard({
     sshLikelyEnabled: boolean | null;
     detail: string;
   } | null>(null);
+  const [mcpClients, setMcpClients] = useState<McpClientStatus[]>([]);
 
   async function refreshShareLinks() {
     try {
@@ -77,6 +87,15 @@ export function SetupWizard({
     }
   }
 
+  async function refreshMcpClients() {
+    try {
+      const r = await porter.listMcpClients();
+      setMcpClients(r.clients);
+    } catch {
+      setMcpClients([]);
+    }
+  }
+
   async function refresh() {
     const s = await porter.setup();
     setSnap(s);
@@ -85,6 +104,10 @@ export function SetupWizard({
     if (!homeTokenSnapshot) setHomeTokenSnapshot(s.token);
     if (s.step === 3) void refreshTailscaleStatus();
     if (s.step === 4) void refreshShareLinks();
+    if (s.step === 5) {
+      if (s.mcpClientStatus?.length) setMcpClients(s.mcpClientStatus);
+      else void refreshMcpClients();
+    }
     return s;
   }
 
@@ -98,6 +121,11 @@ export function SetupWizard({
     void refreshTailscaleStatus();
     const t = setInterval(() => void refreshTailscaleStatus(), 2000);
     return () => clearInterval(t);
+  }, [snap?.step]);
+
+  useEffect(() => {
+    if (snap?.step !== 5) return;
+    void refreshMcpClients();
   }, [snap?.step]);
 
   if (!snap) {
@@ -238,17 +266,22 @@ export function SetupWizard({
     if (snap!.step > 0) await setStep(snap!.step - 1);
   }
 
-  async function installMcp() {
+  async function installMcp(clientId: string) {
     setBusy(true);
     setMsg(null);
     try {
-      const r = await porter.installCursorMcp();
+      const r = await porter.installMcpClient(clientId);
+      const client = mcpClients.find((c) => c.id === clientId);
       setMsg(
         r.alreadyPresent
           ? `Porter MCP updated in ${r.path}`
           : `Porter MCP added to ${r.path} (other servers kept)`,
       );
+      if (client?.afterConnect) {
+        setMsg((prev) => `${prev ?? ""}\n${client.afterConnect}`.trim());
+      }
       await refresh();
+      await refreshMcpClients();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e));
     } finally {
@@ -726,24 +759,52 @@ export function SetupWizard({
 
           {snap.step === 5 && (
             <>
-              <pre className="code-block">{snap.mcpSnippet}</pre>
-              <div className="row" style={{ justifyContent: "flex-start" }}>
-                <button className="btn primary" type="button" disabled={busy} onClick={() => void installMcp()}>
-                  Install into Cursor mcp.json
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(snap.mcpSnippet);
-                    setMsg("Snippet copied — paste into Cursor MCP settings if you prefer manual.");
-                  }}
-                >
-                  Copy snippet
-                </button>
+              <div className="mcp-client-list">
+                {(mcpClients.length
+                  ? mcpClients
+                  : snap.mcpClientStatus ?? []
+                ).map((c) => (
+                  <div key={c.id} className="mcp-client-row">
+                    <div className="mcp-client-meta">
+                      <strong>{c.label}</strong>
+                      <div className="fmeta">{c.hint}</div>
+                      <div className="fmeta">
+                        {c.installed
+                          ? "Connected"
+                          : c.detected
+                            ? "Detected — not connected yet"
+                            : "Not detected — you can still Connect or paste the snippet"}
+                      </div>
+                    </div>
+                    <div className="row" style={{ justifyContent: "flex-start", flexWrap: "wrap", gap: 8 }}>
+                      <button
+                        className="btn primary"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void installMcp(c.id)}
+                      >
+                        {c.installed ? "Repair / update" : "Connect"}
+                      </button>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(c.snippetJson);
+                          setMsg(`Snippet copied for ${c.label} — paste into its MCP settings if you prefer manual.`);
+                        }}
+                      >
+                        Copy snippet
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
+              <p className="fmeta" style={{ marginTop: 12 }}>
+                Default Cursor/Claude shape also below. Connecting is optional — you can finish setup and connect later in Settings → This Mac.
+              </p>
+              <pre className="code-block">{snap.mcpSnippet}</pre>
               {snap.mcpInstalled && (
-                <div className="callout ok">Porter is in Cursor config. Reload MCP in Cursor to finish.</div>
+                <div className="callout ok">Cursor has Porter MCP. Reload MCP in Cursor if tools are missing.</div>
               )}
             </>
           )}
