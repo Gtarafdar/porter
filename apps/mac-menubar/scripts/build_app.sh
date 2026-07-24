@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Optional local companion only — NOT included in the GitHub DMG/zip release.
+# End users use /Applications/Porter.app (Dock). Build this only if you want a tray prototype.
 # Builds Porter menu-bar .app (ad-hoc signed — no paid Apple Developer account).
 set -euo pipefail
 cd "$(dirname "$0")/.."
