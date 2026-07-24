@@ -537,13 +537,13 @@ a.btn-primary:visited,
   font-family: var(--display);
   font-size: clamp(1.25rem, 2.6vw, 1.75rem);
   color: var(--muted);
-  max-width: 28ch;
+  max-width: 22em;
   margin: 0 auto 16px;
   line-height: 1.25;
 }
 
 .hero .sub {
-  max-width: 52ch;
+  max-width: 42em;
   margin: 0 auto 24px;
   color: var(--muted);
 }
