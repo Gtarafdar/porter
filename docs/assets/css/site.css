@@ -975,6 +975,40 @@ a.btn-primary:visited,
   display: none;
 }
 
+.changelog-details {
+  margin-top: 4px;
+}
+
+.changelog-details summary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--ink);
+}
+
+.changelog-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.changelog-details summary::before {
+  content: "▸ ";
+  color: var(--accent-2);
+  font-size: 0.85em;
+}
+
+.changelog-details[open] summary::before {
+  content: "▾ ";
+}
+
+.changelog-preview {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.9rem;
+}
+
+.changelog-details .changelog-body {
+  margin-top: 10px;
+}
+
 /* How-to scroll stack */
 .howto-section {
   max-width: none;
