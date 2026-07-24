@@ -360,14 +360,36 @@ export function App() {
           showToast("Select events to download");
           return;
         }
-        const { blob, filename, count } = await porter.activityExport({
+        const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+        const filename = `porter-activity-${stamp}.${
+          activityExportFormat === "csv" ? "csv" : "json"
+        }`;
+
+        if (porter.canPickSaveFile()) {
+          const destPath = await porter.pickSaveFile(filename);
+          if (!destPath) {
+            showToast("Save cancelled");
+            return;
+          }
+          const saved = await porter.activitySave({
+            path: destPath,
+            format: activityExportFormat,
+            q: activityQ.trim() || undefined,
+            ok: activityOk || undefined,
+            ids,
+          });
+          showToast(`Saved ${saved.count} event${saved.count === 1 ? "" : "s"} to ${saved.path}`);
+          return;
+        }
+
+        const { blob, filename: exportName, count } = await porter.activityExport({
           q: activityQ.trim() || undefined,
           ok: activityOk || undefined,
           ids,
           format: activityExportFormat,
         });
-        downloadBlob(blob, filename);
-        showToast(`Downloaded ${count} event${count === 1 ? "" : "s"}`);
+        downloadBlob(blob, exportName);
+        showToast(`Downloaded ${count} event${count === 1 ? "" : "s"} (browser download)`);
       } catch (e) {
         setError(friendlyError(e instanceof Error ? e.message : String(e)));
       }
@@ -2030,7 +2052,7 @@ export function App() {
               disabled={activitySelected.size === 0}
               onClick={() => void downloadActivity("selected")}
             >
-              Download selected ({activitySelected.size})
+              Save selected… ({activitySelected.size})
             </button>
             <button
               className="btn"
@@ -2038,7 +2060,7 @@ export function App() {
               disabled={activityPage.total === 0}
               onClick={() => void downloadActivity("filtered")}
             >
-              Download filtered ({activityPage.total})
+              Save filtered… ({activityPage.total})
             </button>
             <button
               className="btn danger-outline"

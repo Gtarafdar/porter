@@ -147,6 +147,9 @@ export const porter = {
   /** Native Mac window Finder folder picker (falls back to null in plain browser). */
   pickFolder: () => pickFolderNative(),
   canPickFolder: () => canPickFolderNative(),
+  /** Native Save panel (Porter.app). Returns absolute path or null if cancelled. */
+  pickSaveFile: (filename: string) => pickSaveFileNative(filename),
+  canPickSaveFile: () => canPickSaveFileNative(),
   list: (deviceId: string, path: string) =>
     api<FileEntry[]>(
       `/api/files/list?deviceId=${encodeURIComponent(deviceId)}&path=${encodeURIComponent(path)}`,
@@ -242,6 +245,23 @@ export const porter = {
     api<{ ok: boolean; deleted: number }>("/api/activity", {
       method: "DELETE",
       body: JSON.stringify(body),
+    }),
+  activitySave: (body: {
+    path: string;
+    format?: "json" | "csv";
+    q?: string;
+    ok?: "true" | "false" | "";
+    ids?: string[];
+  }) =>
+    api<{ ok: boolean; path: string; count: number; bytes: number }>("/api/activity/save", {
+      method: "POST",
+      body: JSON.stringify({
+        path: body.path,
+        format: body.format === "csv" ? "csv" : "json",
+        q: body.q,
+        ok: body.ok === "true" || body.ok === "false" ? body.ok === "true" : undefined,
+        ids: body.ids,
+      }),
     }),
   kill: () => api<{ ok: boolean }>("/api/kill", { method: "POST", body: "{}" }),
   setToken: (token: string) =>
@@ -453,12 +473,19 @@ type PorterNativeWindow = Window & {
   __porterNative?: boolean;
   __porterPickFolder?: () => Promise<string | null>;
   __porterPickFolderResolve?: ((path: string | null) => void) | null;
+  __porterSaveFile?: (filename: string) => Promise<string | null>;
+  __porterSaveFileResolve?: ((path: string | null) => void) | null;
   webkit?: { messageHandlers?: { porter?: { postMessage: (msg: unknown) => void } } };
 };
 
 export function canPickFolderNative(): boolean {
   const w = window as PorterNativeWindow;
   return Boolean(w.__porterNative || w.webkit?.messageHandlers?.porter || w.__porterPickFolder);
+}
+
+export function canPickSaveFileNative(): boolean {
+  const w = window as PorterNativeWindow;
+  return Boolean(w.__porterNative || w.webkit?.messageHandlers?.porter || w.__porterSaveFile);
 }
 
 /** Opens the Mac Finder folder chooser when running inside Porter.app. */
@@ -471,6 +498,24 @@ export function pickFolderNative(): Promise<string | null> {
     return new Promise((resolve) => {
       w.__porterPickFolderResolve = resolve;
       w.webkit!.messageHandlers!.porter!.postMessage({ type: "pickFolder" });
+    });
+  }
+  return Promise.resolve(null);
+}
+
+/** Opens a Mac Save panel and returns the chosen absolute path. */
+export function pickSaveFileNative(filename: string): Promise<string | null> {
+  const w = window as PorterNativeWindow;
+  if (typeof w.__porterSaveFile === "function") {
+    return w.__porterSaveFile(filename);
+  }
+  if (w.webkit?.messageHandlers?.porter) {
+    return new Promise((resolve) => {
+      w.__porterSaveFileResolve = resolve;
+      w.webkit!.messageHandlers!.porter!.postMessage({
+        type: "saveFile",
+        filename: filename || "porter-activity.json",
+      });
     });
   }
   return Promise.resolve(null);

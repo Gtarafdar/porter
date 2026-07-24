@@ -84,7 +84,7 @@ else
   mkdir -p apps/mac-window/.build/release
   SWIFT_BIN="${ROOT}/apps/mac-window/.build/release/PorterWindow"
   /usr/bin/swiftc -parse-as-library -sdk "${SDKROOT}" -target "${TARGET_TRIPLE}" -O \
-    -framework AppKit -framework WebKit -framework QuartzCore -framework Foundation \
+    -framework AppKit -framework WebKit -framework QuartzCore -framework Foundation -framework UniformTypeIdentifiers \
     -o "${SWIFT_BIN}" \
     apps/mac-window/Sources/PorterWindow/*.swift
 fi
