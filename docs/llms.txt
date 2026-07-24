@@ -41,9 +41,9 @@ First open: Applications folder, then right-click → Open if Gatekeeper asks.
 
 ## Maker
 
-Gobinda Tarafdar — https://github.com/Gtarafdar
+Gobinda Tarafdar: https://github.com/Gtarafdar
 Donate: https://gtarafdar.com/donate
 
 ## License
 
-MIT — https://github.com/Gtarafdar/porter/blob/main/LICENSE
+MIT: https://github.com/Gtarafdar/porter/blob/main/LICENSE
