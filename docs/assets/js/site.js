@@ -28,7 +28,9 @@
     a.addEventListener("click", () => setNavOpen(false));
   });
 
-  /* Side nav current section */
+  /* Side nav current section + sliding liquid pill */
+  const navMenu = document.getElementById("side-nav-menu");
+  const navIndicator = document.getElementById("nav-indicator");
   const navLinks = [...document.querySelectorAll("[data-nav]")];
   const sections = navLinks
     .map((a) => {
@@ -38,18 +40,51 @@
     })
     .filter((x) => x.el);
 
+  let activeNav = sections[0]?.a || null;
+  let hoverNav = null;
+
+  function moveNavIndicator(target) {
+    if (!navMenu || !navIndicator || !target) {
+      if (navIndicator) navIndicator.style.opacity = "0";
+      return;
+    }
+    const menuRect = navMenu.getBoundingClientRect();
+    const linkRect = target.getBoundingClientRect();
+    const top = linkRect.top - menuRect.top + navMenu.scrollTop;
+    navIndicator.style.transform = `translateY(${Math.max(0, top)}px)`;
+    navIndicator.style.height = `${linkRect.height}px`;
+    navIndicator.style.opacity = "1";
+    navMenu.classList.add("has-indicator");
+  }
+
   function refreshCurrent() {
     let active = sections[0]?.a;
     const y = window.scrollY + 120;
     for (const { a, el } of sections) {
       if (el.offsetTop <= y) active = a;
     }
+    activeNav = active || null;
     navLinks.forEach((a) => a.removeAttribute("aria-current"));
-    active?.setAttribute("aria-current", "true");
+    activeNav?.setAttribute("aria-current", "true");
+    if (!hoverNav) moveNavIndicator(activeNav);
   }
 
   window.addEventListener("scroll", refreshCurrent, { passive: true });
+  window.addEventListener("resize", () => moveNavIndicator(hoverNav || activeNav), { passive: true });
   refreshCurrent();
+
+  if (navMenu) {
+    navLinks.forEach((a) => {
+      a.addEventListener("pointerenter", () => {
+        hoverNav = a;
+        moveNavIndicator(a);
+      });
+    });
+    navMenu.addEventListener("pointerleave", () => {
+      hoverNav = null;
+      moveNavIndicator(activeNav);
+    });
+  }
 
   /* Feature cards */
   document.querySelectorAll(".feat").forEach((btn) => {
@@ -106,7 +141,7 @@
     document.querySelectorAll(".reveal").forEach((el) => el.classList.add("in"));
   }
 
-  /* Liquid glass specular follow */
+  /* Liquid glass specular + lens follow (CodePen-style mouse tracking) */
   if (!reduce) {
     const setSpecular = (el, clientX, clientY) => {
       const r = el.getBoundingClientRect();
@@ -116,6 +151,16 @@
       el.style.setProperty("--my", `${y}%`);
     };
     document.querySelectorAll(".glass").forEach((el) => {
+      el.addEventListener(
+        "pointerenter",
+        () => el.classList.add("is-lens"),
+        { passive: true },
+      );
+      el.addEventListener(
+        "pointerleave",
+        () => el.classList.remove("is-lens"),
+        { passive: true },
+      );
       el.addEventListener(
         "pointermove",
         (e) => setSpecular(el, e.clientX, e.clientY),

@@ -10,7 +10,7 @@
     />
     <link rel="canonical" href="https://gtarafdar.github.io/porter/" />
     <meta name="author" content="Gobinda Tarafdar" />
-    <meta name="theme-color" content="#155e8a" />
+    <meta name="theme-color" content="#12151a" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Porter" />
@@ -91,7 +91,9 @@
           <img src="assets/img/porter-mark.png" width="40" height="40" alt="" />
           <span>Porter</span>
         </a>
-        <nav>
+        <nav class="has-indicator" id="side-nav-menu">
+          <span class="nav-glass-distort" aria-hidden="true"></span>
+          <span class="nav-indicator" id="nav-indicator" aria-hidden="true"></span>
           <a href="#top" data-nav>Overview</a>
           <a href="#difference" data-nav>Not TeamViewer</a>
           <a href="#gallery" data-nav>Screenshots</a>
@@ -587,6 +589,33 @@
       <button type="button" class="btn btn-ghost lightbox-close" id="lightbox-close">Close</button>
       <img src="" alt="" id="lightbox-img" />
     </div>
+
+    <svg class="glass-svg" aria-hidden="true" focusable="false" width="0" height="0">
+      <filter
+        id="glass-distortion"
+        x="-20%"
+        y="-20%"
+        width="140%"
+        height="140%"
+        filterUnits="objectBoundingBox"
+      >
+        <feTurbulence
+          type="fractalNoise"
+          baseFrequency="0.012 0.012"
+          numOctaves="2"
+          seed="5"
+          result="turbulence"
+        />
+        <feGaussianBlur in="turbulence" stdDeviation="2" result="softMap" />
+        <feDisplacementMap
+          in="SourceGraphic"
+          in2="softMap"
+          scale="28"
+          xChannelSelector="R"
+          yChannelSelector="G"
+        />
+      </filter>
+    </svg>
 
     <script src="assets/js/site.js" defer></script>
   </body>
