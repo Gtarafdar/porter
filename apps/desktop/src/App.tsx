@@ -138,6 +138,8 @@ export function App() {
   } | null>(null);
   const [updateBusy, setUpdateBusy] = useState(false);
   const [updateNudgeHidden, setUpdateNudgeHidden] = useState(false);
+  const [githubAuthConfigured, setGithubAuthConfigured] = useState(false);
+  const [githubTokenDraft, setGithubTokenDraft] = useState("");
   const [pairToken, setPairToken] = useState("");
   const [showWizard, setShowWizard] = useState(false);
   const [showTravel, setShowTravel] = useState(false);
@@ -270,7 +272,7 @@ export function App() {
 
   async function runUpdateCheck(fromUser: boolean) {
     try {
-      const u = await porter.checkUpdate();
+      const u = await porter.checkUpdate(fromUser);
       setUpdateInfo({
         currentVersion: u.currentVersion,
         latestVersion: u.latestVersion,
@@ -280,6 +282,7 @@ export function App() {
         releaseUrl: u.releaseUrl,
         downloadUrl: u.downloadUrl,
       });
+      if (typeof u.githubAuth === "boolean") setGithubAuthConfigured(u.githubAuth);
       if (u.updateAvailable && u.latestVersion) {
         const dismissed = sessionStorage.getItem(`porter-update-later-${u.latestVersion}`);
         setUpdateNudgeHidden(Boolean(dismissed) && !fromUser);
@@ -1242,9 +1245,56 @@ export function App() {
                     <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: 13 }}>
                       Current: {updateInfo?.currentVersion ?? "…"}. Checks GitHub releases and can
                       install into this Porter.app automatically.
+                      {githubAuthConfigured
+                        ? " GitHub auth: on (private repo / higher limits)."
+                        : " Private repos need a GitHub token below."}
                     </p>
+                    {!githubAuthConfigured ? (
+                      <div className="field" style={{ marginBottom: 8 }}>
+                        <label>GitHub token (optional)</label>
+                        <input
+                          type="password"
+                          autoComplete="off"
+                          placeholder="ghp_… or fine-grained PAT (repo read)"
+                          value={githubTokenDraft}
+                          onChange={(e) => setGithubTokenDraft(e.target.value)}
+                        />
+                        <div className="row" style={{ justifyContent: "flex-start", marginTop: 8 }}>
+                          <button
+                            className="btn"
+                            type="button"
+                            disabled={updateBusy || !githubTokenDraft.trim()}
+                            onClick={() => {
+                              setUpdateBusy(true);
+                              void porter
+                                .saveGithubUpdateToken(githubTokenDraft.trim())
+                                .then((r) => {
+                                  setGithubAuthConfigured(r.configured);
+                                  setGithubTokenDraft("");
+                                  setSettingsMsg(r.detail);
+                                  showToast(r.detail);
+                                  return runUpdateCheck(true);
+                                })
+                                .catch((e) => {
+                                  const msg = e instanceof Error ? e.message : String(e);
+                                  setSettingsMsg(msg);
+                                  showToast(msg);
+                                })
+                                .finally(() => setUpdateBusy(false));
+                            }}
+                          >
+                            Save token
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                     {updateInfo?.updateAvailable ? (
                       <div className="callout ok" style={{ marginTop: 0 }}>
+                        {updateInfo.message}
+                      </div>
+                    ) : null}
+                    {updateInfo && !updateInfo.updateAvailable && /rate limit|GitHub token|private/i.test(updateInfo.message) ? (
+                      <div className="callout" style={{ marginTop: 0 }}>
                         {updateInfo.message}
                       </div>
                     ) : null}

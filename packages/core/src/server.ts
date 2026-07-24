@@ -47,7 +47,7 @@ import {
 } from "./tunnel.js";
 import { installKeepAlive, maybeStartPreventSleep, maybeRepairKeepAlivePaths } from "./keepalive.js";
 import { chromeExtensionsStatus, revealChromeFolder, shareChromeExtensions } from "./chrome.js";
-import { applyUpdate, checkForUpdate, currentVersion } from "./update.js";
+import { applyUpdate, checkForUpdate, currentVersion, githubTokenStatus, saveGithubToken, clearGithubToken } from "./update.js";
 import {
   getTailscaleServeStatus,
   listTailnetPeersForPorter,
@@ -296,7 +296,29 @@ export async function startServer(opts?: {
   app.get("/api/updates/check", async (req, res) => {
     if (!requireLocal(req, res)) return;
     try {
-      res.json(await checkForUpdate());
+      const bypass = req.query.refresh === "1" || req.query.refresh === "true";
+      res.json(await checkForUpdate({ bypassCache: bypass }));
+    } catch (e) {
+      res.status(400).json({ error: humanError(e) });
+    }
+  });
+
+  app.get("/api/updates/github-auth", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    res.json(githubTokenStatus());
+  });
+
+  app.post("/api/updates/github-token", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    try {
+      const token = typeof req.body?.token === "string" ? req.body.token : "";
+      if (!token.trim()) {
+        clearGithubToken();
+        res.json({ ok: true, detail: "GitHub token cleared.", ...githubTokenStatus() });
+        return;
+      }
+      const result = saveGithubToken(token);
+      res.json({ ...result, ...githubTokenStatus() });
     } catch (e) {
       res.status(400).json({ error: humanError(e) });
     }

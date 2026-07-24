@@ -252,7 +252,7 @@ export const porter = {
       method: "POST",
       body: JSON.stringify({ which }),
     }),
-  checkUpdate: () =>
+  checkUpdate: (refresh = false) =>
     api<{
       ok: boolean;
       currentVersion: string;
@@ -266,7 +266,15 @@ export const porter = {
       canAutoInstall: boolean;
       appPath: string | null;
       message: string;
-    }>("/api/updates/check"),
+      githubAuth?: boolean;
+    }>(`/api/updates/check${refresh ? "?refresh=1" : ""}`),
+  githubUpdateAuth: () =>
+    api<{ configured: boolean; source: string | null }>("/api/updates/github-auth"),
+  saveGithubUpdateToken: (token: string) =>
+    api<{ ok: boolean; detail: string; configured: boolean; source: string | null }>(
+      "/api/updates/github-token",
+      { method: "POST", body: JSON.stringify({ token }) },
+    ),
   applyUpdate: () =>
     api<{ ok: boolean; message: string; willRelaunch: boolean }>("/api/updates/apply", {
       method: "POST",

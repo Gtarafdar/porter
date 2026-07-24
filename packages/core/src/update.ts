@@ -8,10 +8,31 @@ import https from "node:https";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { appendActivity } from "./config.js";
+import { appendActivity, PORTER_DIR } from "./config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const GITHUB_REPO = process.env.PORTER_GITHUB_REPO || "Gtarafdar/porter";
+/** Optional classic/fine-grained PAT (repo read) — private releases + higher rate limits. */
+export const GITHUB_TOKEN_PATH = path.join(PORTER_DIR, "github-token");
+
+export type UpdateCheck = {
+  ok: boolean;
+  currentVersion: string;
+  latestVersion: string | null;
+  updateAvailable: boolean;
+  downloadUrl: string | null;
+  assetName: string | null;
+  releaseUrl: string | null;
+  notes: string | null;
+  arch: "arm64" | "x64";
+  canAutoInstall: boolean;
+  appPath: string | null;
+  message: string;
+  githubAuth?: boolean;
+};
+
+const CACHE_MS = 15 * 60 * 1000;
+let cachedCheck: { at: number; value: UpdateCheck } | null = null;
 
 export function currentVersion(): string {
   if (process.env.PORTER_VERSION?.trim()) return process.env.PORTER_VERSION.trim();
@@ -57,16 +78,111 @@ type GhRelease = {
   assets: GhAsset[];
 };
 
+export function readGithubToken(): string | null {
+  const fromEnv =
+    process.env.PORTER_GITHUB_TOKEN?.trim() ||
+    process.env.GITHUB_TOKEN?.trim() ||
+    process.env.GH_TOKEN?.trim();
+  if (fromEnv) return fromEnv;
+  try {
+    if (fs.existsSync(GITHUB_TOKEN_PATH)) {
+      const t = fs.readFileSync(GITHUB_TOKEN_PATH, "utf8").trim();
+      if (t) return t;
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    const t = execFileSync("gh", ["auth", "token"], {
+      encoding: "utf8",
+      timeout: 4000,
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    return t || null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveGithubToken(token: string): { ok: boolean; detail: string } {
+  const t = token.trim();
+  if (t.length < 8) return { ok: false, detail: "Token looks too short." };
+  fs.mkdirSync(PORTER_DIR, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(GITHUB_TOKEN_PATH, `${t}\n`, { mode: 0o600 });
+  cachedCheck = null;
+  return { ok: true, detail: "GitHub token saved for update checks." };
+}
+
+export function clearGithubToken(): void {
+  try {
+    if (fs.existsSync(GITHUB_TOKEN_PATH)) fs.unlinkSync(GITHUB_TOKEN_PATH);
+  } catch {
+    // ignore
+  }
+  cachedCheck = null;
+}
+
+export function githubTokenStatus(): { configured: boolean; source: string | null } {
+  if (process.env.PORTER_GITHUB_TOKEN?.trim() || process.env.GITHUB_TOKEN?.trim() || process.env.GH_TOKEN?.trim()) {
+    return { configured: true, source: "environment" };
+  }
+  if (fs.existsSync(GITHUB_TOKEN_PATH)) {
+    try {
+      if (fs.readFileSync(GITHUB_TOKEN_PATH, "utf8").trim()) {
+        return { configured: true, source: "file" };
+      }
+    } catch {
+      // ignore
+    }
+  }
+  try {
+    execFileSync("gh", ["auth", "token"], {
+      encoding: "utf8",
+      timeout: 3000,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return { configured: true, source: "gh-cli" };
+  } catch {
+    return { configured: false, source: null };
+  }
+}
+
+function githubHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+    "User-Agent": "Porter-Updater",
+    "X-GitHub-Api-Version": "2022-11-28",
+    ...extra,
+  };
+  const token = readGithubToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+function friendlyGithubError(status: number, text: string, authenticated: boolean): Error {
+  const lower = text.toLowerCase();
+  if (status === 403 && lower.includes("rate limit")) {
+    return new Error(
+      authenticated
+        ? "GitHub rate limit hit even with a token — wait a few minutes and try again."
+        : "GitHub rate limit exceeded for this network. Porter needs a GitHub token for private releases (and higher limits). Save a PAT under Settings → Updates, or: echo YOUR_TOKEN > ~/.porter/github-token && chmod 600 ~/.porter/github-token",
+    );
+  }
+  if (status === 404 || (status === 401 && !authenticated)) {
+    return new Error(
+      "Cannot read GitHub releases (private repo or missing auth). Add a GitHub token with repo read access in Settings → Updates.",
+    );
+  }
+  return new Error(`GitHub HTTP ${status}: ${text.slice(0, 180)}`);
+}
+
 function fetchJson<T>(url: string): Promise<T> {
+  const authenticated = Boolean(readGithubToken());
   return new Promise((resolve, reject) => {
     const req = https.get(
       url,
       {
-        headers: {
-          Accept: "application/vnd.github+json",
-          "User-Agent": "Porter-Updater",
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
+        headers: githubHeaders(),
         timeout: 20000,
       },
       (res) => {
@@ -79,7 +195,7 @@ function fetchJson<T>(url: string): Promise<T> {
         res.on("end", () => {
           const text = Buffer.concat(chunks).toString("utf8");
           if ((res.statusCode ?? 500) >= 400) {
-            reject(new Error(`GitHub HTTP ${res.statusCode}: ${text.slice(0, 200)}`));
+            reject(friendlyGithubError(res.statusCode ?? 500, text, authenticated));
             return;
           }
           try {
@@ -101,18 +217,37 @@ function fetchJson<T>(url: string): Promise<T> {
 function downloadFile(url: string, dest: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(dest);
-    const get = (u: string) => {
+    const get = (u: string, redirectCount = 0) => {
+      if (redirectCount > 8) {
+        file.close();
+        reject(new Error("Too many redirects downloading update"));
+        return;
+      }
+      let hostname = "";
+      try {
+        hostname = new URL(u).hostname;
+      } catch {
+        // ignore
+      }
+      const headers: Record<string, string> = {
+        "User-Agent": "Porter-Updater",
+        Accept: "application/octet-stream",
+      };
+      // Only send the PAT to GitHub hosts — CDN signed URLs must stay unauthenticated.
+      if (hostname === "api.github.com" || hostname === "github.com" || hostname.endsWith(".github.com")) {
+        const token = readGithubToken();
+        if (token) headers.Authorization = `Bearer ${token}`;
+      }
       https
         .get(
           u,
           {
-            headers: { "User-Agent": "Porter-Updater", Accept: "application/octet-stream" },
+            headers,
             timeout: 120_000,
           },
           (res) => {
             if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-              file.close();
-              get(res.headers.location);
+              get(res.headers.location, redirectCount + 1);
               return;
             }
             if ((res.statusCode ?? 500) >= 400) {
@@ -132,21 +267,6 @@ function downloadFile(url: string, dest: string): Promise<void> {
     get(url);
   });
 }
-
-export type UpdateCheck = {
-  ok: boolean;
-  currentVersion: string;
-  latestVersion: string | null;
-  updateAvailable: boolean;
-  downloadUrl: string | null;
-  assetName: string | null;
-  releaseUrl: string | null;
-  notes: string | null;
-  arch: "arm64" | "x64";
-  canAutoInstall: boolean;
-  appPath: string | null;
-  message: string;
-};
 
 export function resolveAppBundlePath(): string | null {
   const res = process.env.PORTER_RESOURCES;
@@ -169,10 +289,23 @@ export function resolveAppBundlePath(): string | null {
   return null;
 }
 
-export async function checkForUpdate(): Promise<UpdateCheck> {
+export async function checkForUpdate(opts?: { bypassCache?: boolean }): Promise<UpdateCheck> {
   const current = currentVersion();
   const arch = hostArch();
   const appPath = resolveAppBundlePath();
+  const auth = Boolean(readGithubToken());
+
+  if (!opts?.bypassCache && cachedCheck && Date.now() - cachedCheck.at < CACHE_MS) {
+    return {
+      ...cachedCheck.value,
+      currentVersion: current,
+      githubAuth: auth,
+      message: cachedCheck.value.ok
+        ? cachedCheck.value.message
+        : cachedCheck.value.message,
+    };
+  }
+
   try {
     const release = await fetchJson<GhRelease>(
       `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`,
@@ -193,7 +326,7 @@ export async function checkForUpdate(): Promise<UpdateCheck> {
       Boolean(process.env.PORTER_RESOURCES?.includes("AppTranslocation")) ||
       Boolean(process.env.PORTER_RESOURCES?.includes("/Downloads/"));
     const canAutoInstall = Boolean(newer && asset && appPath) && !underTranslocation;
-    return {
+    const value: UpdateCheck = {
       ok: true,
       currentVersion: current,
       latestVersion: latest,
@@ -205,6 +338,7 @@ export async function checkForUpdate(): Promise<UpdateCheck> {
       arch,
       canAutoInstall,
       appPath,
+      githubAuth: auth,
       message: underTranslocation
         ? `Porter ${latest} is available, but this copy was opened from Downloads. Move Porter.app to Applications, open it from there, then Install.`
         : newer
@@ -213,7 +347,20 @@ export async function checkForUpdate(): Promise<UpdateCheck> {
             : `Porter ${latest} is out, but no ${arch} zip was found on the release.`
           : `You’re on the latest Porter (${current}).`,
     };
+    cachedCheck = { at: Date.now(), value };
+    return value;
   } catch (e) {
+    // Prefer a recent good cache over a hard failure (rate limit / blip)
+    if (cachedCheck?.value.ok && Date.now() - cachedCheck.at < CACHE_MS * 4) {
+      return {
+        ...cachedCheck.value,
+        currentVersion: current,
+        githubAuth: auth,
+        message: `${cachedCheck.value.message} (using recent cached check — GitHub said: ${
+          e instanceof Error ? e.message.slice(0, 120) : String(e)
+        })`,
+      };
+    }
     return {
       ok: false,
       currentVersion: current,
@@ -226,6 +373,7 @@ export async function checkForUpdate(): Promise<UpdateCheck> {
       arch,
       canAutoInstall: false,
       appPath,
+      githubAuth: auth,
       message: e instanceof Error ? e.message : String(e),
     };
   }
