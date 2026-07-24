@@ -18,6 +18,11 @@ import {
 } from "./Icons";
 import { PaneView, type PaneState } from "./PaneView";
 import { SetupWizard } from "./SetupWizard";
+import {
+  chromeShareKind,
+  findChromeShare,
+  matchingChromeDestDir,
+} from "./chromeCopy";
 import { TravelReadyPanel } from "./TravelReady";
 
 function formatBytes(n: number): string {
@@ -357,8 +362,8 @@ export function App() {
         setSelectedDeviceId(s.id);
         const local = d.find((x) => x.isLocal) ?? d[0];
         if (local && f[0]) {
+          // Browse this Mac on the left only — right pane waits for another Mac
           void openFolder(local.id, f[0].path, "left");
-          void openFolder(local.id, f[0].path, "right");
         }
         try {
           const setup = await porter.setup();
@@ -383,6 +388,37 @@ export function App() {
     () => devices.find((d) => d.isLocal) ?? null,
     [devices],
   );
+
+  const onlinePeers = useMemo(
+    () => devices.filter((d) => !d.isLocal && d.online && d.host !== "inbound"),
+    [devices],
+  );
+
+  const primaryPeer = onlinePeers[0] ?? null;
+
+  const canCrossCopy = Boolean(
+    left &&
+      right &&
+      left.deviceId !== right.deviceId &&
+      !devices.find((d) => d.id === right.deviceId)?.isLocal &&
+      devices.find((d) => d.id === right.deviceId)?.online,
+  );
+
+  // When a peer comes online and right pane is empty, open their first shared folder
+  useEffect(() => {
+    if (!primaryPeer || right) return;
+    let cancelled = false;
+    void porter
+      .folders(primaryPeer.id)
+      .then((rf) => {
+        if (cancelled || !rf[0]) return;
+        void openFolder(primaryPeer.id, rf[0].path, "right");
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [primaryPeer, right, openFolder]);
 
   const refreshShareLinks = useCallback(async () => {
     try {
@@ -458,22 +494,69 @@ export function App() {
   }
 
   async function requestCopyToRight() {
-    if (!left?.selected.length || !right) {
-      setError("Select files on the left and open a destination folder on the right.");
+    if (!left?.selected.length) {
+      setError("Select files on the left to copy.");
       return;
     }
-    const destId = right.deviceId || localDevice?.id;
-    if (!destId) {
-      setError("Destination Mac not ready — wait a second and try again.");
+    if (!primaryPeer || !canCrossCopy || !right) {
+      setError(
+        primaryPeer
+          ? "Open a folder on the other Mac (right pane) before copying."
+          : "Add another Mac first — copy is between Macs, not on the same Mac.",
+      );
       return;
     }
+    if (left.deviceId === right.deviceId) {
+      setError("Pick a different Mac on the right — same-Mac copy isn’t shown in Porter.");
+      return;
+    }
+
+    const destId = right.deviceId;
+    let destDir = right.path.replace(/\/$/, "");
+
+    // Chrome: force destination into matching Chrome Library share on the peer
+    try {
+      const srcShares =
+        left.deviceId === localDevice?.id || left.deviceId === "local"
+          ? folders
+          : await porter.folders(left.deviceId);
+      const srcShare = srcShares.find(
+        (f) => left.rootPath === f.path || left.path.startsWith(f.path + "/"),
+      );
+      const kind = chromeShareKind(srcShare?.label, srcShare?.path);
+      if (kind && srcShare) {
+        const destShares = await porter.folders(destId);
+        const destShare = findChromeShare(destShares, kind);
+        if (!destShare) {
+          setError(
+            `On ${primaryPeer.name}: Settings → Share Chrome folders (quit Chrome first), then try again.`,
+          );
+          return;
+        }
+        // Open right on matching share and dest parent for the selected item
+        const first = left.selected[0]!;
+        destDir = matchingChromeDestDir(first.path, srcShare, destShare);
+        if (right.rootPath !== destShare.path) {
+          await openFolder(destId, destShare.path, "right");
+        }
+        const chromeRunning = (await porter.chromeStatus().catch(() => null))?.chromeRunning;
+        if (chromeRunning) {
+          setError("Quit Google Chrome on this Mac before copying extension data.");
+          return;
+        }
+      }
+    } catch (e) {
+      setError(friendlyError(e instanceof Error ? e.message : String(e)));
+      return;
+    }
+
     setCopyModalError(null);
     setCopyProgress(null);
     setConfirmCopy({
       sources: [...left.selected],
       sourceDeviceId: left.deviceId,
       destDeviceId: destId,
-      destDir: right.path.replace(/\/$/, ""),
+      destDir,
     });
   }
 
@@ -719,9 +802,7 @@ export function App() {
                       : localDevice?.id;
                     if (!id) return;
                     void openFolder(id, f.path, "left");
-                    if (!viewingRemote && localDevice) {
-                      void openFolder(localDevice.id, f.path, "right");
-                    }
+                    // Do not mirror local folders onto the right pane (avoids same-Mac copy confusion)
                   }}
                   onContextMenu={(e) => {
                     e.preventDefault();
@@ -755,21 +836,60 @@ export function App() {
             else setRight(next);
           }}
           onCopy={() => void requestCopyToRight()}
+          copyEnabled={canCrossCopy}
+          copyLabelPeer={
+            right
+              ? devices.find((d) => d.id === right.deviceId)?.name
+              : primaryPeer?.name
+          }
         />
-        <PaneView
-          pane={right}
-          side="right"
-          devices={devices}
-          fallbackDeviceName={localDevice?.name}
-          otherPane={left}
-          view={view}
-          setView={setView}
-          onNavigate={(s, p) => void navigate(s, p)}
-          onSelect={(s, next) => {
-            if (s === "left") setLeft(next);
-            else setRight(next);
-          }}
-        />
+        {right ? (
+          <PaneView
+            pane={right}
+            side="right"
+            devices={devices}
+            fallbackDeviceName={primaryPeer?.name || "Other Mac"}
+            otherPane={left}
+            view={view}
+            setView={setView}
+            onNavigate={(s, p) => void navigate(s, p)}
+            onSelect={(s, next) => {
+              if (s === "left") setLeft(next);
+              else setRight(next);
+            }}
+          />
+        ) : (
+          <section className="pane dest">
+            <div className="pane-head">
+              <div className="pane-title">
+                <h2>To · other Mac</h2>
+                <span className="pane-sub">Waiting for a connected Mac</span>
+              </div>
+            </div>
+            <div className="empty" style={{ padding: 24 }}>
+              {primaryPeer ? (
+                <>Connecting to <strong>{primaryPeer.name}</strong>…</>
+              ) : (
+                <>
+                  Add another Mac to copy files between computers. Same-Mac moves belong in
+                  Finder.
+                  <div style={{ marginTop: 12 }}>
+                    <button
+                      className="btn primary"
+                      type="button"
+                      onClick={() => {
+                        setSettingsTab("connect");
+                        setShowSettings(true);
+                      }}
+                    >
+                      Add Mac
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+        )}
       </div>
 
       {showShare && (

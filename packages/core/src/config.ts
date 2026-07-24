@@ -15,7 +15,13 @@ export interface WizardState {
   step: number;
   agentLinkAcknowledged: boolean;
   mcpInstalled: boolean;
+  /** Bump when wizard step layout changes (Tailscale step inserted). */
+  schemaVersion?: number;
+  /** User chose same-Wi‑Fi only (skipped Tailscale gate). */
+  tailscaleSkipped?: boolean;
 }
+
+export const WIZARD_SCHEMA_VERSION = 2;
 
 export interface PorterConfig {
   deviceId: string;
@@ -78,6 +84,8 @@ export function loadConfig(): PorterConfig {
         step: 0,
         agentLinkAcknowledged: false,
         mcpInstalled: false,
+        schemaVersion: WIZARD_SCHEMA_VERSION,
+        tailscaleSkipped: false,
       },
       sleeping: false,
       tunnelUrl: null,
@@ -95,6 +103,14 @@ export function loadConfig(): PorterConfig {
   }
   const loaded = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8")) as Partial<PorterConfig>;
   // Migrate older configs without breaking existing installs
+  let wizardStep = loaded.wizard?.step ?? 0;
+  let schemaVersion = loaded.wizard?.schemaVersion ?? 1;
+  // Schema 2 inserted Tailscale at step 3 — bump mid-wizard users past the insertion point once
+  if (!loaded.wizard?.completed && schemaVersion < WIZARD_SCHEMA_VERSION && wizardStep >= 3) {
+    wizardStep += 1;
+  }
+  schemaVersion = WIZARD_SCHEMA_VERSION;
+
   const config: PorterConfig = {
     deviceId: loaded.deviceId ?? createHash("sha256").update(randomBytes(32)).digest("hex").slice(0, 16),
     deviceName: loaded.deviceName ?? defaultName(),
@@ -107,9 +123,11 @@ export function loadConfig(): PorterConfig {
     token: loaded.token ?? randomBytes(24).toString("hex"),
     wizard: {
       completed: loaded.wizard?.completed ?? false,
-      step: loaded.wizard?.step ?? 0,
+      step: wizardStep,
       agentLinkAcknowledged: loaded.wizard?.agentLinkAcknowledged ?? false,
       mcpInstalled: loaded.wizard?.mcpInstalled ?? false,
+      schemaVersion,
+      tailscaleSkipped: loaded.wizard?.tailscaleSkipped ?? false,
     },
     sleeping: loaded.sleeping ?? false,
     tunnelUrl: loaded.tunnelUrl ?? null,
@@ -122,6 +140,10 @@ export function loadConfig(): PorterConfig {
       serveUrl: loaded.awayMode?.serveUrl ?? null,
     },
   };
+  // Persist migration once so step bump does not re-apply incorrectly after user goes back
+  if ((loaded.wizard?.schemaVersion ?? 1) < WIZARD_SCHEMA_VERSION) {
+    saveConfig(config);
+  }
   return config;
 }
 

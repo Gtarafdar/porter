@@ -8,11 +8,16 @@ const STEPS = [
   { id: 2, title: "Share folders", blurb: "Only approved folders are visible. Start with Projects; enable write on an inbox to receive copies." },
   {
     id: 3,
+    title: "Tailscale",
+    blurb: "Tailscale privately connects your Macs for travel. Install, sign in, then continue.",
+  },
+  {
+    id: 4,
     title: "Link Macs",
     blurb: "There is no Porter account. One shared secret (pair token) + the other Mac’s address links them.",
   },
-  { id: 4, title: "Link Cursor", blurb: "One click merges Porter into ~/.cursor/mcp.json without removing Slack Agent Bridge or other MCP servers." },
-  { id: 5, title: "You're set", blurb: "Open the Finder view, or ask Cursor to list Porter devices." },
+  { id: 5, title: "Link Cursor", blurb: "One click merges Porter into ~/.cursor/mcp.json without removing Slack Agent Bridge or other MCP servers." },
+  { id: 6, title: "You're set", blurb: "Open the Finder view, or ask Cursor to list Porter devices." },
 ];
 
 type PairRole = "home" | "join" | null;
@@ -41,6 +46,13 @@ export function SetupWizard({
     port: number;
   } | null>(null);
   const [linksBusy, setLinksBusy] = useState(false);
+  const [tsStatus, setTsStatus] = useState<{
+    installed: boolean;
+    connected: boolean;
+    selfIp: string | null;
+    sshLikelyEnabled: boolean | null;
+    detail: string;
+  } | null>(null);
 
   async function refreshShareLinks() {
     try {
@@ -56,13 +68,23 @@ export function SetupWizard({
     }
   }
 
+  async function refreshTailscaleStatus() {
+    try {
+      const st = await porter.tailscaleSetupStatus();
+      setTsStatus(st);
+    } catch {
+      setTsStatus(null);
+    }
+  }
+
   async function refresh() {
     const s = await porter.setup();
     setSnap(s);
     setName(s.deviceName);
     setToken(s.token);
     if (!homeTokenSnapshot) setHomeTokenSnapshot(s.token);
-    if (s.step === 3) void refreshShareLinks();
+    if (s.step === 3) void refreshTailscaleStatus();
+    if (s.step === 4) void refreshShareLinks();
     return s;
   }
 
@@ -70,6 +92,13 @@ export function SetupWizard({
     setNativePicker(canPickFolderNative());
     void refresh().catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
   }, []);
+
+  useEffect(() => {
+    if (snap?.step !== 3) return;
+    void refreshTailscaleStatus();
+    const t = setInterval(() => void refreshTailscaleStatus(), 2000);
+    return () => clearInterval(t);
+  }, [snap?.step]);
 
   if (!snap) {
     return (
@@ -106,6 +135,15 @@ export function SetupWizard({
         }
       }
       if (snap!.step === 3) {
+        const st = tsStatus || (await porter.tailscaleSetupStatus());
+        setTsStatus(st);
+        if (!st.connected && !snap!.tailscaleSkipped) {
+          setMsg("Connect Tailscale first (or choose same Wi‑Fi only below).");
+          setBusy(false);
+          return;
+        }
+      }
+      if (snap!.step === 4) {
         if (!pairRole) {
           setMsg("Choose whether this Mac is Home or joining another Mac.");
           setBusy(false);
@@ -129,7 +167,7 @@ export function SetupWizard({
           !peerAddress.trim()
         ) {
           setMsg(
-            "Paste Home’s pair token (Copy token on Home), and optionally Home’s Cloudflare URL or LAN IP.",
+            "Paste Home’s pair token (Copy token on Home), and optionally Home’s Tailscale IP or address.",
           );
           setBusy(false);
           return;
@@ -159,10 +197,10 @@ export function SetupWizard({
                 "Token may not match Home yet. Continue, then fix token in Add Mac.";
             } else if (/1033|Cloudflare tunnel|HTML error|trycloudflare/i.test(raw)) {
               joinNote =
-                "Cloudflare URL looks dead. Copy a fresh URL from Home Add Mac, then retry Connect.";
+                "Cloudflare URL looks dead. Prefer Tailscale IP from Home, then retry Connect.";
             } else {
               joinNote =
-                "Home not reachable right now (check Cloudflare URL + Tailscale fallback). Token saved — retry in Add Mac.";
+                "Home not reachable right now (check Tailscale). Token saved — retry in Add Mac.";
             }
           }
         } else if (pairRole === "join") {
@@ -179,7 +217,7 @@ export function SetupWizard({
         if (joinNote) setMsg(joinNote);
         return;
       }
-      if (snap!.step === 4) {
+      if (snap!.step === 5) {
         // allow continue after install or acknowledge
       }
       if (snap!.step >= STEPS.length - 1) {
@@ -305,6 +343,100 @@ export function SetupWizard({
           )}
 
           {snap.step === 3 && (
+            <div className="pair-role">
+              <p>
+                Porter uses <strong>Tailscale</strong> so your Macs stay private and reachable when
+                you travel. Same Tailscale account on every Mac.
+              </p>
+              <div className="travel-checks" style={{ marginTop: 12 }}>
+                <div className={`travel-check ${tsStatus?.installed ? "ok" : "bad"}`}>
+                  <span className="wiz-dot">{tsStatus?.installed ? <IconCheck size={12} /> : "!"}</span>
+                  <div>
+                    <strong>Tailscale installed</strong>
+                    <div className="fmeta">
+                      {tsStatus?.installed ? "Found on this Mac" : "Not found yet"}
+                    </div>
+                  </div>
+                </div>
+                <div className={`travel-check ${tsStatus?.connected ? "ok" : "bad"}`}>
+                  <span className="wiz-dot">{tsStatus?.connected ? <IconCheck size={12} /> : "!"}</span>
+                  <div>
+                    <strong>Signed in &amp; connected</strong>
+                    <div className="fmeta">
+                      {tsStatus?.selfIp
+                        ? `IP ${tsStatus.selfIp}`
+                        : tsStatus?.detail || "Waiting for connection…"}
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className={`travel-check ${
+                    tsStatus?.sshLikelyEnabled === true ? "ok" : ""
+                  }`}
+                >
+                  <span className="wiz-dot">
+                    {tsStatus?.sshLikelyEnabled === true ? <IconCheck size={12} /> : "·"}
+                  </span>
+                  <div>
+                    <strong>Tailscale SSH (recommended)</strong>
+                    <div className="fmeta">
+                      Enable in Tailscale → Settings so you can revive Porter while away. Optional
+                      for now.
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="row" style={{ marginTop: 12, gap: 8, flexWrap: "wrap" }}>
+                {!tsStatus?.installed && (
+                  <button
+                    className="btn primary"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      void porter
+                        .openTailscaleDownload()
+                        .then((r) => setMsg(r.note))
+                        .catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
+                    }}
+                  >
+                    Get Tailscale
+                  </button>
+                )}
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void refreshTailscaleStatus()}
+                >
+                  Refresh
+                </button>
+              </div>
+              {!tsStatus?.connected && (
+                <button
+                  className="btn linkish"
+                  type="button"
+                  style={{ marginTop: 8 }}
+                  disabled={busy}
+                  onClick={() => {
+                    setBusy(true);
+                    void porter
+                      .updateSetup({ tailscaleSkipped: true })
+                      .then(() => setStep(snap.step + 1))
+                      .then(() => refresh())
+                      .then(() =>
+                        setMsg("Continuing with same Wi‑Fi only — enable Tailscale later for travel."),
+                      )
+                      .catch((e) => setMsg(e instanceof Error ? e.message : String(e)))
+                      .finally(() => setBusy(false));
+                  }}
+                >
+                  Same Wi‑Fi only — skip Tailscale for now →
+                </button>
+              )}
+            </div>
+          )}
+
+          {snap.step === 4 && (
             <div className="pair-role">
               <div className="role-cards">
                 <button
@@ -510,7 +642,7 @@ export function SetupWizard({
             </div>
           )}
 
-          {snap.step === 4 && (
+          {snap.step === 5 && (
             <>
               <pre className="code-block">{snap.mcpSnippet}</pre>
               <div className="row" style={{ justifyContent: "flex-start" }}>
@@ -534,7 +666,7 @@ export function SetupWizard({
             </>
           )}
 
-          {snap.step === 5 && (
+          {snap.step === 6 && (
             <div className="callout ok">
               Menu bar app (optional): build with <code>apps/mac-menubar</code> for one-click Open /
               Sleep / Setup — same tray pattern as Slack Agent Bridge.
@@ -555,7 +687,15 @@ export function SetupWizard({
           <button className="btn" type="button" disabled={busy} onClick={() => onDone()}>
             Skip for now
           </button>
-          <button className="btn primary" type="button" disabled={busy} onClick={() => void next()}>
+          <button
+            className="btn primary"
+            type="button"
+            disabled={
+              busy ||
+              (snap.step === 3 && !tsStatus?.connected && !snap.tailscaleSkipped)
+            }
+            onClick={() => void next()}
+          >
             {busy ? "Working…" : snap.step >= STEPS.length - 1 ? "Open Porter" : "Continue"}
           </button>
         </div>

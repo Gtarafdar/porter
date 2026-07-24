@@ -53,6 +53,7 @@ import {
   listTailnetPeersForPorter,
   startTailscaleServe,
   stopTailscaleServe,
+  wizardTailscaleStatus,
 } from "./tailscaleServe.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -338,8 +339,17 @@ export async function startServer(opts?: {
           typeof req.body.agentLinkAcknowledged === "boolean"
             ? req.body.agentLinkAcknowledged
             : undefined,
+        tailscaleSkipped:
+          typeof req.body.tailscaleSkipped === "boolean"
+            ? req.body.tailscaleSkipped
+            : undefined,
       }),
     );
+  });
+
+  app.get("/api/tailscale/setup-status", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    res.json(wizardTailscaleStatus());
   });
 
   app.get("/api/mcp/snippet", (req, res) => {

@@ -26,6 +26,49 @@ function tailscaleBin(): string {
   }
 }
 
+export function isTailscaleInstalled(): boolean {
+  if (fs.existsSync("/Applications/Tailscale.app")) return true;
+  const bin = tailscaleBin();
+  return bin !== "tailscale" || fs.existsSync(bin);
+}
+
+export function wizardTailscaleStatus(): {
+  installed: boolean;
+  connected: boolean;
+  selfIp: string | null;
+  sshLikelyEnabled: boolean | null;
+  detail: string;
+} {
+  const installed = isTailscaleInstalled();
+  const selfIp = getTailscaleSelfIp();
+  const sshLikelyEnabled = detectTailscaleSsh();
+  if (!installed) {
+    return {
+      installed: false,
+      connected: false,
+      selfIp: null,
+      sshLikelyEnabled: null,
+      detail: "Install Tailscale, then sign in with the same account on both Macs",
+    };
+  }
+  if (!selfIp) {
+    return {
+      installed: true,
+      connected: false,
+      selfIp: null,
+      sshLikelyEnabled,
+      detail: "Open Tailscale and sign in — waiting for a 100.x address",
+    };
+  }
+  return {
+    installed: true,
+    connected: true,
+    selfIp,
+    sshLikelyEnabled,
+    detail: `Connected as ${selfIp}`,
+  };
+}
+
 function runTs(args: string[], timeout = 12000): string {
   const bin = tailscaleBin();
   try {

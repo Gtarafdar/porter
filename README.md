@@ -8,9 +8,9 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 
 Pick your Mac chip (smaller downloads — about half the old universal zip):
 
-> **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.24-mac-arm64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.24-mac-arm64.zip)  
-> **Intel Mac:** [⬇ Porter-0.2.24-mac-x64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.24-mac-x64.zip)  
-> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.24 · [All releases](https://github.com/Gtarafdar/porter/releases)
+> **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.25-mac-arm64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.25-mac-arm64.zip)  
+> **Intel Mac:** [⬇ Porter-0.2.25-mac-x64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.25-mac-x64.zip)  
+> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.25 · [All releases](https://github.com/Gtarafdar/porter/releases)
 
 Not sure which chip?  menu → About This Mac → look for “Chip” (Apple) or “Processor” (Intel).
 
@@ -27,6 +27,13 @@ Not sure which chip?  menu → About This Mac → look for “Chip” (Apple)
 **Chrome:** Everyday file copy never requires quitting Chrome. Optional Chrome-extension sync only: quit Chrome → share/copy folders → reopen (see [CHROME.md](CHROME.md)).
 
 **Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Chrome extensions:** [CHROME.md](CHROME.md) · **Roadmap:** [PLAN.md](PLAN.md)
+
+## What’s new in 0.2.25
+
+- Setup includes a **Tailscale check** step (install → connect → continue); same Wi‑Fi escape still available
+- Copy is **between Macs only** — no more confusing same-Mac destination; right pane waits for a peer
+- Chrome Extensions / Extension Data copies auto-route into the peer’s matching Chrome Library share
+- Builds on 0.2.24 travel resilience (Tailscale-first, keep-alive takeover, exact pair-token auth)
 
 ## What’s new in 0.2.24
 

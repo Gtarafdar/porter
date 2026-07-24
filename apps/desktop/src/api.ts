@@ -67,6 +67,8 @@ export interface SetupSnapshot {
   token: string;
   agentLinkAcknowledged: boolean;
   mcpInstalled: boolean;
+  schemaVersion?: number;
+  tailscaleSkipped?: boolean;
   sleeping: boolean;
   mcpEntryPath: string;
   mcpSnippet: string;
@@ -280,8 +282,17 @@ export const porter = {
     step?: number;
     completed?: boolean;
     agentLinkAcknowledged?: boolean;
+    tailscaleSkipped?: boolean;
   }) =>
     api<SetupSnapshot>("/api/setup", { method: "PATCH", body: JSON.stringify(body) }),
+  tailscaleSetupStatus: () =>
+    api<{
+      installed: boolean;
+      connected: boolean;
+      selfIp: string | null;
+      sshLikelyEnabled: boolean | null;
+      detail: string;
+    }>("/api/tailscale/setup-status"),
   installCursorMcp: () =>
     api<{ ok: boolean; path: string; alreadyPresent: boolean; merged: boolean }>(
       "/api/mcp/install-cursor",
