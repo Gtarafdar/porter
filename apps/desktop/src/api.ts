@@ -184,16 +184,43 @@ export const porter = {
       publicUrl: string | null;
       cloudflaredInstalled: boolean;
     }>("/api/tunnel"),
-  setAndForget: () =>
+  setAndForget: (alsoStartCloudflare = false) =>
     api<{
       ok: boolean;
       tunnelUrl: string | null;
+      serveUrl?: string | null;
       warnings: string[];
       keepalive: { ok: boolean; detail: string };
       folders: { added: string[]; skipped: string[] };
-    }>("/api/away/set-and-forget", { method: "POST", body: "{}" }),
+    }>("/api/away/set-and-forget", {
+      method: "POST",
+      body: JSON.stringify({ alsoStartCloudflare }),
+    }),
+  repairTravel: () =>
+    api<{
+      ok: boolean;
+      warnings: string[];
+      serveUrl?: string | null;
+      keepalive: { ok: boolean; detail: string };
+    }>("/api/away/repair", { method: "POST", body: "{}" }),
   openTailscaleDownload: () =>
     api<{ ok: boolean; url: string; note: string }>("/api/away/open-tailscale", {
+      method: "POST",
+      body: "{}",
+    }),
+  tailscalePeers: () =>
+    api<{
+      peers: {
+        name: string;
+        hostName: string;
+        dnsName: string | null;
+        ip: string | null;
+        online: boolean;
+        porterUrl: string;
+      }[];
+    }>("/api/tailscale/peers"),
+  startTailscaleServe: () =>
+    api<{ ok: boolean; url: string | null; detail: string }>("/api/tailscale/serve/start", {
       method: "POST",
       body: "{}",
     }),
@@ -269,6 +296,8 @@ export const porter = {
       deviceName: string;
       pairToken: string;
       tailscaleIp: string | null;
+      serveUrl?: string | null;
+      serveConfigured?: boolean;
       cloudflareUrl: string | null;
       peerAddress: string | null;
       fallbackAddress: string | null;
@@ -278,6 +307,8 @@ export const porter = {
       travelSteps: string[];
       safetyNote: string;
       keepAliveInstalled?: boolean;
+      reviveCommand?: string;
+      sshEnabled?: boolean | null;
       tunnel: {
         running: boolean;
         publicUrl: string | null;

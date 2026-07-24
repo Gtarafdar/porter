@@ -83,8 +83,9 @@ export async function refreshPeerHealth(): Promise<void> {
     const pushUnique = (root: string, via: DeviceInfo["activeVia"]) => {
       if (!roots.some((r) => r.root === root)) roots.push({ root, via });
     };
-    const isTs = (r: string) => r.includes("100.");
-    const isCf = (r: string) => r.startsWith("https");
+    const isTs = (r: string) => r.includes("100.") || r.includes(".ts.net");
+    const isCf = (r: string) =>
+      r.includes(".trycloudflare.com") || r.includes(".cfargotunnel.com");
     // Order: Tailscale → LAN → Cloudflare (unless last success was LAN)
     const candidates: { root: string; via: DeviceInfo["activeVia"] }[] = [
       { root: primary, via: device.via === "local" ? "lan" : device.via },
@@ -92,11 +93,13 @@ export async function refreshPeerHealth(): Promise<void> {
     if (fb) {
       candidates.push({
         root: fb,
-        via: fb.startsWith("https")
-          ? "cloudflare"
-          : fb.includes("100.")
-            ? "tailscale"
-            : "lan",
+        via: fb.includes(".ts.net") || fb.includes("100.")
+          ? "tailscale"
+          : fb.includes(".trycloudflare.com") || fb.includes(".cfargotunnel.com")
+            ? "cloudflare"
+            : fb.startsWith("https")
+              ? "cloudflare"
+              : "lan",
       });
     }
     const ts = candidates.filter((c) => isTs(c.root));

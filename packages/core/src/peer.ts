@@ -47,11 +47,12 @@ export function peerBases(device: DeviceInfo): string[] {
   const fallback = deviceFallbackBaseUrl(device);
   const all = [...new Set([primary, fallback].filter(Boolean) as string[])];
 
-  const isTs = (b: string) => /(?:^|\/\/|@)100\.\d+\.\d+\.\d+/.test(b) || b.includes("100.");
+  const isTs = (b: string) =>
+    /(?:^|\/\/|@)100\.\d+\.\d+\.\d+/.test(b) ||
+    b.includes(".ts.net") ||
+    (b.includes("100.") && !b.includes("trycloudflare"));
   const isCf = (b: string) =>
-    b.startsWith("https://") ||
-    b.includes(".trycloudflare.com") ||
-    b.includes(".cfargotunnel.com");
+    b.includes(".trycloudflare.com") || b.includes(".cfargotunnel.com");
 
   const ts = all.filter(isTs);
   const lan = all.filter((b) => !isTs(b) && !isCf(b));
@@ -76,6 +77,7 @@ export function parsePeerAddress(input: string, defaultPort = 47831): {
     const isCf =
       u.hostname.endsWith(".trycloudflare.com") ||
       u.hostname.endsWith(".cfargotunnel.com");
+    const isTsDns = u.hostname.endsWith(".ts.net") || u.hostname.startsWith("100.");
     const port = u.port
       ? Number(u.port)
       : u.protocol === "https:"
@@ -85,7 +87,7 @@ export function parsePeerAddress(input: string, defaultPort = 47831): {
       host: u.hostname,
       port,
       baseUrl: `${u.protocol}//${u.host}`,
-      via: isCf || u.protocol === "https:" ? "cloudflare" : "lan",
+      via: isCf ? "cloudflare" : isTsDns ? "tailscale" : u.protocol === "https:" ? "cloudflare" : "lan",
     };
   }
   // host:port or bare host / Tailscale IP
@@ -108,12 +110,15 @@ export function parsePeerAddress(input: string, defaultPort = 47831): {
 }
 
 function viaForBase(base: string, device: DeviceInfo): DeviceInfo["activeVia"] {
+  if (base.includes(".ts.net") || base.includes("100.")) return "tailscale";
+  if (base.includes(".trycloudflare.com") || base.includes(".cfargotunnel.com")) {
+    return "cloudflare";
+  }
   if (base.startsWith("https")) return "cloudflare";
-  if (base.includes("100.")) return "tailscale";
   if (device.via === "tailscale" || device.fallbackHost?.startsWith("100.")) {
     if (base.includes(device.fallbackHost || "___")) return "tailscale";
   }
-  if (device.host.startsWith("100.")) return "tailscale";
+  if (device.host.startsWith("100.") || device.host.endsWith(".ts.net")) return "tailscale";
   return device.via === "cloudflare" ? "cloudflare" : device.via === "tailscale" ? "tailscale" : "lan";
 }
 
@@ -426,12 +431,8 @@ export function authorizePeer(
     return true;
   }
 
-  return Boolean(
-    peerId &&
-      config.pairedDeviceIds.includes(peerId) &&
-      bearer &&
-      bearer.length >= 16,
-  );
+  // Exact pair token required — never accept a random long bearer for a known peerId.
+  return false;
 }
 
 export function setSharedToken(token: string): void {

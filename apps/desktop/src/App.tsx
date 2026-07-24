@@ -73,25 +73,25 @@ function friendlyError(msg: string): string {
       msg,
     )
   ) {
-    return "Cloudflare tunnel URL is dead or changed. On Home Mac: Add Mac → Copy Cloudflare URL + Tailscale fallback. On this Mac: paste the NEW URL (and Tailscale as Fallback).";
+    return "Cloudflare tunnel URL is dead or changed. Prefer Tailscale: Add Mac → pick the other Mac (or paste 100.x). Quick Tunnel is optional.";
   }
   if (/Cannot GET \/api\/updates/i.test(msg) || /updates\/check/i.test(msg) && /Cannot GET|404|Not Found/i.test(msg)) {
-    return "This Porter build is too old for in-app updates. Install 0.2.22+ from GitHub Releases once, then Updates will work.";
+    return "This Porter build is too old for in-app updates. Install the latest from GitHub Releases once (Applications folder), then Updates will work.";
   }
   if (msg.includes("Unauthorized") || msg.includes("pair token")) {
     return "Pair token mismatch — paste the same token on both Macs (Settings → Save token).";
   }
   if (msg.includes("host required")) {
-    return "Enter the other Mac’s LAN IP (or Cloudflare URL) before clicking Add Mac.";
+    return "Enter the other Mac’s Tailscale IP (100.x) or pick it from the Tailscale list — not localhost.";
   }
   if (msg.includes("ECONNREFUSED") || msg.includes("fetch failed") || msg.includes("Failed to fetch")) {
-    return "Could not reach that Mac — check Wi‑Fi, that Porter is open there, and you used its LAN IP (not localhost).";
+    return "Could not reach that Mac — if Tailscale shows it online, Porter may not be running there. Use Break-glass SSH or open Porter on the home Mac.";
   }
   if (msg.includes("ENOTFOUND") || msg.includes("getaddrinfo")) {
-    return "Could not reach the other Mac. Check Cloudflare/Tailscale path under Devices.";
+    return "Could not reach the other Mac. Use Tailscale (same account) and the 100.x address — not a dead Cloudflare URL.";
   }
   if (msg.includes("timeout") || msg.includes("Timed out") || msg.includes("AbortError")) {
-    return "Timed out. Open Devices and see if Cloudflare or Tailscale is the active link.";
+    return "Timed out. Prefer the Tailscale path under Devices (100.x).";
   }
   if (msg.length > 320) return `${msg.slice(0, 280)}…`;
   return msg;
@@ -141,6 +141,16 @@ export function App() {
   const [peerHost, setPeerHost] = useState("");
   const [peerPort, setPeerPort] = useState("47831");
   const [peerFallback, setPeerFallback] = useState("");
+  const [tsPeers, setTsPeers] = useState<
+    {
+      name: string;
+      hostName: string;
+      dnsName: string | null;
+      ip: string | null;
+      online: boolean;
+      porterUrl: string;
+    }[]
+  >([]);
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
   const [settingsTab, setSettingsTab] = useState<"connect" | "more">("connect");
   const [shareLinks, setShareLinks] = useState<{
@@ -148,6 +158,7 @@ export function App() {
     tailscale: string | null;
     cloudflare: string | null;
     port: number;
+    serveUrl?: string | null;
   } | null>(null);
   const [linksBusy, setLinksBusy] = useState(false);
   const [chromeInfo, setChromeInfo] = useState<{
@@ -385,7 +396,14 @@ export function App() {
         tailscale: travel.tailscaleIp || n.tailscale.selfIp || null,
         cloudflare: travel.cloudflareUrl || tunnel.publicUrl || null,
         port: travel.port || 47831,
+        serveUrl: travel.serveUrl || null,
       });
+      try {
+        const tp = await porter.tailscalePeers();
+        setTsPeers(tp.peers || []);
+      } catch {
+        setTsPeers([]);
+      }
     } catch {
       // ignore — LAN from settings still shown
     }
@@ -616,8 +634,8 @@ export function App() {
             {devices.filter((d) => !d.isLocal).length === 0 && (
               <div className="side-hint">
                 No other Mac listed yet. On <strong>both</strong> Macs: same pair token, then{" "}
-                <strong>Add Mac</strong> and paste the other side’s Cloudflare URL + Tailscale
-                fallback. After travel connects once, Home should show it here automatically.
+                <strong>Add Mac</strong> and pick the other Mac from Tailscale (or paste its 100.x
+                IP). Cloudflare Quick Tunnel is optional.
               </div>
             )}
             {devices.some((d) => !d.isLocal && d.host === "inbound") && (
@@ -991,10 +1009,41 @@ export function App() {
                   <div className="connect-block">
                     <h3>2. Paste from the other Mac</h3>
                     <p className="connect-hint">
-                      Paste what you copied on the other Mac (its LAN IP, Cloudflare URL, or
-                      Tailscale IP). Same Wi‑Fi → use LAN. Away → use Cloudflare, with Tailscale as
-                      fallback.
+                      Prefer Tailscale (same account). Same Wi‑Fi can use LAN. Cloudflare Quick Tunnel
+                      is optional and can change after reboot.
                     </p>
+                    {tsPeers.length > 0 && (
+                      <div className="share-rows" style={{ marginBottom: 12 }}>
+                        <span className="share-label">On your Tailscale</span>
+                        {tsPeers.map((p) => (
+                          <div className="share-row" key={p.ip || p.dnsName || p.name}>
+                            <div>
+                              <strong>{p.name}</strong>
+                              <div className="fmeta">
+                                {p.online ? "Online" : "Offline"}
+                                {p.ip ? ` · ${p.ip}` : ""}
+                              </div>
+                            </div>
+                            <button
+                              className="btn primary"
+                              type="button"
+                              disabled={!p.ip && !p.dnsName}
+                              onClick={() => {
+                                const host = p.ip
+                                  ? `${p.ip}:47831`
+                                  : p.dnsName
+                                    ? `https://${p.dnsName}`
+                                    : p.porterUrl;
+                                setPeerHost(host);
+                                setSettingsMsg(`Selected ${p.name} — tap Connect`);
+                              }}
+                            >
+                              Use
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div className="field">
                       <label>Other Mac address</label>
                       <input
@@ -1003,16 +1052,16 @@ export function App() {
                           setPeerHost(e.target.value);
                           setSettingsMsg(null);
                         }}
-                        placeholder="192.168.x.x or https://….trycloudflare.com"
+                        placeholder="100.x.x.x:47831 or https://….ts.net"
                         autoFocus
                       />
                     </div>
                     <div className="field">
-                      <label>Fallback (optional Tailscale from other Mac)</label>
+                      <label>Fallback (optional)</label>
                       <input
                         value={peerFallback}
                         onChange={(e) => setPeerFallback(e.target.value)}
-                        placeholder="100.x.x.x:47831"
+                        placeholder="100.x.x.x:47831 or Cloudflare URL"
                       />
                     </div>
                     <div className="field">

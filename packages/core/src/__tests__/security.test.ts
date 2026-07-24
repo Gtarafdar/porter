@@ -131,4 +131,16 @@ describe("security bridges", () => {
     const body = (await res.json()) as { token: string };
     assert.ok(body.token.length >= 16);
   });
+
+  it("rejects folders when bearer is long but not the pair token", async () => {
+    const res = await fetch(`${BASE}/api/folders`, {
+      headers: {
+        "cf-ray": "test",
+        Authorization: `Bearer ${"a".repeat(32)}`,
+        "X-Porter-Pair": "a".repeat(32),
+        "X-Porter-Device": "known-looking-peer",
+      },
+    });
+    assert.equal(res.status, 401);
+  });
 });

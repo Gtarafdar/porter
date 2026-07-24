@@ -151,7 +151,13 @@ export type UpdateCheck = {
 export function resolveAppBundlePath(): string | null {
   const res = process.env.PORTER_RESOURCES;
   if (res && res.includes(".app/Contents/Resources")) {
-    return path.resolve(res, "../..");
+    const app = path.resolve(res, "../..");
+    if (app.includes("AppTranslocation") || app.includes("/Downloads/")) {
+      // Prefer stable Applications install for updates
+      if (fs.existsSync("/Applications/Porter.app")) return "/Applications/Porter.app";
+      return null;
+    }
+    return app;
   }
   const candidates = [
     "/Applications/Porter.app",
@@ -183,6 +189,10 @@ export async function checkForUpdate(): Promise<UpdateCheck> {
         (a) => a.name.endsWith(".zip") && a.name.includes(`-${arch}`) && a.name.includes("Porter"),
       );
     const newer = compareSemver(latest, current) > 0;
+    const underTranslocation =
+      Boolean(process.env.PORTER_RESOURCES?.includes("AppTranslocation")) ||
+      Boolean(process.env.PORTER_RESOURCES?.includes("/Downloads/"));
+    const canAutoInstall = Boolean(newer && asset && appPath) && !underTranslocation;
     return {
       ok: true,
       currentVersion: current,
@@ -193,13 +203,15 @@ export async function checkForUpdate(): Promise<UpdateCheck> {
       releaseUrl: release.html_url,
       notes: (release.body || "").slice(0, 2000) || null,
       arch,
-      canAutoInstall: Boolean(newer && asset && appPath),
+      canAutoInstall,
       appPath,
-      message: newer
-        ? asset
-          ? `Porter ${latest} is available (you have ${current}).`
-          : `Porter ${latest} is out, but no ${arch} zip was found on the release.`
-        : `You’re on the latest Porter (${current}).`,
+      message: underTranslocation
+        ? `Porter ${latest} is available, but this copy was opened from Downloads. Move Porter.app to Applications, open it from there, then Install.`
+        : newer
+          ? asset
+            ? `Porter ${latest} is available (you have ${current}).`
+            : `Porter ${latest} is out, but no ${arch} zip was found on the release.`
+          : `You’re on the latest Porter (${current}).`,
     };
   } catch (e) {
     return {
@@ -233,11 +245,24 @@ export async function applyUpdate(): Promise<{
     return {
       ok: false,
       message:
-        "Could not find Porter.app to replace. Drag Porter into Applications, open it from there, then try again.",
+        "Could not find a stable Porter.app to replace. Drag Porter into /Applications, open it from there (not Downloads), then try again.",
+      willRelaunch: false,
+    };
+  }
+  if (appPath.includes("AppTranslocation") || appPath.includes("/Downloads/")) {
+    return {
+      ok: false,
+      message:
+        "This Porter was opened from Downloads (App Translocation). Quit Porter, move Porter.app to /Applications, open it from there, then Install.",
       willRelaunch: false,
     };
   }
 
+  // Always install into /Applications when possible (stable LaunchAgent paths)
+  const targetApp =
+    appPath === "/Applications/Porter.app" || fs.existsSync("/Applications")
+      ? "/Applications/Porter.app"
+      : appPath;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "porter-update-"));
   const zipPath = path.join(tmp, check.assetName || "Porter-update.zip");
   const extractDir = path.join(tmp, "extract");
@@ -276,14 +301,15 @@ export async function applyUpdate(): Promise<{
   }
 
   const installScript = path.join(tmp, "install-porter-update.sh");
-  const parent = path.dirname(appPath);
-  const appName = path.basename(appPath);
+  const parent = path.dirname(targetApp);
+  const appName = path.basename(targetApp);
+  const newVer = check.latestVersion || "unknown";
   const script = `#!/bin/bash
 set -euo pipefail
 LOG="${os.homedir()}/Library/Logs/Porter-update.log"
 mkdir -p "$(dirname "$LOG")"
 exec >>"$LOG" 2>&1
-echo "[$(date)] installing update into ${appPath}"
+echo "[$(date)] installing update into ${targetApp}"
 
 # Wait for current Porter core / window to exit
 for i in $(seq 1 40); do
@@ -297,27 +323,77 @@ pkill -f 'Porter.app/Contents/MacOS/Porter' 2>/dev/null || true
 sleep 0.8
 
 # Replace app bundle
-rm -rf "${appPath}.old" 2>/dev/null || true
-if [[ -d "${appPath}" ]]; then
-  mv "${appPath}" "${appPath}.old" || true
+rm -rf "${targetApp}.old" 2>/dev/null || true
+if [[ -d "${targetApp}" ]]; then
+  mv "${targetApp}" "${targetApp}.old" || true
 fi
 mkdir -p "${parent}"
 cp -R "${newApp}" "${parent}/${appName}"
-xattr -cr "${appPath}" 2>/dev/null || true
-codesign --force --deep --sign - "${appPath}" 2>/dev/null || true
+xattr -cr "${targetApp}" 2>/dev/null || true
+codesign --force --deep --sign - "${targetApp}" 2>/dev/null || true
 
-# Point LaunchAgent at the updated app when it lived under dist/release or Applications
-START="${os.homedir()}/Library/Application Support/Porter/start-porter.sh"
-if [[ -f "$START" ]]; then
-  /usr/bin/sed -i '' 's|/Users/[^/]*/Downloads/porter/dist/release/Porter.app|${appPath}|g' "$START" 2>/dev/null || true
-  /usr/bin/sed -i '' 's|/Applications/Porter.app|${appPath}|g' "$START" 2>/dev/null || true
+# Fully rewrite LaunchAgent start script to the new Applications bundle
+SUPPORT="${os.homedir()}/Library/Application Support/Porter"
+START="$SUPPORT/start-porter.sh"
+RES="${targetApp}/Contents/Resources"
+NODE="$RES/node"
+CLI="$RES/app/packages/core/dist/cli.js"
+VER="${newVer}"
+mkdir -p "$SUPPORT"
+cat > "$START" <<'PORTER_START'
+#!/bin/bash
+set -euo pipefail
+export HOME="__HOME__"
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:\${PATH}"
+export PORTER_OPEN_BROWSER="0"
+export PORTER_NO_BONJOUR="0"
+export PORTER_VERSION="__VER__"
+export PORTER_RESOURCES="__RES__"
+export PORTER_UI_DIR="__RES__/ui"
+LOG="__HOME__/Library/Logs/Porter.log"
+mkdir -p "$(dirname "$LOG")" "__SUPPORT__"
+PORT=47831
+JSON="$(curl -sf -m 2 --connect-timeout 1 "http://127.0.0.1:\${PORT}/api/health" 2>/dev/null || true)"
+if [[ -n "$JSON" ]]; then
+  CUR="$(printf '%s' "$JSON" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' | head -1)"
+  if [[ -n "$CUR" && "$CUR" != "$PORTER_VERSION" ]]; then
+    pkill -f 'packages/core/dist/cli.js serve' 2>/dev/null || true
+    pkill -f 'Porter.app/Contents/Resources/node' 2>/dev/null || true
+    sleep 0.6
+  else
+    exit 0
+  fi
+fi
+if lsof -nP -iTCP:\${PORT} -sTCP:LISTEN >/dev/null 2>&1; then
+  pkill -f 'packages/core/dist/cli.js serve' 2>/dev/null || true
+  pkill -f 'Porter.app/Contents/Resources/node' 2>/dev/null || true
+  sleep 0.6
+fi
+exec "__NODE__" "__CLI__" serve >>"$LOG" 2>&1
+PORTER_START
+# Fill placeholders
+/usr/bin/sed -i '' \\
+  -e "s|__HOME__|${os.homedir()}|g" \\
+  -e "s|__VER__|${newVer}|g" \\
+  -e "s|__RES__|${targetApp}/Contents/Resources|g" \\
+  -e "s|__SUPPORT__|${os.homedir()}/Library/Application Support/Porter|g" \\
+  -e "s|__NODE__|${targetApp}/Contents/Resources/node|g" \\
+  -e "s|__CLI__|${targetApp}/Contents/Resources/app/packages/core/dist/cli.js|g" \\
+  "$START"
+chmod 755 "$START"
+
+# Refresh LaunchAgent env if present
+PLIST="${os.homedir()}/Library/LaunchAgents/local.porter.plist"
+if [[ -f "$PLIST" ]]; then
+  launchctl bootout "gui/$(id -u)/local.porter" 2>/dev/null || true
+  launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null || true
 fi
 
-rm -rf "${appPath}.old" 2>/dev/null || true
+rm -rf "${targetApp}.old" 2>/dev/null || true
 rm -rf "${tmp}" 2>/dev/null || true
 
-echo "[$(date)] opening ${appPath}"
-open -n "${appPath}"
+echo "[$(date)] opening ${targetApp}"
+open -n "${targetApp}"
 `;
   fs.writeFileSync(installScript, script, { mode: 0o755 });
 

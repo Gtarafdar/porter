@@ -3,12 +3,10 @@
  *
  * Reliability model (when you cannot touch this Mac):
  * 1. LaunchAgent keeps Porter alive across login/crash
- * 2. Cloudflare tunnel auto-starts + watchdog restarts if cloudflared dies
- * 3. Tailscale is the STABLE backup (IP does not change) — required for true unattended
+ * 2. Tailscale (required) — stable private mesh; Serve gives MagicDNS HTTPS
+ * 3. Tailscale SSH (required for unattended revive) — open -a Porter from travel
  * 4. caffeinate reduces sleep risk while Porter runs
- *
- * Cloudflare Quick Tunnel alone is NOT enough after a full reboot (URL changes).
- * Always enable Tailscale as fallback on the travel Mac.
+ * 5. Cloudflare Quick Tunnel — optional advanced only (URLs rotate)
  */
 import { execSync } from "node:child_process";
 import fs from "node:fs";
@@ -22,27 +20,33 @@ import {
   maybeStartPreventSleep,
   startPreventSleep,
 } from "./keepalive.js";
+import {
+  getTailscaleSelfIp,
+  getTailscaleServeStatus,
+  listTailnetPeersForPorter,
+  reviveCommandForPeer,
+  startTailscaleServe,
+  detectTailscaleSsh,
+} from "./tailscaleServe.js";
 
-function tailscaleIp(): string | null {
+function openTailscaleSshSettings(): void {
   try {
-    const bin = "/Applications/Tailscale.app/Contents/MacOS/Tailscale";
-    const out = execSync(`"${bin}" ip -4 2>/dev/null || true`, {
-      encoding: "utf8",
-      timeout: 4000,
-    }).trim();
-    const ip = out.split(/\s+/).find((x) => x.startsWith("100."));
-    return ip || null;
+    execSync('open "tailscale://"', { timeout: 3000 });
   } catch {
-    return null;
+    try {
+      execSync('open "/Applications/Tailscale.app"', { timeout: 3000 });
+    } catch {
+      // ignore
+    }
   }
 }
 
 export function travelReady() {
   const c = loadConfig();
   const net = networkInfo();
-  const tsIp = tailscaleIp() || net.tailscale.selfIp;
+  const tsIp = getTailscaleSelfIp() || net.tailscale.selfIp || null;
+  const serve = getTailscaleServeStatus(c.port);
   const tunnel = getTunnelStatus();
-  // Only treat as live when the process still holds a URL (avoid stale config URLs)
   const publicUrl = tunnel.running ? tunnel.publicUrl : null;
   const devices = listDevices();
   const remoteOnline = devices.filter((d) => !d.isLocal && d.online).length;
@@ -50,9 +54,11 @@ export function travelReady() {
     (f) => f.permissions.includes("write") || f.permissions.includes("sync"),
   );
   const keepAlive = isKeepAliveInstalled() || Boolean(c.awayMode?.keepAliveInstalled);
+  const ssh = serve.sshLikelyEnabled ?? detectTailscaleSsh();
+  const serveUrl = serve.url || c.awayMode?.serveUrl || null;
 
-  // Away path: Tailscale (stable) and/or live Cloudflare tunnel
-  const remoteOk = Boolean(tsIp) || Boolean(publicUrl);
+  // Travel path: Tailscale required; Serve URL preferred; CF optional
+  const remoteOk = Boolean(tsIp);
 
   const checks = [
     {
@@ -94,22 +100,41 @@ export function travelReady() {
         : "Click “Set & forget for travel” once before you leave",
     },
     {
-      id: "cloudflare",
-      label: "Cloudflare Tunnel (easy path from travel Mac)",
-      ok: Boolean(publicUrl),
-      detail: publicUrl
-        ? `Live: ${publicUrl}`
-        : tunnel.cloudflaredInstalled
-          ? "Not running — start via Set & forget or Start Tunnel"
-          : "cloudflared missing (Porter.app bundles it)",
-    },
-    {
       id: "tailscale",
-      label: "Tailscale online (REQUIRED backup if tunnel URL changes)",
+      label: "Tailscale online (required for travel)",
       ok: Boolean(tsIp),
       detail: tsIp
-        ? `Stable IP: ${tsIp} — add as fallback on travel Mac`
+        ? `Stable IP: ${tsIp}`
         : "Install/open Tailscale on THIS Mac and log in before you leave",
+    },
+    {
+      id: "serve",
+      label: "Private Tailscale Serve (stable MagicDNS)",
+      ok: Boolean(serve.configured && serveUrl),
+      detail: serveUrl
+        ? `Live: ${serveUrl}`
+        : tsIp
+          ? "Not configured yet — Set & forget enables it"
+          : "Needs Tailscale first",
+    },
+    {
+      id: "ssh",
+      label: "Tailscale SSH (break-glass revive while away)",
+      ok: ssh === true,
+      detail:
+        ssh === true
+          ? "Enabled — from travel you can restart Porter"
+          : ssh === false
+            ? "Open Tailscale → Settings → enable SSH, then Repair"
+            : "Open Tailscale → enable SSH on this Mac (required before you leave)",
+    },
+    {
+      id: "cloudflare",
+      label: "Cloudflare Quick Tunnel (optional advanced)",
+      ok: true, // never blocks readiness
+      detail: publicUrl
+        ? `Live: ${publicUrl} (URLs can change after reboot)`
+        : "Off — use Tailscale instead (recommended)",
     },
     {
       id: "sleep",
@@ -119,7 +144,6 @@ export function travelReady() {
     },
   ];
 
-  // "ready" = can travel today; "unattendedReady" = safe to leave without touching home Mac
   const coreOk =
     c.sharedFolders.length > 0 &&
     writeFolders.length > 0 &&
@@ -127,10 +151,14 @@ export function travelReady() {
     !c.sleeping &&
     remoteOk;
   const ready = coreOk;
+  // Unattended: keepalive + Tailscale; SSH strongly preferred (block green when known-off)
   const unattendedReady = Boolean(
-    coreOk && keepAlive && tsIp && (publicUrl || tsIp),
+    coreOk && keepAlive && tsIp && ssh !== false && (serve.configured || tsIp),
   );
-  const peerHint = publicUrl || (tsIp ? `${tsIp}:${c.port}` : null);
+
+  const peerHint =
+    serveUrl || (tsIp ? `${tsIp}:${c.port}` : null) || publicUrl || null;
+  const hostname = os.hostname().replace(/\.local$/i, "");
 
   return {
     ready,
@@ -139,6 +167,8 @@ export function travelReady() {
     hostname: os.hostname(),
     pairToken: c.token,
     tailscaleIp: tsIp,
+    serveUrl,
+    serveConfigured: serve.configured,
     cloudflareUrl: publicUrl,
     tunnel: {
       running: tunnel.running,
@@ -154,32 +184,37 @@ export function travelReady() {
     sharedFolders: c.sharedFolders,
     remoteOnline,
     checks,
+    sshEnabled: ssh,
+    reviveCommand: reviveCommandForPeer(hostname),
     travelSteps: [
       "On THIS (home) Mac: click “Set & forget for travel” once.",
-      "On travel Mac: same pair token.",
-      publicUrl
-        ? `Add peer PRIMARY: ${publicUrl}`
-        : "Add peer PRIMARY: start Cloudflare Tunnel first, or use Tailscale IP.",
+      "Enable Tailscale SSH on this Mac (Break-glass) before you leave.",
+      "On travel Mac: same pair token → Add Mac → pick this Mac from Tailscale list (or paste Tailscale IP).",
       tsIp
-        ? `Add peer FALLBACK: ${tsIp} port ${c.port} (Tailscale — survives Cloudflare URL change).`
-        : "Also log Tailscale into this home Mac so travel has a stable backup path.",
-      "Leave Mac plugged in. Do not force-quit Porter.",
+        ? `Primary: ${serveUrl || `${tsIp}:${c.port}`}`
+        : "Log Tailscale into this home Mac first.",
+      publicUrl ? `Optional Cloudflare: ${publicUrl}` : "Cloudflare Quick Tunnel is optional.",
+      "Leave Mac plugged in and logged in. Do not force-quit Porter.",
     ],
     peerAddress: peerHint,
     fallbackAddress: tsIp ? `${tsIp}:${c.port}` : null,
     safetyNote:
-      "Leave-and-forget needs BOTH Cloudflare (easy) and Tailscale (stable backup). Quick Tunnel URLs can change after a full reboot; Tailscale IP does not. Porter never shares the whole disk.",
+      "Travel uses your Tailscale account (private). Set & forget keeps Porter alive. Enable Tailscale SSH so you can revive Porter if it ever stops while you are away. Cloudflare Quick Tunnel is optional and can change after reboot.",
   };
 }
 
 /**
- * One-click: share folders + enable away mode + LaunchAgent + tunnel + prevent sleep.
+ * One-click: share folders + away mode + LaunchAgent + Tailscale Serve + prevent sleep.
+ * Cloudflare Quick Tunnel is optional (started only if autoStartTunnel already true).
  */
-export async function enableSetAndForget(): Promise<{
+export async function enableSetAndForget(opts?: {
+  alsoStartCloudflare?: boolean;
+}): Promise<{
   ok: boolean;
   travel: ReturnType<typeof travelReady>;
   keepalive: ReturnType<typeof installKeepAlive>;
   tunnelUrl: string | null;
+  serveUrl: string | null;
   folders: { added: string[]; skipped: string[] };
   warnings: string[];
 }> {
@@ -187,11 +222,14 @@ export async function enableSetAndForget(): Promise<{
   const folders = shareTravelPresets();
 
   const c = loadConfig();
+  const alsoCf = Boolean(opts?.alsoStartCloudflare || c.awayMode?.autoStartTunnel);
   c.awayMode = {
     enabled: true,
-    autoStartTunnel: true,
+    autoStartTunnel: alsoCf,
     preventSleep: true,
     keepAliveInstalled: c.awayMode?.keepAliveInstalled ?? false,
+    preferTailscaleServe: true,
+    serveUrl: c.awayMode?.serveUrl ?? null,
   };
   c.sleeping = false;
   saveConfig(c);
@@ -202,29 +240,56 @@ export async function enableSetAndForget(): Promise<{
   startPreventSleep();
   maybeStartPreventSleep();
 
-  let tunnelUrl: string | null = null;
+  let serveUrl: string | null = null;
   try {
-    const t = await startCloudflareTunnel(c.port);
-    tunnelUrl = t.publicUrl;
+    const s = startTailscaleServe(c.port);
+    serveUrl = s.url;
+    if (!s.ok) warnings.push(s.detail);
   } catch (e) {
     warnings.push(e instanceof Error ? e.message : String(e));
   }
 
-  if (!tailscaleIp()) {
+  let tunnelUrl: string | null = null;
+  if (alsoCf) {
+    try {
+      const t = await startCloudflareTunnel(c.port);
+      tunnelUrl = t.publicUrl;
+    } catch (e) {
+      warnings.push(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  if (!getTailscaleSelfIp()) {
     warnings.push(
-      "Tailscale is not online on this Mac. Without it, a reboot that changes the Cloudflare URL cannot be fixed while you are away.",
+      "Tailscale is not online on this Mac. Travel will not work until Tailscale is signed in.",
     );
   }
 
+  const ssh = detectTailscaleSsh();
+  if (ssh === false || ssh === null) {
+    warnings.push(
+      "Enable Tailscale SSH on this Mac before you leave (Tailscale app → Settings → SSH). Without it you cannot revive Porter while away.",
+    );
+  }
+
+  const travel = travelReady();
   return {
-    ok: warnings.length === 0 || Boolean(tunnelUrl),
-    travel: travelReady(),
+    ok: Boolean(getTailscaleSelfIp()) && keepalive.ok,
+    travel,
     keepalive,
     tunnelUrl,
+    serveUrl,
     folders,
     warnings,
   };
 }
+
+/** Repair = re-run Set & forget without forcing Cloudflare. */
+export async function repairTravelReady(): Promise<ReturnType<typeof enableSetAndForget>> {
+  return enableSetAndForget({ alsoStartCloudflare: false });
+}
+
+export { openTailscaleSshSettings, listTailnetPeersForPorter };
 
 /** One-click share common work folders (safe presets — not entire home). */
 export function shareTravelPresets(): { added: string[]; skipped: string[] } {

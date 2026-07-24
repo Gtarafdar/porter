@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${PORTER_VERSION:-0.2.23}"
+VERSION="${PORTER_VERSION:-$(node -p "require('./package.json').version")}"
 OUT="${ROOT}/dist/release"
 CACHE="${ROOT}/dist/cache"
 NODE_VER="${PORTER_NODE_VERSION:-20.18.2}"
@@ -199,9 +199,24 @@ health_ok() {
   curl -sf -m 1 --connect-timeout 1 "http://127.0.0.1:47831/api/health" >/dev/null 2>&1
 }
 
+health_version() {
+  curl -sf -m 1 --connect-timeout 1 "http://127.0.0.1:47831/api/health" 2>/dev/null \\
+    | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' | head -1
+}
+
+WANT_VER="$(cat "${RES}/VERSION" 2>/dev/null || echo unknown)"
+
 if health_ok; then
-  log "already healthy — nothing to start"
-  exit 0
+  HAVE_VER="$(health_version)"
+  if [[ -n "$HAVE_VER" && "$HAVE_VER" != "$WANT_VER" ]]; then
+    log "healthy but version mismatch have=\${HAVE_VER} want=\${WANT_VER} — taking over"
+    pkill -f 'packages/core/dist/cli.js serve' 2>/dev/null || true
+    pkill -f 'Porter.app/Contents/Resources/node' 2>/dev/null || true
+    sleep 0.6
+  else
+    log "already healthy — nothing to start"
+    exit 0
+  fi
 fi
 
 # Port held by a dead/stuck Porter? Free it so we can bind.
@@ -211,8 +226,13 @@ if lsof -nP -iTCP:47831 -sTCP:LISTEN >/dev/null 2>&1; then
   pkill -f 'Porter.app/Contents/Resources/node' 2>/dev/null || true
   sleep 0.6
   if health_ok; then
-    log "became healthy after clearing stale process"
-    exit 0
+    HAVE_VER="$(health_version)"
+    if [[ -n "$HAVE_VER" && "$HAVE_VER" != "$WANT_VER" ]]; then
+      log "still wrong version after clear — continuing start"
+    else
+      log "became healthy after clearing stale process"
+      exit 0
+    fi
   fi
 fi
 
