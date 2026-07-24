@@ -15,7 +15,13 @@ export interface WizardState {
   step: number;
   agentLinkAcknowledged: boolean;
   mcpInstalled: boolean;
+  /** Bump when wizard step layout changes (Tailscale step inserted). */
+  schemaVersion?: number;
+  /** User chose same-Wi‑Fi only (skipped Tailscale gate). */
+  tailscaleSkipped?: boolean;
 }
+
+export const WIZARD_SCHEMA_VERSION = 2;
 
 export interface PorterConfig {
   deviceId: string;
@@ -33,16 +39,20 @@ export interface PorterConfig {
   tunnelUrl?: string | null;
   /**
    * Unattended away-mode (home Mac). When enabled:
-   * - auto-start Cloudflare tunnel on Porter boot
-   * - restart tunnel if it crashes
    * - keep Mac awake while Porter runs (caffeinate)
-   * Tailscale remains the stable backup if the Quick Tunnel URL changes after a full reboot.
+   * - LaunchAgent restarts Porter on crash
+   * - prefer Tailscale Serve (private MagicDNS) for travel
+   * - optional Cloudflare Quick Tunnel (advanced; URLs can change)
    */
   awayMode?: {
     enabled: boolean;
     autoStartTunnel: boolean;
     preventSleep: boolean;
     keepAliveInstalled: boolean;
+    /** Prefer private Tailscale Serve over public Quick Tunnel for travel. */
+    preferTailscaleServe?: boolean;
+    /** Last known Tailscale Serve HTTPS URL (MagicDNS). */
+    serveUrl?: string | null;
   };
 }
 
@@ -74,6 +84,8 @@ export function loadConfig(): PorterConfig {
         step: 0,
         agentLinkAcknowledged: false,
         mcpInstalled: false,
+        schemaVersion: WIZARD_SCHEMA_VERSION,
+        tailscaleSkipped: false,
       },
       sleeping: false,
       tunnelUrl: null,
@@ -82,6 +94,8 @@ export function loadConfig(): PorterConfig {
         autoStartTunnel: false,
         preventSleep: false,
         keepAliveInstalled: false,
+        preferTailscaleServe: true,
+        serveUrl: null,
       },
     };
     saveConfig(config);
@@ -89,6 +103,14 @@ export function loadConfig(): PorterConfig {
   }
   const loaded = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8")) as Partial<PorterConfig>;
   // Migrate older configs without breaking existing installs
+  let wizardStep = loaded.wizard?.step ?? 0;
+  let schemaVersion = loaded.wizard?.schemaVersion ?? 1;
+  // Schema 2 inserted Tailscale at step 3 — bump mid-wizard users past the insertion point once
+  if (!loaded.wizard?.completed && schemaVersion < WIZARD_SCHEMA_VERSION && wizardStep >= 3) {
+    wizardStep += 1;
+  }
+  schemaVersion = WIZARD_SCHEMA_VERSION;
+
   const config: PorterConfig = {
     deviceId: loaded.deviceId ?? createHash("sha256").update(randomBytes(32)).digest("hex").slice(0, 16),
     deviceName: loaded.deviceName ?? defaultName(),
@@ -101,9 +123,11 @@ export function loadConfig(): PorterConfig {
     token: loaded.token ?? randomBytes(24).toString("hex"),
     wizard: {
       completed: loaded.wizard?.completed ?? false,
-      step: loaded.wizard?.step ?? 0,
+      step: wizardStep,
       agentLinkAcknowledged: loaded.wizard?.agentLinkAcknowledged ?? false,
       mcpInstalled: loaded.wizard?.mcpInstalled ?? false,
+      schemaVersion,
+      tailscaleSkipped: loaded.wizard?.tailscaleSkipped ?? false,
     },
     sleeping: loaded.sleeping ?? false,
     tunnelUrl: loaded.tunnelUrl ?? null,
@@ -112,8 +136,14 @@ export function loadConfig(): PorterConfig {
       autoStartTunnel: loaded.awayMode?.autoStartTunnel ?? false,
       preventSleep: loaded.awayMode?.preventSleep ?? false,
       keepAliveInstalled: loaded.awayMode?.keepAliveInstalled ?? false,
+      preferTailscaleServe: loaded.awayMode?.preferTailscaleServe ?? true,
+      serveUrl: loaded.awayMode?.serveUrl ?? null,
     },
   };
+  // Persist migration once so step bump does not re-apply incorrectly after user goes back
+  if ((loaded.wizard?.schemaVersion ?? 1) < WIZARD_SCHEMA_VERSION) {
+    saveConfig(config);
+  }
   return config;
 }
 
@@ -188,19 +218,19 @@ export function humanError(err: unknown): string {
   const msg = sanitizePeerBody(raw);
   // Only Quick Tunnel / peer tunnel failures — not random HTML (GitHub, Express 404, etc.)
   if (/error 1033|cloudflare tunnel error|trycloudflare\.com/i.test(msg + raw)) {
-    return "Cloudflare tunnel URL is dead or changed. On Home: Travel Ready or Add Mac → Copy the new Cloudflare URL (and Tailscale fallback). On this Mac: Add Mac → paste the new URL.";
+    return "Cloudflare tunnel URL is dead or changed. Prefer Tailscale (Add Mac → pick the other Mac or paste 100.x). Quick Tunnel is optional.";
   }
   if (msg.includes("Unauthorized") || msg.includes("pair token")) {
     return "Pair token mismatch — paste the same token on both Macs (Settings).";
   }
   if (msg.includes("ENOTFOUND") || msg.includes("getaddrinfo")) {
-    return "Could not reach the other Mac (DNS/network). Try Tailscale fallback, or check Cloudflare Tunnel.";
+    return "Could not reach the other Mac (DNS/network). Use Tailscale on both Macs, then Add Mac with the 100.x IP or Tailscale peer list.";
   }
   if (msg.includes("ECONNREFUSED") || msg.includes("fetch failed")) {
-    return "Connection refused — is Porter running on the other Mac? Check Cloudflare/Tailscale path in Devices.";
+    return "Could not reach that Mac — if Tailscale shows it online, Porter may not be running there. Revive with Tailscale SSH (`open -a Porter`) or open Porter on the home Mac.";
   }
   if (msg.includes("Timed out") || msg.includes("timeout") || msg.includes("AbortError")) {
-    return "Timed out waiting for the other Mac. Check which link is active (Cloudflare vs Tailscale).";
+    return "Timed out waiting for the other Mac. Prefer the Tailscale path under Devices (100.x), not a dead Cloudflare URL.";
   }
   if (msg.includes("outside approved") || msg.includes("Blocked dangerous")) {
     return "That folder is not shared (or is blocked for safety). Share it in Porter first.";

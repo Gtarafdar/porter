@@ -11,13 +11,19 @@ describe("peer address + failover", () => {
     assert.equal(p.baseUrl, "https://abc.trycloudflare.com");
   });
 
+  it("parses Tailscale MagicDNS https as tailscale", () => {
+    const p = parsePeerAddress("https://gobindas-mac-mini.tailc397c7.ts.net");
+    assert.equal(p.via, "tailscale");
+    assert.ok(p.baseUrl?.includes(".ts.net"));
+  });
+
   it("parses tailscale IP", () => {
     const p = parsePeerAddress("100.100.1.2", 47831);
     assert.equal(p.via, "tailscale");
     assert.equal(p.port, 47831);
   });
 
-  it("orders primary then fallback bases", () => {
+  it("prefers Tailscale over Cloudflare by default", () => {
     const device: DeviceInfo = {
       id: "x",
       name: "Home",
@@ -31,8 +37,8 @@ describe("peer address + failover", () => {
       fallbackPort: 47831,
     };
     const bases = peerBases(device);
-    assert.equal(bases[0], "https://abc.trycloudflare.com");
-    assert.equal(bases[1], "http://100.100.1.2:47831");
+    assert.equal(bases[0], "http://100.100.1.2:47831");
+    assert.equal(bases[1], "https://abc.trycloudflare.com");
     assert.equal(deviceBaseUrl(device), "https://abc.trycloudflare.com");
   });
 

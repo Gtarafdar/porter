@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadConfig, saveConfig, appendActivity } from "./config.js";
+import { loadConfig, saveConfig, appendActivity, WIZARD_SCHEMA_VERSION } from "./config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -62,6 +62,7 @@ export function installCursorMcp(): {
 }
 
 export function wizardSnapshot() {
+  migrateWizardSchemaIfNeeded();
   const c = loadConfig();
   return {
     completed: c.wizard.completed,
@@ -75,22 +76,33 @@ export function wizardSnapshot() {
     token: c.token,
     agentLinkAcknowledged: c.wizard.agentLinkAcknowledged,
     mcpInstalled: c.wizard.mcpInstalled,
+    schemaVersion: c.wizard.schemaVersion ?? WIZARD_SCHEMA_VERSION,
+    tailscaleSkipped: Boolean(c.wizard.tailscaleSkipped),
     sleeping: c.sleeping,
     mcpEntryPath: mcpEntryPath(),
     mcpSnippet: buildMcpSnippet().json,
   };
 }
 
+function migrateWizardSchemaIfNeeded(): void {
+  // loadConfig already migrates and may persist; this is a no-op hook for clarity
+  loadConfig();
+}
+
 export function updateWizard(partial: {
   step?: number;
   completed?: boolean;
   agentLinkAcknowledged?: boolean;
+  tailscaleSkipped?: boolean;
 }): ReturnType<typeof wizardSnapshot> {
   const c = loadConfig();
   if (typeof partial.step === "number") c.wizard.step = partial.step;
   if (typeof partial.completed === "boolean") c.wizard.completed = partial.completed;
   if (typeof partial.agentLinkAcknowledged === "boolean") {
     c.wizard.agentLinkAcknowledged = partial.agentLinkAcknowledged;
+  }
+  if (typeof partial.tailscaleSkipped === "boolean") {
+    c.wizard.tailscaleSkipped = partial.tailscaleSkipped;
   }
   saveConfig(c);
   return wizardSnapshot();

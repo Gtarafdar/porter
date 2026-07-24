@@ -13,7 +13,7 @@ APP_DIR="${OUTPUT_DIR}/${DISPLAY_NAME}.app"
 CONTENTS_DIR="${APP_DIR}/Contents"
 MACOS_DIR="${CONTENTS_DIR}/MacOS"
 RESOURCES_DIR="${CONTENTS_DIR}/Resources"
-VERSION="${PORTER_VERSION:-0.2.23}"
+VERSION="${PORTER_VERSION:-$(node -p "require('../../../package.json').version" 2>/dev/null || echo 0.2.24)}"
 
 echo "==> Building ${APP_NAME} (${CONFIG})"
 swift build -c "${CONFIG}"

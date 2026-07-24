@@ -42,6 +42,8 @@ export function PaneView({
   onNavigate,
   onSelect,
   onCopy,
+  copyEnabled = true,
+  copyLabelPeer,
 }: {
   pane: PaneState | null;
   side: "left" | "right";
@@ -53,6 +55,8 @@ export function PaneView({
   onNavigate: (side: "left" | "right", path: string) => void;
   onSelect: (side: "left" | "right", pane: PaneState) => void;
   onCopy?: () => void;
+  copyEnabled?: boolean;
+  copyLabelPeer?: string;
 }) {
   const [query, setQuery] = useState("");
   const [searchHits, setSearchHits] = useState<FileEntry[] | null>(null);
@@ -111,7 +115,9 @@ export function PaneView({
   const displayEntries = searchHits ?? filteredLocal;
   const showingSearch = Boolean(searchHits);
   const otherName =
-    (otherPane && devices.find((d) => d.id === otherPane.deviceId)?.name) || "destination";
+    copyLabelPeer ||
+    (otherPane && devices.find((d) => d.id === otherPane.deviceId)?.name) ||
+    "other Mac";
   const selectedCount = pane?.selected.length ?? 0;
 
   function selectEntry(entry: FileEntry, e: MouseEvent) {
@@ -248,13 +254,20 @@ export function PaneView({
           <button
             className="btn primary"
             type="button"
-            disabled={!selectedCount || !otherPane}
+            disabled={!selectedCount || !copyEnabled}
+            title={
+              copyEnabled
+                ? undefined
+                : "Add another Mac online to copy between computers"
+            }
             onClick={() => onCopy()}
           >
             <IconCopy size={14} />{" "}
-            {selectedCount > 1
-              ? `Copy ${selectedCount} to ${otherName}`
-              : `Copy to ${otherName}`}
+            {!copyEnabled
+              ? "Add Mac to copy"
+              : selectedCount > 1
+                ? `Copy ${selectedCount} to ${otherName}`
+                : `Copy to ${otherName}`}
           </button>
         )}
       </div>

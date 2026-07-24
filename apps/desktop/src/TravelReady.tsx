@@ -10,6 +10,7 @@ type TravelStatus = {
   deviceName: string;
   pairToken: string;
   tailscaleIp: string | null;
+  serveUrl?: string | null;
   cloudflareUrl: string | null;
   peerAddress: string | null;
   fallbackAddress: string | null;
@@ -19,6 +20,8 @@ type TravelStatus = {
   travelSteps: string[];
   safetyNote: string;
   keepAliveInstalled?: boolean;
+  reviveCommand?: string;
+  sshEnabled?: boolean | null;
   tunnel: {
     running: boolean;
     publicUrl: string | null;
@@ -33,6 +36,7 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showChecks, setShowChecks] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const refresh = useCallback(async () => {
     const s = await porter.travelReady();
@@ -67,12 +71,12 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
     );
   }
 
-  const peerAddr =
+  const primary =
+    status.serveUrl ||
     status.peerAddress ||
+    (status.tailscaleIp ? `${status.tailscaleIp}:${status.port}` : "") ||
     status.cloudflareUrl ||
-    (status.tailscaleIp
-      ? `${status.tailscaleIp}:${status.port}`
-      : `${status.lanIp || "…"}:${status.port}`);
+    "";
   const fallback =
     status.fallbackAddress ||
     (status.tailscaleIp ? `${status.tailscaleIp}:${status.port}` : "");
@@ -89,7 +93,7 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
               <h2 id="travel-title">Travel Ready</h2>
               <p className="wizard-sub">
                 {status.unattendedReady
-                  ? "Safe to leave — Porter stays online"
+                  ? "Safe to leave — Tailscale + auto-start ready"
                   : status.ready
                     ? "Almost — tap Set & forget before you leave"
                     : "Finish what’s left, then Set & forget"}
@@ -133,7 +137,9 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
 
           <div className="connect-block">
             <h3>Copy for travel Mac</h3>
-            <p className="connect-hint">Add Mac on the other Mac → paste these.</p>
+            <p className="connect-hint">
+              Same pair token → Add Mac → pick this Mac from Tailscale, or paste Primary.
+            </p>
             <div className="share-rows">
               <div className="share-row">
                 <div>
@@ -150,20 +156,11 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
               </div>
               <div className="share-row">
                 <div>
-                  <span className="share-label">Primary (Cloudflare / LAN)</span>
-                  <code className="share-url">{peerAddr}</code>
+                  <span className="share-label">Primary (Tailscale)</span>
+                  <code className="share-url">{primary || "Tailscale not online yet"}</code>
                 </div>
-                <button className="btn" type="button" onClick={() => copy("Primary", peerAddr)}>
-                  Copy
-                </button>
-              </div>
-              <div className="share-row">
-                <div>
-                  <span className="share-label">Fallback (Tailscale)</span>
-                  <code className="share-url">{fallback || "Tailscale not online yet"}</code>
-                </div>
-                {fallback ? (
-                  <button className="btn" type="button" onClick={() => copy("Fallback", fallback)}>
+                {primary ? (
+                  <button className="btn" type="button" onClick={() => copy("Primary", primary)}>
                     Copy
                   </button>
                 ) : (
@@ -182,28 +179,65 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
                   </button>
                 )}
               </div>
+              {fallback && fallback !== primary ? (
+                <div className="share-row">
+                  <div>
+                    <span className="share-label">Fallback (Tailscale IP)</span>
+                    <code className="share-url">{fallback}</code>
+                  </div>
+                  <button className="btn" type="button" onClick={() => copy("Fallback", fallback)}>
+                    Copy
+                  </button>
+                </div>
+              ) : null}
+              {status.reviveCommand ? (
+                <div className="share-row">
+                  <div>
+                    <span className="share-label">Break-glass revive (on travel Mac)</span>
+                    <code className="share-url">{status.reviveCommand}</code>
+                  </div>
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => copy("Revive command", status.reviveCommand!)}
+                  >
+                    Copy
+                  </button>
+                </div>
+              ) : null}
             </div>
             <button
               className="btn linkish"
               type="button"
-              onClick={() => {
-                const text = [
-                  `token: ${status.pairToken}`,
-                  `primary: ${peerAddr}`,
-                  fallback ? `fallback: ${fallback}` : "",
-                ]
-                  .filter(Boolean)
-                  .join("\n");
-                void navigator.clipboard.writeText(text);
-                setMsg("All travel lines copied");
-              }}
+              onClick={() => setShowAdvanced((v) => !v)}
             >
-              Copy all three lines →
+              {showAdvanced ? "Hide advanced" : "Show advanced (Cloudflare)"}
             </button>
+            {showAdvanced && (
+              <div className="share-rows" style={{ marginTop: 8 }}>
+                <div className="share-row">
+                  <div>
+                    <span className="share-label">Optional Cloudflare URL</span>
+                    <code className="share-url">
+                      {status.cloudflareUrl || "Not running — Start tunnel if needed"}
+                    </code>
+                  </div>
+                  {status.cloudflareUrl ? (
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => copy("Cloudflare", status.cloudflareUrl!)}
+                    >
+                      Copy
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            )}
           </div>
 
           {msg && (
-            <p className={/fail|error|could not|missing/i.test(msg) ? "error-text" : "ok-text"}>
+            <p className={/fail|error|could not|missing|enable/i.test(msg) ? "error-text" : "ok-text"}>
               {msg}
             </p>
           )}
@@ -213,7 +247,30 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
           <button className="btn" type="button" onClick={onClose}>
             Close
           </button>
-          {!status.tunnel.running ? (
+          <button
+            className="btn"
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              setMsg("Repairing keep-alive + Tailscale Serve…");
+              void porter
+                .repairTravel()
+                .then((r) => {
+                  setMsg(
+                    [r.keepalive.ok ? "Repaired" : r.keepalive.detail, ...(r.warnings || [])]
+                      .filter(Boolean)
+                      .join(" · ") || "Done",
+                  );
+                  return refresh();
+                })
+                .catch((e) => setMsg(e instanceof Error ? e.message : String(e)))
+                .finally(() => setBusy(false));
+            }}
+          >
+            Repair
+          </button>
+          {showAdvanced && !status.tunnel.running ? (
             <button
               className="btn"
               type="button"
@@ -230,7 +287,7 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
                   .finally(() => setBusy(false));
               }}
             >
-              Start tunnel
+              Start Cloudflare
             </button>
           ) : null}
           <button
@@ -241,10 +298,11 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
               setBusy(true);
               setMsg("Enabling set-and-forget…");
               void porter
-                .setAndForget()
+                .setAndForget(false)
                 .then((r) => {
                   const bits = [
-                    r.tunnelUrl ? "Tunnel live" : null,
+                    r.serveUrl ? "Tailscale Serve live" : null,
+                    r.tunnelUrl ? "Cloudflare live" : null,
                     r.keepalive.ok ? "Auto-start installed" : r.keepalive.detail,
                     r.folders.added.length
                       ? `Shared ${r.folders.added.length} folders`

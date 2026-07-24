@@ -38,16 +38,23 @@ import {
   wizardSnapshot,
 } from "./setup.js";
 import { copyFileResumable, copyFolderResumable, mapPool } from "./transfer.js";
-import { shareTravelPresets, travelReady, enableSetAndForget } from "./travel.js";
+import { shareTravelPresets, travelReady, enableSetAndForget, repairTravelReady } from "./travel.js";
 import {
   getTunnelStatus,
   startCloudflareTunnel,
   stopCloudflareTunnel,
   maybeAutoStartTunnel,
 } from "./tunnel.js";
-import { installKeepAlive, maybeStartPreventSleep } from "./keepalive.js";
+import { installKeepAlive, maybeStartPreventSleep, maybeRepairKeepAlivePaths } from "./keepalive.js";
 import { chromeExtensionsStatus, revealChromeFolder, shareChromeExtensions } from "./chrome.js";
-import { applyUpdate, checkForUpdate, currentVersion } from "./update.js";
+import { applyUpdate, checkForUpdate, currentVersion, githubTokenStatus, saveGithubToken, clearGithubToken } from "./update.js";
+import {
+  getTailscaleServeStatus,
+  listTailnetPeersForPorter,
+  startTailscaleServe,
+  stopTailscaleServe,
+  wizardTailscaleStatus,
+} from "./tailscaleServe.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -186,8 +193,20 @@ export async function startServer(opts?: {
   app.post("/api/away/set-and-forget", async (req, res) => {
     if (!requireLocal(req, res)) return;
     try {
-      const result = await enableSetAndForget();
+      const alsoCf = Boolean(req.body?.alsoStartCloudflare);
+      const result = await enableSetAndForget({ alsoStartCloudflare: alsoCf });
       appendActivity("set_and_forget", result.warnings.join("; ") || "enabled", result.ok, "ui");
+      res.json(result);
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  app.post("/api/away/repair", async (req, res) => {
+    if (!requireLocal(req, res)) return;
+    try {
+      const result = await repairTravelReady();
+      appendActivity("travel_repair", result.warnings.join("; ") || "repaired", result.ok, "ui");
       res.json(result);
     } catch (e) {
       res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
@@ -202,6 +221,35 @@ export async function startServer(opts?: {
     } catch (e) {
       res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
     }
+  });
+
+  app.get("/api/tailscale/serve", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    const c = loadConfig();
+    res.json(getTailscaleServeStatus(c.port));
+  });
+
+  app.post("/api/tailscale/serve/start", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    try {
+      const c = loadConfig();
+      const result = startTailscaleServe(c.port);
+      res.json({ ...result, travel: travelReady() });
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  app.post("/api/tailscale/serve/stop", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    stopTailscaleServe();
+    res.json({ ok: true, travel: travelReady() });
+  });
+
+  app.get("/api/tailscale/peers", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    const c = loadConfig();
+    res.json({ peers: listTailnetPeersForPorter(c.port) });
   });
 
   app.post("/api/away/open-tailscale", (req, res) => {
@@ -248,7 +296,29 @@ export async function startServer(opts?: {
   app.get("/api/updates/check", async (req, res) => {
     if (!requireLocal(req, res)) return;
     try {
-      res.json(await checkForUpdate());
+      const bypass = req.query.refresh === "1" || req.query.refresh === "true";
+      res.json(await checkForUpdate({ bypassCache: bypass }));
+    } catch (e) {
+      res.status(400).json({ error: humanError(e) });
+    }
+  });
+
+  app.get("/api/updates/github-auth", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    res.json(githubTokenStatus());
+  });
+
+  app.post("/api/updates/github-token", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    try {
+      const token = typeof req.body?.token === "string" ? req.body.token : "";
+      if (!token.trim()) {
+        clearGithubToken();
+        res.json({ ok: true, detail: "GitHub token cleared.", ...githubTokenStatus() });
+        return;
+      }
+      const result = saveGithubToken(token);
+      res.json({ ...result, ...githubTokenStatus() });
     } catch (e) {
       res.status(400).json({ error: humanError(e) });
     }
@@ -291,8 +361,17 @@ export async function startServer(opts?: {
           typeof req.body.agentLinkAcknowledged === "boolean"
             ? req.body.agentLinkAcknowledged
             : undefined,
+        tailscaleSkipped:
+          typeof req.body.tailscaleSkipped === "boolean"
+            ? req.body.tailscaleSkipped
+            : undefined,
       }),
     );
+  });
+
+  app.get("/api/tailscale/setup-status", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    res.json(wizardTailscaleStatus());
   });
 
   app.get("/api/mcp/snippet", (req, res) => {
@@ -833,7 +912,20 @@ export async function startServer(opts?: {
 
   appendActivity("server_start", `port ${config.port}`, true);
   maybeStartPreventSleep();
-  // Fire-and-forget: away-mode auto tunnel (does not block listen)
+  maybeRepairKeepAlivePaths();
+  // Away-mode: prefer Tailscale Serve; Cloudflare only if user opted into autoStartTunnel.
+  // Defer Serve by a couple seconds so /api/health and the UI stay responsive first
+  // (execFileSync Tailscale would otherwise freeze the event loop on the next tick).
+  const away = loadConfig().awayMode;
+  if (away?.enabled && away.preferTailscaleServe !== false) {
+    setTimeout(() => {
+      try {
+        startTailscaleServe(config.port);
+      } catch {
+        // non-fatal — Travel Ready / Set & forget can retry
+      }
+    }, 2500);
+  }
   void maybeAutoStartTunnel(config.port);
   return { port: config.port };
 }

@@ -50,83 +50,83 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-before(async () => {
-  tmpShare = fs.mkdtempSync(path.join(os.tmpdir(), "porter-share-"));
-  tmpInbox = fs.mkdtempSync(path.join(os.tmpdir(), "porter-inbox-"));
-  home = fs.mkdtempSync(path.join(os.tmpdir(), "porter-home-"));
-  fs.writeFileSync(path.join(tmpShare, "hello.txt"), "porter-e2e-hello\n");
-  fs.mkdirSync(path.join(tmpShare, "nested"));
-  fs.writeFileSync(path.join(tmpShare, "nested", "a.md"), "# a\n");
-
-  const porterDir = path.join(home, ".porter");
-  fs.mkdirSync(porterDir, { mode: 0o700 });
-  fs.writeFileSync(
-    path.join(porterDir, "config.json"),
-    JSON.stringify(
-      {
-        deviceId: createHash("sha256").update(randomBytes(16)).digest("hex").slice(0, 16),
-        deviceName: "Porter-E2E",
-        port: PORT,
-        sharedFolders: [],
-        sleepAfterMinutes: 5,
-        allowSecretFiles: false,
-        requireConfirmWrites: true,
-        pairedDeviceIds: [],
-        token: randomBytes(24).toString("hex"),
-        wizard: {
-          completed: false,
-          step: 0,
-          agentLinkAcknowledged: false,
-          mcpInstalled: false,
-        },
-        sleeping: false,
-      },
-      null,
-      2,
-    ),
-    { mode: 0o600 },
-  );
-
-  const cli = path.join(ROOT, "packages/core/dist/cli.js");
-  child = spawn(process.execPath, [cli, "serve"], {
-    env: {
-      ...process.env,
-      HOME: home,
-      PORTER_OPEN_BROWSER: "0",
-      PORTER_NO_BONJOUR: "1",
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  child.stdout?.on("data", (d: Buffer) => childLog.push(d.toString()));
-  child.stderr?.on("data", (d: Buffer) => childLog.push(d.toString()));
-  await waitHealthy();
-
-  await json(`${BASE}/api/folders`, {
-    method: "POST",
-    body: JSON.stringify({ path: tmpShare, label: "share", permissions: ["read", "copy"] }),
-  });
-  await json(`${BASE}/api/folders`, {
-    method: "POST",
-    body: JSON.stringify({
-      path: tmpInbox,
-      label: "inbox",
-      permissions: ["read", "copy", "write"],
-    }),
-  });
-});
-
-after(() => {
-  child?.kill("SIGTERM");
-  for (const p of [tmpShare, tmpInbox, home]) {
-    try {
-      if (p) fs.rmSync(p, { recursive: true, force: true });
-    } catch {
-      // ignore
-    }
-  }
-});
-
 describe("Porter e2e", { timeout: 60_000 }, () => {
+  before(async () => {
+    tmpShare = fs.mkdtempSync(path.join(os.tmpdir(), "porter-share-"));
+    tmpInbox = fs.mkdtempSync(path.join(os.tmpdir(), "porter-inbox-"));
+    home = fs.mkdtempSync(path.join(os.tmpdir(), "porter-home-"));
+    fs.writeFileSync(path.join(tmpShare, "hello.txt"), "porter-e2e-hello\n");
+    fs.mkdirSync(path.join(tmpShare, "nested"));
+    fs.writeFileSync(path.join(tmpShare, "nested", "a.md"), "# a\n");
+
+    const porterDir = path.join(home, ".porter");
+    fs.mkdirSync(porterDir, { mode: 0o700 });
+    fs.writeFileSync(
+      path.join(porterDir, "config.json"),
+      JSON.stringify(
+        {
+          deviceId: createHash("sha256").update(randomBytes(16)).digest("hex").slice(0, 16),
+          deviceName: "Porter-E2E",
+          port: PORT,
+          sharedFolders: [],
+          sleepAfterMinutes: 5,
+          allowSecretFiles: false,
+          requireConfirmWrites: true,
+          pairedDeviceIds: [],
+          token: randomBytes(24).toString("hex"),
+          wizard: {
+            completed: false,
+            step: 0,
+            agentLinkAcknowledged: false,
+            mcpInstalled: false,
+          },
+          sleeping: false,
+        },
+        null,
+        2,
+      ),
+      { mode: 0o600 },
+    );
+
+    const cli = path.join(ROOT, "packages/core/dist/cli.js");
+    child = spawn(process.execPath, [cli, "serve"], {
+      env: {
+        ...process.env,
+        HOME: home,
+        PORTER_OPEN_BROWSER: "0",
+        PORTER_NO_BONJOUR: "1",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    child.stdout?.on("data", (d: Buffer) => childLog.push(d.toString()));
+    child.stderr?.on("data", (d: Buffer) => childLog.push(d.toString()));
+    await waitHealthy();
+
+    await json(`${BASE}/api/folders`, {
+      method: "POST",
+      body: JSON.stringify({ path: tmpShare, label: "share", permissions: ["read", "copy"] }),
+    });
+    await json(`${BASE}/api/folders`, {
+      method: "POST",
+      body: JSON.stringify({
+        path: tmpInbox,
+        label: "inbox",
+        permissions: ["read", "copy", "write"],
+      }),
+    });
+  });
+
+  after(() => {
+    child?.kill("SIGTERM");
+    for (const p of [tmpShare, tmpInbox, home]) {
+      try {
+        if (p) fs.rmSync(p, { recursive: true, force: true });
+      } catch {
+        // ignore
+      }
+    }
+  });
+
   it("health reports version and awake", async () => {
     const h = await json<{ ok: boolean; sleeping: boolean; version: string }>(`${BASE}/api/health`);
     assert.equal(h.ok, true);

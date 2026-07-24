@@ -36,52 +36,52 @@ async function waitHealthy(timeoutMs = 20000): Promise<void> {
   throw new Error(`not healthy: ${childLog.join("")}`);
 }
 
-before(async () => {
-  home = fs.mkdtempSync(path.join(os.tmpdir(), "porter-sec-"));
-  const porterDir = path.join(home, ".porter");
-  fs.mkdirSync(porterDir, { mode: 0o700 });
-  const token = randomBytes(24).toString("hex");
-  fs.writeFileSync(
-    path.join(porterDir, "config.json"),
-    JSON.stringify({
-      deviceId: createHash("sha256").update(randomBytes(16)).digest("hex").slice(0, 16),
-      deviceName: "Sec-Test",
-      port: PORT,
-      sharedFolders: [],
-      sleepAfterMinutes: 5,
-      allowSecretFiles: false,
-      requireConfirmWrites: true,
-      pairedDeviceIds: [],
-      token,
-      wizard: { completed: true, step: 3, agentLinkAcknowledged: true, mcpInstalled: false },
-      sleeping: false,
-    }),
-  );
-  (globalThis as { __porterSecToken?: string }).__porterSecToken = token;
+describe("security bridges", { timeout: 60_000 }, () => {
+  before(async () => {
+    home = fs.mkdtempSync(path.join(os.tmpdir(), "porter-sec-"));
+    const porterDir = path.join(home, ".porter");
+    fs.mkdirSync(porterDir, { mode: 0o700 });
+    const token = randomBytes(24).toString("hex");
+    fs.writeFileSync(
+      path.join(porterDir, "config.json"),
+      JSON.stringify({
+        deviceId: createHash("sha256").update(randomBytes(16)).digest("hex").slice(0, 16),
+        deviceName: "Sec-Test",
+        port: PORT,
+        sharedFolders: [],
+        sleepAfterMinutes: 5,
+        allowSecretFiles: false,
+        requireConfirmWrites: true,
+        pairedDeviceIds: [],
+        token,
+        wizard: { completed: true, step: 3, agentLinkAcknowledged: true, mcpInstalled: false },
+        sleeping: false,
+      }),
+    );
+    (globalThis as { __porterSecToken?: string }).__porterSecToken = token;
 
-  child = spawn(
-    process.execPath,
-    [path.join(ROOT, "packages/core/dist/cli.js"), "serve"],
-    {
-      env: {
-        ...process.env,
-        HOME: home,
-        PORTER_NO_BONJOUR: "1",
-        PORTER_OPEN_BROWSER: "0",
+    child = spawn(
+      process.execPath,
+      [path.join(ROOT, "packages/core/dist/cli.js"), "serve"],
+      {
+        env: {
+          ...process.env,
+          HOME: home,
+          PORTER_NO_BONJOUR: "1",
+          PORTER_OPEN_BROWSER: "0",
+        },
+        stdio: ["ignore", "pipe", "pipe"],
       },
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
-  child.stdout?.on("data", (b) => childLog.push(String(b)));
-  child.stderr?.on("data", (b) => childLog.push(String(b)));
-  await waitHealthy();
-});
+    );
+    child.stdout?.on("data", (b) => childLog.push(String(b)));
+    child.stderr?.on("data", (b) => childLog.push(String(b)));
+    await waitHealthy();
+  });
 
-after(() => {
-  child?.kill("SIGTERM");
-});
+  after(() => {
+    child?.kill("SIGTERM");
+  });
 
-describe("security bridges", () => {
   it("rejects device/token APIs when Cloudflare headers are present (tunnel spoof)", async () => {
     const res = await fetch(`${BASE}/api/device`, {
       headers: { "cf-ray": "test", "cf-connecting-ip": "1.2.3.4" },
@@ -130,5 +130,17 @@ describe("security bridges", () => {
     assert.equal(res.status, 200);
     const body = (await res.json()) as { token: string };
     assert.ok(body.token.length >= 16);
+  });
+
+  it("rejects folders when bearer is long but not the pair token", async () => {
+    const res = await fetch(`${BASE}/api/folders`, {
+      headers: {
+        "cf-ray": "test",
+        Authorization: `Bearer ${"a".repeat(32)}`,
+        "X-Porter-Pair": "a".repeat(32),
+        "X-Porter-Device": "known-looking-peer",
+      },
+    });
+    assert.equal(res.status, 401);
   });
 });

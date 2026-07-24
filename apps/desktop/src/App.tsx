@@ -18,6 +18,11 @@ import {
 } from "./Icons";
 import { PaneView, type PaneState } from "./PaneView";
 import { SetupWizard } from "./SetupWizard";
+import {
+  chromeShareKind,
+  findChromeShare,
+  matchingChromeDestDir,
+} from "./chromeCopy";
 import { TravelReadyPanel } from "./TravelReady";
 
 function formatBytes(n: number): string {
@@ -73,25 +78,25 @@ function friendlyError(msg: string): string {
       msg,
     )
   ) {
-    return "Cloudflare tunnel URL is dead or changed. On Home Mac: Add Mac → Copy Cloudflare URL + Tailscale fallback. On this Mac: paste the NEW URL (and Tailscale as Fallback).";
+    return "Cloudflare tunnel URL is dead or changed. Prefer Tailscale: Add Mac → pick the other Mac (or paste 100.x). Quick Tunnel is optional.";
   }
   if (/Cannot GET \/api\/updates/i.test(msg) || /updates\/check/i.test(msg) && /Cannot GET|404|Not Found/i.test(msg)) {
-    return "This Porter build is too old for in-app updates. Install 0.2.22+ from GitHub Releases once, then Updates will work.";
+    return "This Porter build is too old for in-app updates. Install the latest from GitHub Releases once (Applications folder), then Updates will work.";
   }
   if (msg.includes("Unauthorized") || msg.includes("pair token")) {
     return "Pair token mismatch — paste the same token on both Macs (Settings → Save token).";
   }
   if (msg.includes("host required")) {
-    return "Enter the other Mac’s LAN IP (or Cloudflare URL) before clicking Add Mac.";
+    return "Enter the other Mac’s Tailscale IP (100.x) or pick it from the Tailscale list — not localhost.";
   }
   if (msg.includes("ECONNREFUSED") || msg.includes("fetch failed") || msg.includes("Failed to fetch")) {
-    return "Could not reach that Mac — check Wi‑Fi, that Porter is open there, and you used its LAN IP (not localhost).";
+    return "Could not reach that Mac — if Tailscale shows it online, Porter may not be running there. Use Break-glass SSH or open Porter on the home Mac.";
   }
   if (msg.includes("ENOTFOUND") || msg.includes("getaddrinfo")) {
-    return "Could not reach the other Mac. Check Cloudflare/Tailscale path under Devices.";
+    return "Could not reach the other Mac. Use Tailscale (same account) and the 100.x address — not a dead Cloudflare URL.";
   }
   if (msg.includes("timeout") || msg.includes("Timed out") || msg.includes("AbortError")) {
-    return "Timed out. Open Devices and see if Cloudflare or Tailscale is the active link.";
+    return "Timed out. Prefer the Tailscale path under Devices (100.x).";
   }
   if (msg.length > 320) return `${msg.slice(0, 280)}…`;
   return msg;
@@ -133,6 +138,8 @@ export function App() {
   } | null>(null);
   const [updateBusy, setUpdateBusy] = useState(false);
   const [updateNudgeHidden, setUpdateNudgeHidden] = useState(false);
+  const [githubAuthConfigured, setGithubAuthConfigured] = useState(false);
+  const [githubTokenDraft, setGithubTokenDraft] = useState("");
   const [pairToken, setPairToken] = useState("");
   const [showWizard, setShowWizard] = useState(false);
   const [showTravel, setShowTravel] = useState(false);
@@ -141,6 +148,16 @@ export function App() {
   const [peerHost, setPeerHost] = useState("");
   const [peerPort, setPeerPort] = useState("47831");
   const [peerFallback, setPeerFallback] = useState("");
+  const [tsPeers, setTsPeers] = useState<
+    {
+      name: string;
+      hostName: string;
+      dnsName: string | null;
+      ip: string | null;
+      online: boolean;
+      porterUrl: string;
+    }[]
+  >([]);
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
   const [settingsTab, setSettingsTab] = useState<"connect" | "more">("connect");
   const [shareLinks, setShareLinks] = useState<{
@@ -148,6 +165,7 @@ export function App() {
     tailscale: string | null;
     cloudflare: string | null;
     port: number;
+    serveUrl?: string | null;
   } | null>(null);
   const [linksBusy, setLinksBusy] = useState(false);
   const [chromeInfo, setChromeInfo] = useState<{
@@ -254,7 +272,7 @@ export function App() {
 
   async function runUpdateCheck(fromUser: boolean) {
     try {
-      const u = await porter.checkUpdate();
+      const u = await porter.checkUpdate(fromUser);
       setUpdateInfo({
         currentVersion: u.currentVersion,
         latestVersion: u.latestVersion,
@@ -264,6 +282,7 @@ export function App() {
         releaseUrl: u.releaseUrl,
         downloadUrl: u.downloadUrl,
       });
+      if (typeof u.githubAuth === "boolean") setGithubAuthConfigured(u.githubAuth);
       if (u.updateAvailable && u.latestVersion) {
         const dismissed = sessionStorage.getItem(`porter-update-later-${u.latestVersion}`);
         setUpdateNudgeHidden(Boolean(dismissed) && !fromUser);
@@ -346,8 +365,8 @@ export function App() {
         setSelectedDeviceId(s.id);
         const local = d.find((x) => x.isLocal) ?? d[0];
         if (local && f[0]) {
+          // Browse this Mac on the left only — right pane waits for another Mac
           void openFolder(local.id, f[0].path, "left");
-          void openFolder(local.id, f[0].path, "right");
         }
         try {
           const setup = await porter.setup();
@@ -373,6 +392,37 @@ export function App() {
     [devices],
   );
 
+  const onlinePeers = useMemo(
+    () => devices.filter((d) => !d.isLocal && d.online && d.host !== "inbound"),
+    [devices],
+  );
+
+  const primaryPeer = onlinePeers[0] ?? null;
+
+  const canCrossCopy = Boolean(
+    left &&
+      right &&
+      left.deviceId !== right.deviceId &&
+      !devices.find((d) => d.id === right.deviceId)?.isLocal &&
+      devices.find((d) => d.id === right.deviceId)?.online,
+  );
+
+  // When a peer comes online and right pane is empty, open their first shared folder
+  useEffect(() => {
+    if (!primaryPeer || right) return;
+    let cancelled = false;
+    void porter
+      .folders(primaryPeer.id)
+      .then((rf) => {
+        if (cancelled || !rf[0]) return;
+        void openFolder(primaryPeer.id, rf[0].path, "right");
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [primaryPeer, right, openFolder]);
+
   const refreshShareLinks = useCallback(async () => {
     try {
       const [n, tunnel, travel] = await Promise.all([
@@ -385,7 +435,14 @@ export function App() {
         tailscale: travel.tailscaleIp || n.tailscale.selfIp || null,
         cloudflare: travel.cloudflareUrl || tunnel.publicUrl || null,
         port: travel.port || 47831,
+        serveUrl: travel.serveUrl || null,
       });
+      try {
+        const tp = await porter.tailscalePeers();
+        setTsPeers(tp.peers || []);
+      } catch {
+        setTsPeers([]);
+      }
     } catch {
       // ignore — LAN from settings still shown
     }
@@ -440,22 +497,69 @@ export function App() {
   }
 
   async function requestCopyToRight() {
-    if (!left?.selected.length || !right) {
-      setError("Select files on the left and open a destination folder on the right.");
+    if (!left?.selected.length) {
+      setError("Select files on the left to copy.");
       return;
     }
-    const destId = right.deviceId || localDevice?.id;
-    if (!destId) {
-      setError("Destination Mac not ready — wait a second and try again.");
+    if (!primaryPeer || !canCrossCopy || !right) {
+      setError(
+        primaryPeer
+          ? "Open a folder on the other Mac (right pane) before copying."
+          : "Add another Mac first — copy is between Macs, not on the same Mac.",
+      );
       return;
     }
+    if (left.deviceId === right.deviceId) {
+      setError("Pick a different Mac on the right — same-Mac copy isn’t shown in Porter.");
+      return;
+    }
+
+    const destId = right.deviceId;
+    let destDir = right.path.replace(/\/$/, "");
+
+    // Chrome: force destination into matching Chrome Library share on the peer
+    try {
+      const srcShares =
+        left.deviceId === localDevice?.id || left.deviceId === "local"
+          ? folders
+          : await porter.folders(left.deviceId);
+      const srcShare = srcShares.find(
+        (f) => left.rootPath === f.path || left.path.startsWith(f.path + "/"),
+      );
+      const kind = chromeShareKind(srcShare?.label, srcShare?.path);
+      if (kind && srcShare) {
+        const destShares = await porter.folders(destId);
+        const destShare = findChromeShare(destShares, kind);
+        if (!destShare) {
+          setError(
+            `On ${primaryPeer.name}: Settings → Share Chrome folders (quit Chrome first), then try again.`,
+          );
+          return;
+        }
+        // Open right on matching share and dest parent for the selected item
+        const first = left.selected[0]!;
+        destDir = matchingChromeDestDir(first.path, srcShare, destShare);
+        if (right.rootPath !== destShare.path) {
+          await openFolder(destId, destShare.path, "right");
+        }
+        const chromeRunning = (await porter.chromeStatus().catch(() => null))?.chromeRunning;
+        if (chromeRunning) {
+          setError("Quit Google Chrome on this Mac before copying extension data.");
+          return;
+        }
+      }
+    } catch (e) {
+      setError(friendlyError(e instanceof Error ? e.message : String(e)));
+      return;
+    }
+
     setCopyModalError(null);
     setCopyProgress(null);
     setConfirmCopy({
       sources: [...left.selected],
       sourceDeviceId: left.deviceId,
       destDeviceId: destId,
-      destDir: right.path.replace(/\/$/, ""),
+      destDir,
     });
   }
 
@@ -616,8 +720,8 @@ export function App() {
             {devices.filter((d) => !d.isLocal).length === 0 && (
               <div className="side-hint">
                 No other Mac listed yet. On <strong>both</strong> Macs: same pair token, then{" "}
-                <strong>Add Mac</strong> and paste the other side’s Cloudflare URL + Tailscale
-                fallback. After travel connects once, Home should show it here automatically.
+                <strong>Add Mac</strong> and pick the other Mac from Tailscale (or paste its 100.x
+                IP). Cloudflare Quick Tunnel is optional.
               </div>
             )}
             {devices.some((d) => !d.isLocal && d.host === "inbound") && (
@@ -701,9 +805,7 @@ export function App() {
                       : localDevice?.id;
                     if (!id) return;
                     void openFolder(id, f.path, "left");
-                    if (!viewingRemote && localDevice) {
-                      void openFolder(localDevice.id, f.path, "right");
-                    }
+                    // Do not mirror local folders onto the right pane (avoids same-Mac copy confusion)
                   }}
                   onContextMenu={(e) => {
                     e.preventDefault();
@@ -737,21 +839,60 @@ export function App() {
             else setRight(next);
           }}
           onCopy={() => void requestCopyToRight()}
+          copyEnabled={canCrossCopy}
+          copyLabelPeer={
+            right
+              ? devices.find((d) => d.id === right.deviceId)?.name
+              : primaryPeer?.name
+          }
         />
-        <PaneView
-          pane={right}
-          side="right"
-          devices={devices}
-          fallbackDeviceName={localDevice?.name}
-          otherPane={left}
-          view={view}
-          setView={setView}
-          onNavigate={(s, p) => void navigate(s, p)}
-          onSelect={(s, next) => {
-            if (s === "left") setLeft(next);
-            else setRight(next);
-          }}
-        />
+        {right ? (
+          <PaneView
+            pane={right}
+            side="right"
+            devices={devices}
+            fallbackDeviceName={primaryPeer?.name || "Other Mac"}
+            otherPane={left}
+            view={view}
+            setView={setView}
+            onNavigate={(s, p) => void navigate(s, p)}
+            onSelect={(s, next) => {
+              if (s === "left") setLeft(next);
+              else setRight(next);
+            }}
+          />
+        ) : (
+          <section className="pane dest">
+            <div className="pane-head">
+              <div className="pane-title">
+                <h2>To · other Mac</h2>
+                <span className="pane-sub">Waiting for a connected Mac</span>
+              </div>
+            </div>
+            <div className="empty" style={{ padding: 24 }}>
+              {primaryPeer ? (
+                <>Connecting to <strong>{primaryPeer.name}</strong>…</>
+              ) : (
+                <>
+                  Add another Mac to copy files between computers. Same-Mac moves belong in
+                  Finder.
+                  <div style={{ marginTop: 12 }}>
+                    <button
+                      className="btn primary"
+                      type="button"
+                      onClick={() => {
+                        setSettingsTab("connect");
+                        setShowSettings(true);
+                      }}
+                    >
+                      Add Mac
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+        )}
       </div>
 
       {showShare && (
@@ -991,10 +1132,41 @@ export function App() {
                   <div className="connect-block">
                     <h3>2. Paste from the other Mac</h3>
                     <p className="connect-hint">
-                      Paste what you copied on the other Mac (its LAN IP, Cloudflare URL, or
-                      Tailscale IP). Same Wi‑Fi → use LAN. Away → use Cloudflare, with Tailscale as
-                      fallback.
+                      Prefer Tailscale (same account). Same Wi‑Fi can use LAN. Cloudflare Quick Tunnel
+                      is optional and can change after reboot.
                     </p>
+                    {tsPeers.length > 0 && (
+                      <div className="share-rows" style={{ marginBottom: 12 }}>
+                        <span className="share-label">On your Tailscale</span>
+                        {tsPeers.map((p) => (
+                          <div className="share-row" key={p.ip || p.dnsName || p.name}>
+                            <div>
+                              <strong>{p.name}</strong>
+                              <div className="fmeta">
+                                {p.online ? "Online" : "Offline"}
+                                {p.ip ? ` · ${p.ip}` : ""}
+                              </div>
+                            </div>
+                            <button
+                              className="btn primary"
+                              type="button"
+                              disabled={!p.ip && !p.dnsName}
+                              onClick={() => {
+                                const host = p.ip
+                                  ? `${p.ip}:47831`
+                                  : p.dnsName
+                                    ? `https://${p.dnsName}`
+                                    : p.porterUrl;
+                                setPeerHost(host);
+                                setSettingsMsg(`Selected ${p.name} — tap Connect`);
+                              }}
+                            >
+                              Use
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div className="field">
                       <label>Other Mac address</label>
                       <input
@@ -1003,16 +1175,16 @@ export function App() {
                           setPeerHost(e.target.value);
                           setSettingsMsg(null);
                         }}
-                        placeholder="192.168.x.x or https://….trycloudflare.com"
+                        placeholder="100.x.x.x:47831 or https://….ts.net"
                         autoFocus
                       />
                     </div>
                     <div className="field">
-                      <label>Fallback (optional Tailscale from other Mac)</label>
+                      <label>Fallback (optional)</label>
                       <input
                         value={peerFallback}
                         onChange={(e) => setPeerFallback(e.target.value)}
-                        placeholder="100.x.x.x:47831"
+                        placeholder="100.x.x.x:47831 or Cloudflare URL"
                       />
                     </div>
                     <div className="field">
@@ -1073,9 +1245,56 @@ export function App() {
                     <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: 13 }}>
                       Current: {updateInfo?.currentVersion ?? "…"}. Checks GitHub releases and can
                       install into this Porter.app automatically.
+                      {githubAuthConfigured
+                        ? " GitHub auth: on (private repo / higher limits)."
+                        : " Private repos need a GitHub token below."}
                     </p>
+                    {!githubAuthConfigured ? (
+                      <div className="field" style={{ marginBottom: 8 }}>
+                        <label>GitHub token (optional)</label>
+                        <input
+                          type="password"
+                          autoComplete="off"
+                          placeholder="ghp_… or fine-grained PAT (repo read)"
+                          value={githubTokenDraft}
+                          onChange={(e) => setGithubTokenDraft(e.target.value)}
+                        />
+                        <div className="row" style={{ justifyContent: "flex-start", marginTop: 8 }}>
+                          <button
+                            className="btn"
+                            type="button"
+                            disabled={updateBusy || !githubTokenDraft.trim()}
+                            onClick={() => {
+                              setUpdateBusy(true);
+                              void porter
+                                .saveGithubUpdateToken(githubTokenDraft.trim())
+                                .then((r) => {
+                                  setGithubAuthConfigured(r.configured);
+                                  setGithubTokenDraft("");
+                                  setSettingsMsg(r.detail);
+                                  showToast(r.detail);
+                                  return runUpdateCheck(true);
+                                })
+                                .catch((e) => {
+                                  const msg = e instanceof Error ? e.message : String(e);
+                                  setSettingsMsg(msg);
+                                  showToast(msg);
+                                })
+                                .finally(() => setUpdateBusy(false));
+                            }}
+                          >
+                            Save token
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                     {updateInfo?.updateAvailable ? (
                       <div className="callout ok" style={{ marginTop: 0 }}>
+                        {updateInfo.message}
+                      </div>
+                    ) : null}
+                    {updateInfo && !updateInfo.updateAvailable && /rate limit|GitHub token|private/i.test(updateInfo.message) ? (
+                      <div className="callout" style={{ marginTop: 0 }}>
                         {updateInfo.message}
                       </div>
                     ) : null}
@@ -1455,7 +1674,7 @@ export function App() {
             setShowWizard(false);
             void refreshMeta();
             setShowTravel(true);
-            showToast("Setup ready — check Travel Ready");
+            showToast("Setup ready — on Home, open Travel Ready → Set & forget before you travel");
           }}
         />
       )}

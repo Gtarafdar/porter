@@ -67,6 +67,8 @@ export interface SetupSnapshot {
   token: string;
   agentLinkAcknowledged: boolean;
   mcpInstalled: boolean;
+  schemaVersion?: number;
+  tailscaleSkipped?: boolean;
   sleeping: boolean;
   mcpEntryPath: string;
   mcpSnippet: string;
@@ -184,16 +186,43 @@ export const porter = {
       publicUrl: string | null;
       cloudflaredInstalled: boolean;
     }>("/api/tunnel"),
-  setAndForget: () =>
+  setAndForget: (alsoStartCloudflare = false) =>
     api<{
       ok: boolean;
       tunnelUrl: string | null;
+      serveUrl?: string | null;
       warnings: string[];
       keepalive: { ok: boolean; detail: string };
       folders: { added: string[]; skipped: string[] };
-    }>("/api/away/set-and-forget", { method: "POST", body: "{}" }),
+    }>("/api/away/set-and-forget", {
+      method: "POST",
+      body: JSON.stringify({ alsoStartCloudflare }),
+    }),
+  repairTravel: () =>
+    api<{
+      ok: boolean;
+      warnings: string[];
+      serveUrl?: string | null;
+      keepalive: { ok: boolean; detail: string };
+    }>("/api/away/repair", { method: "POST", body: "{}" }),
   openTailscaleDownload: () =>
     api<{ ok: boolean; url: string; note: string }>("/api/away/open-tailscale", {
+      method: "POST",
+      body: "{}",
+    }),
+  tailscalePeers: () =>
+    api<{
+      peers: {
+        name: string;
+        hostName: string;
+        dnsName: string | null;
+        ip: string | null;
+        online: boolean;
+        porterUrl: string;
+      }[];
+    }>("/api/tailscale/peers"),
+  startTailscaleServe: () =>
+    api<{ ok: boolean; url: string | null; detail: string }>("/api/tailscale/serve/start", {
       method: "POST",
       body: "{}",
     }),
@@ -223,7 +252,7 @@ export const porter = {
       method: "POST",
       body: JSON.stringify({ which }),
     }),
-  checkUpdate: () =>
+  checkUpdate: (refresh = false) =>
     api<{
       ok: boolean;
       currentVersion: string;
@@ -237,7 +266,15 @@ export const porter = {
       canAutoInstall: boolean;
       appPath: string | null;
       message: string;
-    }>("/api/updates/check"),
+      githubAuth?: boolean;
+    }>(`/api/updates/check${refresh ? "?refresh=1" : ""}`),
+  githubUpdateAuth: () =>
+    api<{ configured: boolean; source: string | null }>("/api/updates/github-auth"),
+  saveGithubUpdateToken: (token: string) =>
+    api<{ ok: boolean; detail: string; configured: boolean; source: string | null }>(
+      "/api/updates/github-token",
+      { method: "POST", body: JSON.stringify({ token }) },
+    ),
   applyUpdate: () =>
     api<{ ok: boolean; message: string; willRelaunch: boolean }>("/api/updates/apply", {
       method: "POST",
@@ -253,8 +290,17 @@ export const porter = {
     step?: number;
     completed?: boolean;
     agentLinkAcknowledged?: boolean;
+    tailscaleSkipped?: boolean;
   }) =>
     api<SetupSnapshot>("/api/setup", { method: "PATCH", body: JSON.stringify(body) }),
+  tailscaleSetupStatus: () =>
+    api<{
+      installed: boolean;
+      connected: boolean;
+      selfIp: string | null;
+      sshLikelyEnabled: boolean | null;
+      detail: string;
+    }>("/api/tailscale/setup-status"),
   installCursorMcp: () =>
     api<{ ok: boolean; path: string; alreadyPresent: boolean; merged: boolean }>(
       "/api/mcp/install-cursor",
@@ -269,6 +315,8 @@ export const porter = {
       deviceName: string;
       pairToken: string;
       tailscaleIp: string | null;
+      serveUrl?: string | null;
+      serveConfigured?: boolean;
       cloudflareUrl: string | null;
       peerAddress: string | null;
       fallbackAddress: string | null;
@@ -278,6 +326,8 @@ export const porter = {
       travelSteps: string[];
       safetyNote: string;
       keepAliveInstalled?: boolean;
+      reviveCommand?: string;
+      sshEnabled?: boolean | null;
       tunnel: {
         running: boolean;
         publicUrl: string | null;

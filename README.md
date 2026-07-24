@@ -8,9 +8,9 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 
 Pick your Mac chip (smaller downloads — about half the old universal zip):
 
-> **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.23-mac-arm64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.23-mac-arm64.zip)  
-> **Intel Mac:** [⬇ Porter-0.2.23-mac-x64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.23-mac-x64.zip)  
-> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.23 · [All releases](https://github.com/Gtarafdar/porter/releases)
+> **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.27-mac-arm64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.27-mac-arm64.zip)  
+> **Intel Mac:** [⬇ Porter-0.2.27-mac-x64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.27-mac-x64.zip)  
+> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.27 · [All releases](https://github.com/Gtarafdar/porter/releases)
 
 Not sure which chip?  menu → About This Mac → look for “Chip” (Apple) or “Processor” (Intel).
 
@@ -18,7 +18,7 @@ Not sure which chip?  menu → About This Mac → look for “Chip” (Apple)
 2. **First open:** right‑click → **Open** → Open (macOS warns because Porter is not paid Apple-notarized — this is normal for free local apps)
 3. If still blocked: System Settings → Privacy & Security → **Open Anyway**
 4. Share folders with **Choose folder…** (Finder picker) — no typing paths
-5. Travel: **Travel Ready → Set & forget** (Cloudflare bundled). Tailscale optional via the official in-app button.
+5. Travel: **Travel Ready → Set & forget** (Tailscale required; enable Tailscale SSH before you leave). Cloudflare Quick Tunnel optional under Advanced.
 6. Later updates: **Settings → This Mac → Check for updates** (or Help → Check for Updates) — installs from GitHub and relaunches.
 
 **Bundled:** Node + native Mac window + Finder UI + `cloudflared` (for that chip only)  
@@ -27,6 +27,34 @@ Not sure which chip?  menu → About This Mac → look for “Chip” (Apple)
 **Chrome:** Everyday file copy never requires quitting Chrome. Optional Chrome-extension sync only: quit Chrome → share/copy folders → reopen (see [CHROME.md](CHROME.md)).
 
 **Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Chrome extensions:** [CHROME.md](CHROME.md) · **Roadmap:** [PLAN.md](PLAN.md)
+
+## What’s new in 0.2.27
+
+- Update checks use a GitHub token when available (fixes rate-limit / private-repo 403s)
+- Settings → Updates: save a PAT; clearer errors when GitHub blocks anonymous requests
+- Builds on 0.2.26 startup reliability (deferred Tailscale Serve + patient keep-alive)
+
+## What’s new in 0.2.26
+
+- Startup no longer freezes while configuring Tailscale Serve (UI and health stay responsive)
+- Keep-alive is more patient — won’t kill a starting Porter and loop-restart
+- Clearer Tailscale “it’s on” signal in setup; Travel Ready explains Serve may take a few seconds
+- Builds on 0.2.25 onboarding (Tailscale wizard step, remote-only copy, Chrome dest routing)
+
+## What’s new in 0.2.25
+
+- Setup includes a **Tailscale check** step (install → connect → continue); same Wi‑Fi escape still available
+- Copy is **between Macs only** — no more confusing same-Mac destination; right pane waits for a peer
+- Chrome Extensions / Extension Data copies auto-route into the peer’s matching Chrome Library share
+- Builds on 0.2.24 travel resilience (Tailscale-first, keep-alive takeover, exact pair-token auth)
+
+## What’s new in 0.2.24
+
+- Travel reliability: Tailscale-first (Serve + MagicDNS), hardened LaunchAgent / version takeover, Repair in Travel Ready
+- Break-glass revive command + clearer errors when Tailscale is up but Porter is down
+- Auto-update: refuse Downloads/App Translocation; rewrite keep-alive after install; prefer `/Applications`
+- Security: pair token must match exactly (removed weak long-bearer fallback)
+- Add Mac: pick peers from your Tailscale list
 
 ## What’s new in 0.2.23
 
