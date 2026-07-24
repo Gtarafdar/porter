@@ -92,11 +92,13 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
             <div>
               <h2 id="travel-title">Travel Ready</h2>
               <p className="wizard-sub">
-                {status.unattendedReady
-                  ? "Safe to leave — Tailscale + auto-start ready"
-                  : status.ready
-                    ? "Almost — tap Set & forget before you leave"
-                    : "Finish what’s left, then Set & forget"}
+                {status.unattendedReady && status.sshEnabled === true
+                  ? "Safe to leave — Tailscale + SSH + auto-start ready"
+                  : status.ready && status.sshEnabled !== true
+                    ? "Almost — enable Tailscale SSH before you leave"
+                    : status.ready
+                      ? "Almost — tap Set & forget before you leave"
+                      : "Finish what’s left, then Set & forget"}
               </p>
             </div>
           </div>
@@ -106,6 +108,58 @@ export function TravelReadyPanel({ onClose }: { onClose: () => void }) {
           <div className={`callout ${status.unattendedReady ? "ok" : ""}`}>
             <IconShield size={16} />
             <div>{status.safetyNote}</div>
+          </div>
+
+          {status.travelSteps && status.travelSteps.length > 0 ? (
+            <ol className="ts-setup-steps" style={{ marginTop: 12, paddingLeft: 18, lineHeight: 1.45 }}>
+              {status.travelSteps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          ) : null}
+
+          <div className="row" style={{ marginTop: 10, gap: 8, flexWrap: "wrap" }}>
+            <button
+              className="btn"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                void porter
+                  .openTailscaleApp()
+                  .then((r) => setMsg(r.detail))
+                  .catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
+              }}
+            >
+              Open Tailscale
+            </button>
+            <button
+              className="btn"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                void porter
+                  .openTailscaleSshSettings()
+                  .then((r) => setMsg(r.detail))
+                  .catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
+              }}
+            >
+              Enable SSH settings
+            </button>
+            {!status.tailscaleIp ? (
+              <button
+                className="btn"
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  void porter
+                    .openTailscaleDownload()
+                    .then((r) => setMsg(r.note))
+                    .catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
+                }}
+              >
+                Get Tailscale
+              </button>
+            ) : null}
           </div>
 
           <div className="travel-summary">

@@ -1,5 +1,17 @@
 # Connect from home, travel, or another country
 
+## First Tailscale install (both Macs)
+
+1. In Porter setup, tap **Get Tailscale** (or open https://tailscale.com/download/mac)
+2. **Sign up / sign in** (free) — use the **same account** on every Mac
+3. Open the **Tailscale** app and approve any macOS **VPN / Network Extension** prompts
+4. Wait until Porter shows a green **Signed in & connected** (`100.x` address)
+5. Before travel: enable **Tailscale SSH** (Porter → Travel Ready → **Enable SSH settings**)
+
+Porter does not bundle Tailscale. Same Wi‑Fi desk use can skip Tailscale; travel cannot.
+
+---
+
 ## What actually works when you are away
 
 You **cannot** manage the home Mac while traveling unless something keeps Porter alive **and** you have a revive path. So before you leave:
@@ -33,7 +45,7 @@ Leave Mac **plugged in**, logged in, internet connected. Do not force-quit Porte
 
 ## Travel Mac
 
-1. Install Porter (zip / `Porter.app` into **Applications** — not Downloads)
+1. Install Porter (**DMG** → drag to **Applications** — not Downloads)
 2. Same **pair token**
 3. **Settings → Add Mac**
    - Prefer: pick the home Mac from the **Tailscale list**, or paste `100.x.x.x:47831`

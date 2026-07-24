@@ -1246,8 +1246,8 @@ export function App() {
                       Current: {updateInfo?.currentVersion ?? "…"}. Checks GitHub releases and can
                       install into this Porter.app automatically.
                       {githubAuthConfigured
-                        ? " GitHub auth: on (private repo / higher limits)."
-                        : " Private repos need a GitHub token below."}
+                        ? " GitHub auth: on (higher rate limits)."
+                        : " Public releases work without a token. Optional PAT below helps if GitHub rate-limits your network."}
                     </p>
                     {!githubAuthConfigured ? (
                       <div className="field" style={{ marginBottom: 8 }}>

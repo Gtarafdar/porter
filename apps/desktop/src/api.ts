@@ -210,6 +210,21 @@ export const porter = {
       method: "POST",
       body: "{}",
     }),
+  openTailscaleApp: () =>
+    api<{ ok: boolean; detail: string }>("/api/away/open-tailscale-app", {
+      method: "POST",
+      body: "{}",
+    }),
+  openTailscaleSshSettings: () =>
+    api<{ ok: boolean; detail: string }>("/api/away/open-tailscale-ssh", {
+      method: "POST",
+      body: "{}",
+    }),
+  openTailscaleSignup: () =>
+    api<{ ok: boolean; url: string; note: string }>("/api/away/open-tailscale-signup", {
+      method: "POST",
+      body: "{}",
+    }),
   tailscalePeers: () =>
     api<{
       peers: {

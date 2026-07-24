@@ -8,25 +8,35 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 
 Pick your Mac chip. Prefer the **DMG** (drag Porter → Applications). Zip is for in-app updates / CI:
 
-> **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.28-mac-arm64.dmg](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.28-mac-arm64.dmg) · [zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.28-mac-arm64.zip)  
-> **Intel Mac:** arm64-only for 0.2.28 — use an older [Intel release](https://github.com/Gtarafdar/porter/releases) until the next x64 build, or ask for a rebuild.  
-> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.28 · [All releases](https://github.com/Gtarafdar/porter/releases)
+> **Apple Silicon only (M1/M2/M3/M4):** [⬇ Porter-0.2.29-mac-arm64.dmg](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.29-mac-arm64.dmg) · [zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.29-mac-arm64.zip)  
+> **Intel Mac:** not in this release — use an older [Intel build](https://github.com/Gtarafdar/porter/releases) or ask for a rebuild.  
+> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.29 · [All releases](https://github.com/Gtarafdar/porter/releases)
 
 Not sure which chip?  menu → About This Mac → look for “Chip” (Apple) or “Processor” (Intel).
 
 1. Open the **DMG** → drag **Porter** to **Applications** → eject the disk image
-2. Open Porter from **Applications** (FIRST TIME: right‑click → **Open** → Open — not notarized, normal for free local apps)
+2. Open Porter from **Applications** (FIRST TIME: right‑click → **Open** → Open — not notarized, normal for free MIT apps)
 3. If still blocked: System Settings → Privacy & Security → **Open Anyway**
-4. Share folders with **Choose folder…** (Finder picker) — no typing paths
-5. Travel: **Travel Ready → Set & forget** (Tailscale required; enable Tailscale SSH before you leave). Cloudflare Quick Tunnel optional under Advanced.
-6. Later updates: **Settings → This Mac → Check for updates** (or Help → Check for Updates) — installs the **zip** from GitHub and relaunches.
+4. Setup: **Get Tailscale** → sign up / sign in (same account on every Mac) → **Open Tailscale** → approve VPN prompts → wait for green
+5. Share folders with **Choose folder…** (Finder picker) — no typing paths
+6. Travel: **Travel Ready → Set & forget**; enable **Tailscale SSH** before you leave. Cloudflare optional under Advanced.
+7. Later updates: **Settings → This Mac → Check for updates** — public GitHub releases work without a token; optional PAT only if rate-limited. Installs the **zip**.
 
 **Bundled:** Node + native Mac window + Finder UI + `cloudflared` (for that chip only)  
-**Not bundled:** Tailscale
+**Not bundled:** Tailscale  
+**License:** [MIT](LICENSE)
 
 **Chrome:** Everyday file copy never requires quitting Chrome. Optional Chrome-extension sync only: quit Chrome → share/copy folders → reopen (see [CHROME.md](CHROME.md)).
 
 **Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Chrome extensions:** [CHROME.md](CHROME.md) · **Roadmap:** [PLAN.md](PLAN.md)
+
+## What’s new in 0.2.29
+
+- Setup Tailscale step: numbered install → signup → open app → approve VPN → wait for green
+- Travel Ready shows steps + **Open Tailscale** / **Enable SSH settings**; “Safe to leave” only when SSH is confirmed
+- Link Macs prefers Tailscale (Cloudflare marked advanced)
+- Public-repo update copy (PAT optional); MIT license; DMG includes HOW-TO; docs scrubbed for open sharing
+- Builds on 0.2.28 splash + Applications DMG
 
 ## What’s new in 0.2.28
 
@@ -312,4 +322,4 @@ Config lives in `~/.porter/` (mode 0600).
 
 ## License
 
-Private / personal use — your project.
+[MIT](LICENSE) — free to use, modify, and share.

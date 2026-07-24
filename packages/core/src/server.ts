@@ -38,7 +38,14 @@ import {
   wizardSnapshot,
 } from "./setup.js";
 import { copyFileResumable, copyFolderResumable, mapPool } from "./transfer.js";
-import { shareTravelPresets, travelReady, enableSetAndForget, repairTravelReady } from "./travel.js";
+import {
+  shareTravelPresets,
+  travelReady,
+  enableSetAndForget,
+  repairTravelReady,
+  openTailscaleApp,
+  openTailscaleSshSettings,
+} from "./travel.js";
 import {
   getTunnelStatus,
   startCloudflareTunnel,
@@ -261,6 +268,32 @@ export async function startServer(opts?: {
       ok: true,
       url: "https://tailscale.com/download/mac",
       note: "Install Tailscale from the official site, sign in with the same account on both Macs. Porter cannot embed Tailscale’s VPN app.",
+    });
+  });
+
+  app.post("/api/away/open-tailscale-app", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    const r = openTailscaleApp();
+    appendActivity("open_tailscale_app", r.detail, r.ok, "ui");
+    res.json(r);
+  });
+
+  app.post("/api/away/open-tailscale-ssh", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    const r = openTailscaleSshSettings();
+    appendActivity("open_tailscale_ssh", r.detail, r.ok, "ui");
+    res.json(r);
+  });
+
+  app.post("/api/away/open-tailscale-signup", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    const url = "https://login.tailscale.com/start";
+    exec(`open "${url}"`, () => undefined);
+    appendActivity("open_tailscale_signup", "opened Tailscale signup / sign-in", true, "ui");
+    res.json({
+      ok: true,
+      url,
+      note: "Create or sign in to Tailscale, then open the Tailscale app and approve any macOS VPN prompts.",
     });
   });
 
