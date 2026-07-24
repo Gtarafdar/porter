@@ -8,47 +8,6 @@
   const yearEl = document.getElementById("year");
   if (yearEl) yearEl.textContent = String(new Date().getFullYear());
 
-  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  /* Apple liquid glass layers (lucasromerodb/liquid-glass-effect-macos) */
-  function layerEl(className) {
-    const el = document.createElement("span");
-    el.className = className;
-    el.setAttribute("aria-hidden", "true");
-    return el;
-  }
-
-  function enhanceLiquidGlass(root) {
-    const nodes = root.querySelectorAll(".glass, .btn");
-    nodes.forEach((el) => {
-      if (el.classList.contains("liquidGlass-ready")) return;
-      if (el.querySelector(":scope > .liquidGlass-effect")) {
-        el.classList.add("liquidGlass-wrapper", "liquidGlass-ready");
-        return;
-      }
-
-      el.classList.add("liquidGlass-wrapper", "liquidGlass-ready");
-
-      const effect = layerEl("liquidGlass-effect");
-      const tint = layerEl("liquidGlass-tint");
-      const shine = layerEl("liquidGlass-shine");
-
-      if (el.classList.contains("glass-strong")) tint.classList.add("is-strong");
-      if (reduce) effect.style.filter = "none";
-
-      if (el.classList.contains("btn")) {
-        const label = document.createElement("span");
-        label.className = "liquidGlass-text";
-        while (el.firstChild) label.appendChild(el.firstChild);
-        el.append(effect, tint, shine, label);
-      } else {
-        el.prepend(effect, tint, shine);
-      }
-    });
-  }
-
-  enhanceLiquidGlass(document);
-
   /* Mobile nav */
   const drawer = document.getElementById("mobile-drawer");
   const openBtn = document.getElementById("menu-open");
@@ -69,9 +28,8 @@
     a.addEventListener("click", () => setNavOpen(false));
   });
 
-  /* Side nav current section + sliding frosted pill */
-  const navShell = document.getElementById("side-nav-menu");
-  const navTrack = document.getElementById("side-nav-links") || navShell;
+  /* Side nav current section + sliding pill */
+  const navMenu = document.getElementById("side-nav-menu");
   const navIndicator = document.getElementById("nav-indicator");
   const navLinks = [...document.querySelectorAll("[data-nav]")];
   const sections = navLinks
@@ -86,17 +44,17 @@
   let hoverNav = null;
 
   function moveNavIndicator(target) {
-    if (!navTrack || !navIndicator || !target) {
+    if (!navMenu || !navIndicator || !target) {
       if (navIndicator) navIndicator.style.opacity = "0";
       return;
     }
-    const menuRect = navTrack.getBoundingClientRect();
+    const menuRect = navMenu.getBoundingClientRect();
     const linkRect = target.getBoundingClientRect();
-    const top = linkRect.top - menuRect.top + navTrack.scrollTop;
+    const top = linkRect.top - menuRect.top + navMenu.scrollTop;
     navIndicator.style.transform = `translateY(${Math.max(0, top)}px)`;
     navIndicator.style.height = `${linkRect.height}px`;
     navIndicator.style.opacity = "1";
-    navShell?.classList.add("has-indicator");
+    navMenu.classList.add("has-indicator");
   }
 
   function refreshCurrent() {
@@ -115,14 +73,14 @@
   window.addEventListener("resize", () => moveNavIndicator(hoverNav || activeNav), { passive: true });
   refreshCurrent();
 
-  if (navTrack) {
+  if (navMenu) {
     navLinks.forEach((a) => {
       a.addEventListener("pointerenter", () => {
         hoverNav = a;
         moveNavIndicator(a);
       });
     });
-    navTrack.addEventListener("pointerleave", () => {
+    navMenu.addEventListener("pointerleave", () => {
       hoverNav = null;
       moveNavIndicator(activeNav);
     });
@@ -165,6 +123,7 @@
   });
 
   /* Reveal */
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (!reduce && "IntersectionObserver" in window) {
     const io = new IntersectionObserver(
       (entries) => {

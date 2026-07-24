@@ -144,98 +144,23 @@ a:hover {
   top: 8px;
 }
 
-/* Liquid glass panels — layered depth, no cursor-follow lens */
+/* Simple frosted panels (no SVG liquid distortion) */
 .glass {
   position: relative;
-  isolation: isolate;
-  background: transparent;
-  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--radius);
-  box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.28),
-    0 0 24px rgba(0, 0, 0, 0.12);
-  overflow: hidden;
-  transition:
-    transform 0.45s var(--ease-spring),
-    box-shadow 0.35s ease,
-    padding 0.4s var(--ease-spring),
-    border-radius 0.4s var(--ease-spring);
-}
-
-.glass.liquidGlass-wrapper,
-.liquidGlass-wrapper {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-}
-
-.btn.liquidGlass-wrapper,
-.liquidGlass-wrapper.btn {
-  display: inline-flex;
-}
-
-.liquidGlass-effect {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  border-radius: inherit;
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-  filter: url(#glass-distortion);
-  overflow: hidden;
-  isolation: isolate;
-  pointer-events: none;
-}
-
-.liquidGlass-tint {
-  z-index: 1;
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: rgba(255, 255, 255, 0.1);
-  pointer-events: none;
-}
-
-.liquidGlass-shine {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  border-radius: inherit;
-  overflow: hidden;
-  pointer-events: none;
-  box-shadow:
-    inset 2px 2px 1px 0 rgba(255, 255, 255, 0.42),
-    inset -1px -1px 1px 1px rgba(255, 255, 255, 0.28);
-}
-
-.liquidGlass-text,
-.glass > :not(.liquidGlass-effect):not(.liquidGlass-tint):not(.liquidGlass-shine):not(.nav-indicator),
-.liquidGlass-wrapper > :not(.liquidGlass-effect):not(.liquidGlass-tint):not(.liquidGlass-shine):not(.nav-indicator) {
-  position: relative;
-  z-index: 3;
-}
-
-.glass-strong .liquidGlass-tint,
-.liquidGlass-tint.is-strong {
-  background: rgba(255, 255, 255, 0.14);
-}
-
-/* Fallback when layers not injected yet */
-.glass:not(.liquidGlass-ready) {
-  background:
-    linear-gradient(
-      155deg,
-      rgba(255, 255, 255, 0.12) 0%,
-      rgba(255, 255, 255, 0.05) 48%,
-      rgba(255, 255, 255, 0.08) 100%
-    );
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(18px) saturate(1.3);
-  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: blur(16px) saturate(1.25);
+  -webkit-backdrop-filter: blur(16px) saturate(1.25);
   box-shadow:
     var(--shadow),
-    inset 2px 2px 1px rgba(255, 255, 255, 0.28),
-    inset -1px -1px 1px rgba(255, 255, 255, 0.16);
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Layout shell */
@@ -256,9 +181,9 @@ a:hover {
   flex-direction: column;
   gap: 18px;
   border-right: 1px solid var(--line);
-  background: rgba(10, 12, 16, 0.35);
-  backdrop-filter: blur(10px) saturate(1.2);
-  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  background: rgba(10, 12, 16, 0.72);
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
   z-index: 40;
 }
 
@@ -284,66 +209,36 @@ a:hover {
   color: var(--ink);
 }
 
-/* Liquid glass menu — Apple-style layers + spring hover
-   https://github.com/lucasromerodb/liquid-glass-effect-macos */
-.side-nav nav.liquidGlass-wrapper,
 .side-nav nav {
   position: relative;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  overflow: hidden;
-  flex: 1;
-  min-height: 0;
-  padding: 0.45rem;
-  border-radius: 1.8rem;
-  background: transparent;
-  border: none;
-  box-shadow:
-    0 6px 6px rgba(0, 0, 0, 0.28),
-    0 0 22px rgba(0, 0, 0, 0.16);
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 2.2);
-}
-
-.side-nav nav:hover {
-  padding: 0.6rem;
-  border-radius: 1.8rem;
-}
-
-.side-nav .liquidGlass-tint {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.side-menu-items {
-  position: relative;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-height: 0;
   overflow: auto;
-  width: 100%;
+  flex: 1;
+  min-height: 0;
+  padding: 6px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .nav-indicator {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 6px;
+  right: 6px;
   top: 0;
   height: 36px;
-  border-radius: 0.8rem;
-  background: rgba(255, 255, 255, 0.38);
-  box-shadow: inset -2px -2px 2px rgba(0, 0, 0, 0.12);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  border-radius: 10px;
+  background: rgba(var(--accent-rgb), 0.18);
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
   pointer-events: none;
   z-index: 0;
   opacity: 0;
   transform: translateY(0);
   transition:
-    transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.55),
-    height 0.25s ease,
+    transform 0.28s var(--ease-out),
+    height 0.22s ease,
     opacity 0.18s ease;
 }
 
@@ -354,20 +249,19 @@ a:hover {
 .side-nav a[data-nav] {
   position: relative;
   z-index: 1;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--muted);
   text-decoration: none;
   font-size: 0.9rem;
-  font-weight: 600;
-  padding: 0.45rem 0.65rem;
-  border-radius: 0.8rem;
+  font-weight: 500;
+  padding: 9px 12px;
+  border-radius: 10px;
   background: transparent;
-  transition: color 0.12s ease-in, background 0.12s ease-in, box-shadow 0.12s ease-in;
+  transition: color 0.18s ease;
 }
 
 .side-nav a[data-nav]:hover,
 .side-nav a[data-nav][aria-current="true"] {
-  color: #fff;
-  background: transparent;
+  color: var(--ink);
 }
 
 .side-cta {
@@ -376,8 +270,7 @@ a:hover {
   gap: 10px;
 }
 
-.side-cta .btn,
-.side-cta .liquidGlass-wrapper {
+.side-cta .btn {
   width: 100%;
 }
 
@@ -385,7 +278,6 @@ a:hover {
   color: var(--ink);
 }
 
-/* Primary buttons must stay white even inside nav link rules */
 .side-nav a.btn-primary,
 .mobile-drawer-panel a.btn-primary,
 a.btn-primary,
@@ -505,15 +397,15 @@ body.nav-open .mobile-drawer {
   margin-bottom: 12px;
 }
 
-/* Buttons — liquid glass spring (reference padding expand, no chase cursor) */
+/* Buttons — glowing fluid hover */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 12px 18px;
-  border-radius: 1.6rem;
-  border: none;
+  border-radius: 14px;
+  border: 1px solid transparent;
   font: inherit;
   font-weight: 600;
   text-decoration: none;
@@ -521,45 +413,47 @@ body.nav-open .mobile-drawer {
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  box-shadow:
-    0 6px 6px rgba(0, 0, 0, 0.22),
-    0 0 18px rgba(0, 0, 0, 0.12);
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 2.2);
+  transition:
+    transform 0.22s ease,
+    background 0.22s ease,
+    box-shadow 0.28s ease,
+    border-color 0.22s ease,
+    color 0.2s ease;
 }
 
-.btn.liquidGlass-wrapper {
-  display: inline-flex;
+.btn::after {
+  content: "";
+  position: absolute;
+  inset: -40% auto -40% -40%;
+  width: 45%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.38) 48%,
+    transparent 100%
+  );
+  transform: translateX(-130%) rotate(18deg);
+  transition: transform 0.55s var(--ease-out);
+  pointer-events: none;
+  z-index: 1;
 }
 
-.btn .liquidGlass-text {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: inherit;
-  font: inherit;
-  font-weight: inherit;
+.btn:hover::after {
+  transform: translateX(340%) rotate(18deg);
 }
 
 .btn:hover {
-  padding: 14px 22px;
-  border-radius: 2rem;
-}
-
-.btn:hover .liquidGlass-effect,
-.btn:hover .liquidGlass-tint,
-.btn:hover .liquidGlass-shine {
-  border-radius: 2rem;
+  transform: translateY(-2px);
 }
 
 a.btn-primary,
 .btn-primary {
+  background: linear-gradient(180deg, #6eab9c 0%, #4f8f80 100%);
   color: #ffffff !important;
-  background: transparent;
-}
-
-.btn-primary .liquidGlass-tint {
-  background: linear-gradient(180deg, rgba(110, 171, 156, 0.92) 0%, rgba(79, 143, 128, 0.92) 100%);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(var(--accent-rgb), 0.18);
 }
 
 a.btn-primary:hover,
@@ -567,6 +461,11 @@ a.btn-primary:hover,
 .side-nav a.btn-primary:hover,
 .mobile-drawer-panel a.btn-primary:hover {
   color: #ffffff !important;
+  background: linear-gradient(180deg, #7eb8a8 0%, #458576 100%);
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, 0.34),
+    0 0 28px rgba(var(--accent-rgb), 0.45),
+    0 0 0 1px rgba(var(--accent-rgb), 0.35);
 }
 
 a.btn-primary:visited,
@@ -575,16 +474,19 @@ a.btn-primary:visited,
 }
 
 .btn-ghost {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
   color: var(--ink);
-}
-
-.btn-ghost .liquidGlass-tint {
-  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .btn-ghost:hover {
   color: var(--ink);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(var(--accent-rgb), 0.45);
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.22),
+    0 0 22px rgba(var(--accent-rgb), 0.22);
 }
 
 .btn-row {
@@ -1200,18 +1102,11 @@ a.btn-primary:visited,
   .btn,
   .btn:hover {
     transition: none !important;
-    padding: revert-layer;
     transform: none !important;
   }
 
-  .btn::after,
-  .glass::after {
+  .btn::after {
     display: none;
-  }
-
-  .nav-glass-distort,
-  .liquidGlass-effect {
-    filter: none !important;
   }
 
   .btn:hover,
@@ -1220,13 +1115,6 @@ a.btn-primary:visited,
   .workshop a:hover {
     transform: none;
   }
-}
-
-.glass-svg {
-  position: absolute;
-  width: 0;
-  height: 0;
-  overflow: hidden;
 }
 
 /* Responsive */
