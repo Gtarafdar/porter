@@ -397,10 +397,23 @@
             </div>
           </div>
 
-          <p class="howto-footnote">
-            Honest limits: Apple Silicon builds in the current line, Tailscale required for reliable travel, no iPhone app,
-            and no Dropbox-style two-way conflict sync in V1.
-          </p>
+          <aside class="limits-card glass" aria-labelledby="limits-title">
+            <div class="limits-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
+            <div class="limits-body">
+              <p class="limits-kicker">Important</p>
+              <h3 id="limits-title">Honest limits</h3>
+              <p>
+                Apple Silicon builds in the current line. Tailscale is required for reliable travel.
+                No iPhone or iPad app. No Dropbox-style two-way conflict sync in V1.
+              </p>
+            </div>
+          </aside>
         </section>
 
         <section class="section reveal" id="features">
