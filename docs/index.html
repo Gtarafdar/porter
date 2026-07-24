@@ -96,7 +96,7 @@
           <a href="#top" data-nav>Overview</a>
           <a href="#difference" data-nav>Not TeamViewer</a>
           <a href="#gallery" data-nav>Screenshots</a>
-          <a href="#how" data-nav>How it works</a>
+          <a href="#how" data-nav>How to use</a>
           <a href="#features" data-nav>Features</a>
           <a href="#mcp" data-nav>AI tools</a>
           <a href="#security" data-nav>Security</a>
@@ -131,7 +131,7 @@
               <a href="#top">Overview</a>
               <a href="#difference">Not TeamViewer</a>
               <a href="#gallery">Screenshots</a>
-              <a href="#how">How it works</a>
+              <a href="#how">How to use</a>
               <a href="#features">Features</a>
               <a href="#mcp">AI tools</a>
               <a href="#security">Security</a>
@@ -242,36 +242,165 @@
           </div>
         </section>
 
-        <section class="section reveal" id="how">
-          <p class="eyebrow">Setup</p>
-          <h2>How it works</h2>
-          <p class="lede">Three steps on each Mac. Travel Ready when you leave home.</p>
-          <div class="steps reveal-stagger">
-            <div class="step glass">
-              <div>
-                <h3>Install into Applications</h3>
-                <p>Open the DMG, drag Porter to Applications. First launch: right-click → Open if Gatekeeper asks.</p>
+        <section class="section howto-section" id="how">
+          <div class="howto-intro">
+            <p class="eyebrow">Hands-on</p>
+            <h2>How to use Porter</h2>
+            <p class="lede">
+              Scroll the stack for a full path from install to copy, travel, AI tools, and the activity log.
+              Scroll back up to revisit a step. Click any screenshot to enlarge. Nothing here is automatic sync or remote desktop.
+            </p>
+          </div>
+
+          <div class="howto-stack" id="howto-stack" style="--steps: 9">
+            <div class="howto-pin">
+              <div class="howto-stage" id="howto-stage" aria-live="polite">
+                <article class="howto-card glass is-active" data-step="0">
+                  <div class="howto-card-copy">
+                    <span class="howto-step">Step 1</span>
+                    <h3>Install into Applications</h3>
+                    <p>
+                      Download the Apple Silicon DMG from Releases. Open it and drag Porter into Applications (do not run it from Downloads).
+                      First open may need right-click → Open if Gatekeeper asks. That warning is normal for non-notarized indie builds.
+                    </p>
+                  </div>
+                  <div class="howto-shot howto-shot-static" aria-hidden="true">
+                    <div class="howto-install-visual">
+                      <img src="assets/img/porter-mark.png" width="88" height="88" alt="" />
+                      <ol>
+                        <li>Open DMG</li>
+                        <li>Drag to Applications</li>
+                        <li>Right-click → Open if asked</li>
+                      </ol>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="howto-card glass" data-step="1">
+                  <div class="howto-card-copy">
+                    <span class="howto-step">Step 2</span>
+                    <h3>Choose Home Mac or Join</h3>
+                    <p>
+                      On the Mac that keeps the real folders, treat it as home. On the other Mac, join with the same pair token.
+                      You will do this once per machine during setup.
+                    </p>
+                  </div>
+                  <button type="button" class="howto-shot" data-full="assets/img/shots/02-setup-link-macs-choice.png" aria-label="Enlarge link Macs choice">
+                    <img src="assets/img/shots/02-setup-link-macs-choice.png" alt="Link Macs choice in setup" loading="lazy" />
+                  </button>
+                </article>
+
+                <article class="howto-card glass" data-step="2">
+                  <div class="howto-card-copy">
+                    <span class="howto-step">Step 3</span>
+                    <h3>Share only folders you approve</h3>
+                    <p>
+                      Add project folders with the system picker. Writes stay confirm-gated by default. Porter is not a whole-disk share
+                      and it does not claim to sync every change both ways.
+                    </p>
+                  </div>
+                  <button type="button" class="howto-shot" data-full="assets/img/shots/03-setup-join-home.png" aria-label="Enlarge share folders setup">
+                    <img src="assets/img/shots/03-setup-join-home.png" alt="Join home and share folders setup" loading="lazy" />
+                  </button>
+                </article>
+
+                <article class="howto-card glass" data-step="3">
+                  <div class="howto-card-copy">
+                    <span class="howto-step">Step 4</span>
+                    <h3>Pair with the same token</h3>
+                    <p>
+                      Copy the pair token from the home Mac and enter the exact same token on the travel Mac. Treat it like a password.
+                      Then add the other Mac by LAN address on the same Wi‑Fi, or by Tailscale when you are away.
+                    </p>
+                  </div>
+                  <button type="button" class="howto-shot" data-full="assets/img/shots/04-setup-home-copy-token.png" aria-label="Enlarge pair token step">
+                    <img src="assets/img/shots/04-setup-home-copy-token.png" alt="Home Mac pair token step" loading="lazy" />
+                  </button>
+                </article>
+
+                <article class="howto-card glass" data-step="4">
+                  <div class="howto-card-copy">
+                    <span class="howto-step">Step 5</span>
+                    <h3>Browse and copy like Finder</h3>
+                    <p>
+                      Open the dual panes. Pick From and To Macs, open an approved folder, multi-select if you need, then Copy.
+                      Expect a confirm step before writes. Progress shows in the UI; this is explicit copy, not silent background sync.
+                    </p>
+                  </div>
+                  <button type="button" class="howto-shot" data-full="assets/img/shots/01-finder-dual-pane.png" aria-label="Enlarge Finder dual pane">
+                    <img src="assets/img/shots/01-finder-dual-pane.png" alt="Dual-pane Finder bridge" loading="lazy" />
+                  </button>
+                </article>
+
+                <article class="howto-card glass" data-step="5">
+                  <div class="howto-card-copy">
+                    <span class="howto-step">Step 6</span>
+                    <h3>Add or manage Macs later</h3>
+                    <p>
+                      Settings → Connected Macs lets you add another machine or remove one you retired. Keep the pair token in sync
+                      whenever you reinstall or reset a Mac.
+                    </p>
+                  </div>
+                  <button type="button" class="howto-shot" data-full="assets/img/shots/07-add-mac-settings.png" aria-label="Enlarge connected Macs settings">
+                    <img src="assets/img/shots/07-add-mac-settings.png" alt="Add Mac in Settings" loading="lazy" />
+                  </button>
+                </article>
+
+                <article class="howto-card glass" data-step="6">
+                  <div class="howto-card-copy">
+                    <span class="howto-step">Step 7</span>
+                    <h3>Travel Ready on the home Mac</h3>
+                    <p>
+                      Before you leave, run Travel Ready / Set and forget on the home Mac so keep-alive and Tailscale paths stay available.
+                      Tailscale must be installed and signed in on both sides for reliable abroad access. Cloudflare Quick Tunnel is optional backup only.
+                    </p>
+                  </div>
+                  <button type="button" class="howto-shot" data-full="assets/img/shots/06-travel-ready.png" aria-label="Enlarge Travel Ready">
+                    <img src="assets/img/shots/06-travel-ready.png" alt="Travel Ready checklist" loading="lazy" />
+                  </button>
+                </article>
+
+                <article class="howto-card glass" data-step="7">
+                  <div class="howto-card-copy">
+                    <span class="howto-step">Step 8</span>
+                    <h3>Optional: connect AI tools</h3>
+                    <p>
+                      In setup or Settings → AI tools, connect Cursor, Claude Desktop, Claude Code, or VS Code / Copilot.
+                      Porter merges MCP config for that app. Agents then use the same allowlists and pair rules as the Finder UI.
+                    </p>
+                  </div>
+                  <button type="button" class="howto-shot" data-full="assets/img/shots/08-settings-ai-tools.png" aria-label="Enlarge AI tools settings">
+                    <img src="assets/img/shots/08-settings-ai-tools.png" alt="Settings AI tools connectors" loading="lazy" />
+                  </button>
+                </article>
+
+                <article class="howto-card glass" data-step="8">
+                  <div class="howto-card-copy">
+                    <span class="howto-step">Step 9</span>
+                    <h3>Check the activity log</h3>
+                    <p>
+                      Activity shows transfers, device events, shares, travel, MCP, and system rows with OK or failed status.
+                      You can filter, retain fewer days, export, or save a copy. Use it when you want proof of what moved.
+                    </p>
+                  </div>
+                  <button type="button" class="howto-shot" data-full="assets/img/shots/09-activity.png" aria-label="Enlarge activity log">
+                    <img src="assets/img/shots/09-activity.png" alt="Activity log view" loading="lazy" />
+                  </button>
+                </article>
               </div>
-            </div>
-            <div class="step glass">
-              <div>
-                <h3>Share folders and pair</h3>
-                <p>Choose folders with the Finder picker. Use the same pair token on every Mac. Add via LAN or Tailscale.</p>
-              </div>
-            </div>
-            <div class="step glass">
-              <div>
-                <h3>Connect AI tools (optional)</h3>
-                <p>One click merges Porter MCP into Cursor, Claude Desktop, Claude Code, or VS Code. Ask the agent to list devices.</p>
-              </div>
-            </div>
-            <div class="step glass">
-              <div>
-                <h3>Travel Ready on the home Mac</h3>
-                <p>Set and forget: keep-alive, Tailscale, break-glass Remote Login. Cloudflare is optional backup only.</p>
+
+              <div class="howto-chrome">
+                <p class="howto-counter"><span id="howto-current">1</span> / <span id="howto-total">9</span></p>
+                <div class="howto-dots" id="howto-dots" role="tablist" aria-label="How to use steps"></div>
+                <p class="howto-hint">Scroll down or up to move through the stack</p>
               </div>
             </div>
           </div>
+
+          <p class="howto-footnote">
+            Honest limits: Apple Silicon builds in the current line, Tailscale required for reliable travel, no iPhone app,
+            and no Dropbox-style two-way conflict sync in V1.
+          </p>
         </section>
 
         <section class="section reveal" id="features">
@@ -482,7 +611,7 @@
         <section class="section reveal" id="changelog">
           <p class="eyebrow">History</p>
           <h2>Changelog</h2>
-          <p class="lede">Synced from GitHub Releases.</p>
+          <p class="lede">Full notes from GitHub Releases. Newest tag stays on top when a release ships.</p>
           <ol class="changelog-tree" id="changelog-tree">
             <li>
               <time>…</time>

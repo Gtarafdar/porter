@@ -105,7 +105,7 @@
     if (lightboxImg) lightboxImg.src = "";
   }
 
-  document.querySelectorAll(".shot").forEach((btn) => {
+  document.querySelectorAll(".shot, .howto-shot[data-full]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const src = btn.getAttribute("data-full");
       if (!src || !lightbox || !lightboxImg) return;
@@ -171,11 +171,67 @@
     });
   }
 
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function formatReleaseBody(md) {
+    const raw = String(md || "").replace(/\r\n/g, "\n").trim();
+    if (!raw) return "<p>See release notes on GitHub.</p>";
+    const lines = raw.split("\n");
+    const out = [];
+    let inList = false;
+    const closeList = () => {
+      if (inList) {
+        out.push("</ul>");
+        inList = false;
+      }
+    };
+    for (const line of lines) {
+      const t = line.trimEnd();
+      if (/^\s*[-*]\s+/.test(t)) {
+        if (!inList) {
+          out.push("<ul>");
+          inList = true;
+        }
+        out.push(`<li>${escapeHtml(t.replace(/^\s*[-*]\s+/, ""))}</li>`);
+        continue;
+      }
+      closeList();
+      if (!t.trim()) {
+        out.push("");
+        continue;
+      }
+      if (/^###\s+/.test(t)) {
+        out.push(`<h5>${escapeHtml(t.replace(/^###\s+/, ""))}</h5>`);
+      } else if (/^##\s+/.test(t)) {
+        out.push(`<h4>${escapeHtml(t.replace(/^##\s+/, ""))}</h4>`);
+      } else if (/^#\s+/.test(t)) {
+        out.push(`<h4>${escapeHtml(t.replace(/^#\s+/, ""))}</h4>`);
+      } else {
+        out.push(`<p>${escapeHtml(t)}</p>`);
+      }
+    }
+    closeList();
+    return out.filter((x) => x !== undefined).join("");
+  }
+
   function renderChangelog(releases) {
     const tree = document.getElementById("changelog-tree");
     if (!tree) return;
     tree.innerHTML = "";
-    (releases || []).slice(0, 10).forEach((r) => {
+    const sorted = [...(releases || [])]
+      .filter((r) => r && !r.draft)
+      .sort((a, b) => {
+        const tb = Date.parse(b.published_at || b.created_at || 0) || 0;
+        const ta = Date.parse(a.published_at || a.created_at || 0) || 0;
+        return tb - ta;
+      });
+    sorted.slice(0, 20).forEach((r) => {
       const li = document.createElement("li");
       const time = document.createElement("time");
       const date = r.published_at ? new Date(r.published_at) : null;
@@ -189,20 +245,21 @@
       a.rel = "noopener";
       a.textContent = r.tag_name || r.name || "Release";
       strong.appendChild(a);
-      const p = document.createElement("p");
-      const body = (r.body || "").replace(/\r\n/g, "\n").trim();
-      const lines = body
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean)
-        .slice(0, 4);
-      p.textContent = lines.join("\n") || r.name || "See release notes on GitHub.";
-      li.append(time, strong, p);
+      if (r.name && r.name !== r.tag_name) {
+        const title = document.createElement("span");
+        title.className = "changelog-title";
+        title.textContent = ` · ${r.name}`;
+        strong.appendChild(title);
+      }
+      const body = document.createElement("div");
+      body.className = "changelog-body";
+      body.innerHTML = formatReleaseBody(r.body || r.name || "");
+      li.append(time, strong, body);
       tree.appendChild(li);
     });
     if (!tree.children.length) {
       tree.innerHTML =
-        '<li><strong><a href="https://github.com/Gtarafdar/porter/releases">Releases</a></strong><p>Could not load changelog. Open GitHub Releases.</p></li>';
+        '<li><strong><a href="https://github.com/Gtarafdar/porter/releases">Releases</a></strong><div class="changelog-body"><p>Could not load changelog. Open GitHub Releases.</p></div></li>';
     }
   }
 
@@ -210,15 +267,17 @@
     try {
       const [latestRes, listRes] = await Promise.all([
         fetch(`${API}/releases/latest`, { headers: { Accept: "application/vnd.github+json" } }),
-        fetch(`${API}/releases?per_page=12`, { headers: { Accept: "application/vnd.github+json" } }),
+        fetch(`${API}/releases?per_page=20`, { headers: { Accept: "application/vnd.github+json" } }),
       ]);
       if (!latestRes.ok) throw new Error("latest failed");
       const latest = await latestRes.json();
-      const list = listRes.ok ? await listRes.json() : [latest];
+      let list = listRes.ok ? await listRes.json() : [latest];
+      if (!Array.isArray(list)) list = [latest];
+      if (latest?.id && !list.some((r) => r.id === latest.id)) list = [latest, ...list];
       const dmg = pickAsset(latest.assets, "dmg");
       const zip = pickAsset(latest.assets, "zip");
       setDownloads(latest.tag_name || FALLBACK_TAG, dmg, zip);
-      renderChangelog(Array.isArray(list) ? list : [latest]);
+      renderChangelog(list);
     } catch {
       setDownloads(FALLBACK_TAG, FALLBACK_DMG, FALLBACK_ZIP);
       renderChangelog([
@@ -231,6 +290,126 @@
       ]);
     }
   }
+
+  /* How-to stack: two-way scroll reveal */
+  (function initHowtoStack() {
+    const stack = document.getElementById("howto-stack");
+    const stage = document.getElementById("howto-stage");
+    const cards = stage ? [...stage.querySelectorAll(".howto-card")] : [];
+    const dotsWrap = document.getElementById("howto-dots");
+    const currentEl = document.getElementById("howto-current");
+    const totalEl = document.getElementById("howto-total");
+    if (!stack || !stage || cards.length < 2) return;
+
+    const n = cards.length;
+    stack.style.setProperty("--steps", String(n));
+    if (totalEl) totalEl.textContent = String(n);
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const mobile = () => window.matchMedia("(max-width: 860px)").matches;
+
+    if (dotsWrap) {
+      dotsWrap.innerHTML = "";
+      cards.forEach((_, idx) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "howto-dot";
+        b.setAttribute("aria-label", `Go to step ${idx + 1}`);
+        b.addEventListener("click", () => {
+          if (mobile() || reduceMotion) {
+            cards[idx].scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
+            setActive(idx);
+            return;
+          }
+          const top = stack.offsetTop + (idx / Math.max(n - 1, 1)) * (stack.offsetHeight - window.innerHeight);
+          window.scrollTo({ top, behavior: reduceMotion ? "auto" : "smooth" });
+        });
+        dotsWrap.appendChild(b);
+      });
+    }
+
+    let active = 0;
+    function setActive(i) {
+      active = Math.max(0, Math.min(n - 1, i));
+      if (currentEl) currentEl.textContent = String(active + 1);
+      cards.forEach((c, idx) => c.classList.toggle("is-active", idx === active));
+      if (dotsWrap) {
+        [...dotsWrap.children].forEach((d, idx) => {
+          if (idx === active) d.setAttribute("aria-current", "true");
+          else d.removeAttribute("aria-current");
+        });
+      }
+    }
+
+    function paint(exact) {
+      cards.forEach((card, idx) => {
+        const d = idx - exact;
+        let y = 0;
+        let scale = 1;
+        let opacity = 1;
+        let z = 100 + idx;
+        if (d < 0) {
+          y = d * 18;
+          scale = Math.max(0.86, 1 + d * 0.045);
+          opacity = Math.max(0.25, 1 + d * 0.4);
+          z = 40 + idx;
+        } else if (d > 0) {
+          y = Math.min(110, 28 + d * 52);
+          scale = 1;
+          opacity = d > 0.95 ? 0 : Math.max(0, 1 - d * 0.75);
+          z = 200 - Math.floor(d * 20);
+        } else {
+          z = 300;
+        }
+        card.style.transform = `translate3d(0, ${y}px, 0) scale(${scale})`;
+        card.style.opacity = String(opacity);
+        card.style.zIndex = String(z);
+        card.style.pointerEvents = Math.abs(d) < 0.55 ? "auto" : "none";
+      });
+      setActive(Math.round(exact));
+    }
+
+    function update() {
+      if (reduceMotion || mobile()) {
+        cards.forEach((card) => {
+          card.style.transform = "";
+          card.style.opacity = "";
+          card.style.zIndex = "";
+          card.style.pointerEvents = "";
+        });
+        let nearest = 0;
+        let best = Infinity;
+        cards.forEach((card, idx) => {
+          const mid = Math.abs(card.getBoundingClientRect().top + card.offsetHeight / 2 - window.innerHeight / 2);
+          if (mid < best) {
+            best = mid;
+            nearest = idx;
+          }
+        });
+        setActive(nearest);
+        return;
+      }
+      const rect = stack.getBoundingClientRect();
+      const total = Math.max(1, stack.offsetHeight - window.innerHeight);
+      const scrolled = Math.min(Math.max(-rect.top, 0), total);
+      const p = scrolled / total;
+      paint(p * (n - 1));
+    }
+
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        update();
+        ticking = false;
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    update();
+  })();
 
   loadReleases();
 })();
