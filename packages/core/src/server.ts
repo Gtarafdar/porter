@@ -1036,6 +1036,41 @@ export async function startServer(opts?: {
     }
   });
 
+  /** Write an activity export to an absolute path chosen via the Mac Save panel. */
+  app.post("/api/activity/save", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    try {
+      const destPath = path.resolve(String(req.body.path ?? "").trim());
+      if (!destPath || destPath === path.sep) {
+        res.status(400).json({ error: "Save path required" });
+        return;
+      }
+      const q = typeof req.body.q === "string" ? req.body.q : undefined;
+      const okRaw = req.body.ok;
+      const ok =
+        okRaw === true || okRaw === "true"
+          ? true
+          : okRaw === false || okRaw === "false"
+            ? false
+            : null;
+      const format = req.body.format === "csv" ? "csv" : "json";
+      const ids = Array.isArray(req.body.ids)
+        ? (req.body.ids as unknown[]).map((x) => String(x)).filter(Boolean)
+        : undefined;
+      const exported = exportActivityEvents({
+        q,
+        ok,
+        ids: ids?.length ? ids : undefined,
+        format,
+      });
+      fs.mkdirSync(path.dirname(destPath), { recursive: true });
+      fs.writeFileSync(destPath, exported.body, { encoding: "utf8", mode: 0o600 });
+      res.json({ ok: true, path: destPath, count: exported.count, bytes: Buffer.byteLength(exported.body) });
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
   app.post("/api/kill", (req, res) => {
     if (!requireLocal(req, res)) return;
     appendActivity("kill_switch", "disconnect requested", true, "ui");

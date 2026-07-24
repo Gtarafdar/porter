@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import WebKit
 import QuartzCore
+import UniformTypeIdentifiers
 
 /// Native Mac window shell for Porter.
 /// Loads the existing Finder UI at http://127.0.0.1:47831 — does not replace the Node core.
@@ -156,6 +157,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             window.__porterPickFolderResolve = resolve;
             try {
               window.webkit.messageHandlers.porter.postMessage({ type: 'pickFolder' });
+            } catch (e) {
+              resolve(null);
+            }
+          });
+        };
+        window.__porterSaveFile = function (filename) {
+          return new Promise(function (resolve) {
+            window.__porterSaveFileResolve = resolve;
+            try {
+              window.webkit.messageHandlers.porter.postMessage({
+                type: 'saveFile',
+                filename: filename || 'porter-activity.json'
+              });
             } catch (e) {
               resolve(null);
             }
@@ -688,6 +702,18 @@ This is Gatekeeper — not a virus scan finding malware inside Porter.
                 self.presentFolderPicker { path in
                     self.deliverPickedPath(path)
                 }
+            } else if type == "saveFile" {
+                let suggested: String
+                if let dict = message.body as? [String: Any],
+                   let name = dict["filename"] as? String,
+                   !name.isEmpty {
+                    suggested = name
+                } else {
+                    suggested = "porter-activity.json"
+                }
+                self.presentSavePanel(suggestedName: suggested) { path in
+                    self.deliverSavedPath(path)
+                }
             }
         }
     }
@@ -701,6 +727,30 @@ This is Gatekeeper — not a virus scan finding malware inside Porter.
         panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
         panel.prompt = "Choose"
         panel.message = "Choose a folder Porter can share with Cursor and your other Macs"
+        panel.beginSheetModal(for: window) { response in
+            if response == .OK, let url = panel.url {
+                completion(url.path)
+            } else {
+                completion(nil)
+            }
+        }
+    }
+
+    private func presentSavePanel(suggestedName: String, completion: @escaping (String?) -> Void) {
+        let panel = NSSavePanel()
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
+        panel.nameFieldStringValue = suggestedName
+        panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser
+        panel.message = "Choose where to save the Activity export on this Mac"
+        panel.prompt = "Save"
+        let ext = (suggestedName as NSString).pathExtension.lowercased()
+        if ext == "csv" {
+            panel.allowedContentTypes = [.commaSeparatedText, .utf8PlainText]
+        } else if ext == "json" {
+            panel.allowedContentTypes = [.json, .utf8PlainText]
+        }
         panel.beginSheetModal(for: window) { response in
             if response == .OK, let url = panel.url {
                 completion(url.path)
@@ -726,6 +776,27 @@ This is Gatekeeper — not a virus scan finding malware inside Porter.
             window.__porterPickFolderResolve = null;
           }
           window.dispatchEvent(new CustomEvent('porter-folder-picked', { detail: p }));
+        })();
+        """
+        webView.evaluateJavaScript(js, completionHandler: nil)
+    }
+
+    private func deliverSavedPath(_ path: String?) {
+        let obj: [String: Any] = ["path": path ?? NSNull()]
+        guard let data = try? JSONSerialization.data(withJSONObject: obj, options: []),
+              let json = String(data: data, encoding: .utf8) else {
+            webView.evaluateJavaScript("window.__porterSaveFileResolve && window.__porterSaveFileResolve(null)")
+            return
+        }
+        let js = """
+        (function () {
+          var data = \(json);
+          var p = data.path;
+          if (typeof window.__porterSaveFileResolve === 'function') {
+            window.__porterSaveFileResolve(p);
+            window.__porterSaveFileResolve = null;
+          }
+          window.dispatchEvent(new CustomEvent('porter-file-saved', { detail: p }));
         })();
         """
         webView.evaluateJavaScript(js, completionHandler: nil)
