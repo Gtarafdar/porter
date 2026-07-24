@@ -925,6 +925,174 @@ input {
   border-left: 3px solid var(--danger);
 }
 
+.activity-view {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  padding: 20px 24px 16px;
+  overflow: hidden;
+}
+
+.activity-view-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.activity-view-header h2 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+
+.activity-view-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.activity-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+.activity-search {
+  flex: 1;
+  min-width: 180px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  font: inherit;
+}
+
+.activity-toolbar select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  font: inherit;
+}
+
+.activity-table-wrap {
+  flex: 1;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.activity-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.activity-table th,
+.activity-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.activity-table th {
+  position: sticky;
+  top: 0;
+  background: rgba(250, 247, 240, 0.95);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.activity-table tr.fail td:last-child {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.activity-table td.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 28px;
+}
+
+.activity-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.ctx-menu {
+  position: fixed;
+  z-index: 80;
+  min-width: 160px;
+  padding: 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 30px rgba(40, 30, 20, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ctx-menu button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ctx-menu button:hover {
+  background: var(--accent-soft);
+}
+
+.ctx-menu button.danger {
+  color: var(--danger);
+}
+
+.device.busy {
+  opacity: 0.7;
+}
+
+.connected-macs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.connected-mac-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.btn.danger-outline {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+}
+
 .device .meta {
   display: flex;
   flex-direction: column;

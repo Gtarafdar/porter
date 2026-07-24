@@ -108,13 +108,35 @@ export function App() {
   const [remoteFolders, setRemoteFolders] = useState<SharedFolder[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [settings, setSettings] = useState<DeviceSettings | null>(null);
-  const [activity, setActivity] = useState<ActivityEvent[]>([]);
+  const [activityPage, setActivityPage] = useState<{
+    events: ActivityEvent[];
+    total: number;
+    limit: number;
+    offset: number;
+  }>({ events: [], total: 0, limit: 50, offset: 0 });
+  const [activityQ, setActivityQ] = useState("");
+  const [activityOk, setActivityOk] = useState<"" | "true" | "false">("");
+  const [activityBusy, setActivityBusy] = useState(false);
   const [view, setView] = useState<"icons" | "list">("icons");
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showActivity, setShowActivity] = useState(false);
+  const [showActivityView, setShowActivityView] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("activity") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [deviceMenu, setDeviceMenu] = useState<{
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [reloadingDeviceId, setReloadingDeviceId] = useState<string | null>(null);
+  const [removeConfirm, setRemoveConfirm] = useState<DeviceInfo | null>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
   const [sharePath, setSharePath] = useState("");
   const [shareWrite, setShareWrite] = useState(false);
   const [nativePicker, setNativePicker] = useState(false);
@@ -188,16 +210,14 @@ export function App() {
   };
 
   const refreshMeta = useCallback(async () => {
-    const [d, f, s, a] = await Promise.all([
+    const [d, f, s] = await Promise.all([
       porter.devices(),
       porter.folders(),
       porter.device(),
-      porter.activity(),
     ]);
     setDevices(d);
     setFolders(f);
     setSettings(s);
-    setActivity(a);
     setPairToken(s.token);
     try {
       const n = await porter.network();
@@ -212,6 +232,96 @@ export function App() {
     }
     return { d, f, s };
   }, []);
+
+  const loadActivityPage = useCallback(
+    async (opts?: { offset?: number; q?: string; ok?: "" | "true" | "false" }) => {
+      setActivityBusy(true);
+      try {
+        const q = opts?.q ?? activityQ;
+        const ok = opts?.ok ?? activityOk;
+        const offset = opts?.offset ?? activityPage.offset;
+        const page = await porter.activity({
+          q: q.trim() || undefined,
+          ok: ok || undefined,
+          limit: activityPage.limit || 50,
+          offset,
+        });
+        setActivityPage(page);
+      } catch (e) {
+        setError(friendlyError(e instanceof Error ? e.message : String(e)));
+      } finally {
+        setActivityBusy(false);
+      }
+    },
+    [activityQ, activityOk, activityPage.offset, activityPage.limit],
+  );
+
+  const openActivityView = useCallback(() => {
+    setShowActivityView(true);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("activity", "1");
+      window.history.replaceState({}, "", url);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const closeActivityView = useCallback(() => {
+    setShowActivityView(false);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("activity");
+      window.history.replaceState({}, "", url);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const confirmRemoveDevice = useCallback((device: DeviceInfo) => {
+    setDeviceMenu(null);
+    setRemoveConfirm(device);
+  }, []);
+
+  const reloadDevice = useCallback(
+    async (deviceId: string) => {
+      setDeviceMenu(null);
+      setReloadingDeviceId(deviceId);
+      setError(null);
+      try {
+        const rf = await porter.folders(deviceId);
+        setRemoteFolders(rf);
+        await refreshMeta();
+        showToast("Device refreshed");
+      } catch (e) {
+        setError(friendlyError(e instanceof Error ? e.message : String(e)));
+      } finally {
+        setReloadingDeviceId(null);
+      }
+    },
+    [refreshMeta],
+  );
+
+  const doRemoveDevice = useCallback(async () => {
+    if (!removeConfirm) return;
+    setRemoveBusy(true);
+    try {
+      const result = await porter.removePeer(removeConfirm.id, { notifyRemote: true });
+      if (selectedDeviceId === removeConfirm.id) {
+        setSelectedDeviceId(null);
+        setRemoteFolders([]);
+        setLeft((pane) => (pane?.deviceId === removeConfirm.id ? null : pane));
+        setRight((pane) => (pane?.deviceId === removeConfirm.id ? null : pane));
+      }
+      setRemoveConfirm(null);
+      await refreshMeta();
+      showToast(result.detail);
+    } catch (e) {
+      setError(friendlyError(e instanceof Error ? e.message : String(e)));
+    } finally {
+      setRemoveBusy(false);
+    }
+  }, [removeConfirm, selectedDeviceId, refreshMeta]);
 
   const openFolder = useCallback(
     async (deviceId: string, folderPath: string, side: "left" | "right") => {
@@ -269,6 +379,19 @@ export function App() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!showActivityView) return;
+    void loadActivityPage({ offset: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showActivityView]);
+
+  useEffect(() => {
+    if (!deviceMenu) return;
+    const close = () => setDeviceMenu(null);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [deviceMenu]);
 
   async function runUpdateCheck(fromUser: boolean) {
     try {
@@ -671,7 +794,7 @@ export function App() {
             {settings?.sleeping ? <IconWake size={16} /> : <IconSleep size={16} />}
             {settings?.sleeping ? " Wake" : " Sleep"}
           </button>
-          <button className="btn" type="button" onClick={() => setShowActivity(true)}>
+          <button className="btn" type="button" onClick={() => openActivityView()}>
             <IconActivity size={16} /> Activity
           </button>
           <button
@@ -735,7 +858,14 @@ export function App() {
               <button
                 key={d.id}
                 type="button"
-                className={`device ${selectedDeviceId === d.id ? "active" : ""}`}
+                className={`device ${selectedDeviceId === d.id ? "active" : ""} ${
+                  reloadingDeviceId === d.id ? "busy" : ""
+                }`}
+                onContextMenu={(e) => {
+                  if (d.isLocal) return;
+                  e.preventDefault();
+                  setDeviceMenu({ id: d.id, x: e.clientX, y: e.clientY });
+                }}
                 onClick={() => {
                   setSelectedDeviceId(d.id);
                   if (d.isLocal) {
@@ -761,6 +891,7 @@ export function App() {
                   <span className={`dot ${d.online ? "" : "off"}`} />
                   {d.name}
                   {d.isLocal ? " (this Mac)" : ""}
+                  {reloadingDeviceId === d.id ? "…" : ""}
                 </span>
                 {(() => {
                   const p = pathLabel(d);
@@ -1127,6 +1258,46 @@ export function App() {
                     >
                       Need unattended travel? Open Travel Ready →
                     </button>
+                  </div>
+
+                  <div className="connect-block">
+                    <h3>Connected Macs</h3>
+                    <p className="connect-hint">
+                      Remove a Mac from this list anytime. If it’s online, Porter also asks it to drop
+                      this Mac. Pair token is unchanged — rotate it in Settings to fully revoke access.
+                    </p>
+                    {devices.filter((d) => !d.isLocal).length === 0 ? (
+                      <p className="fmeta">No other Macs connected yet.</p>
+                    ) : (
+                      <div className="connected-macs">
+                        {devices
+                          .filter((d) => !d.isLocal)
+                          .map((d) => {
+                            const p = pathLabel(d);
+                            return (
+                              <div className="connected-mac-row" key={d.id}>
+                                <div>
+                                  <strong>
+                                    <span className={`dot ${d.online ? "" : "off"}`} /> {d.name}
+                                  </strong>
+                                  <div className="fmeta">
+                                    {d.online ? "Online" : "Offline"} ·{" "}
+                                    <span className={`path-badge path-${p.kind}`}>{p.badge}</span>{" "}
+                                    {p.detail}
+                                  </div>
+                                </div>
+                                <button
+                                  className="btn danger-outline"
+                                  type="button"
+                                  onClick={() => confirmRemoveDevice(d)}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
                   </div>
 
                   <div className="connect-block">
@@ -1538,39 +1709,182 @@ export function App() {
         </div>
       )}
 
-      {showActivity && (
-        <div className="modal-backdrop" onClick={() => setShowActivity(false)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <h2>Activity & timing</h2>
+      {deviceMenu && (
+        <div
+          className="ctx-menu"
+          style={{ left: deviceMenu.x, top: deviceMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => void reloadDevice(deviceMenu.id)}
+            disabled={reloadingDeviceId === deviceMenu.id}
+          >
+            Reload
+          </button>
+          <button
+            type="button"
+            className="danger"
+            onClick={() => {
+              const d = devices.find((x) => x.id === deviceMenu.id);
+              if (d) confirmRemoveDevice(d);
+            }}
+          >
+            Remove Mac…
+          </button>
+        </div>
+      )}
+
+      {removeConfirm && (
+        <div className="modal-backdrop" onClick={() => !removeBusy && setRemoveConfirm(null)}>
+          <div className="sheet" style={{ width: "min(420px, 100%)" }} onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ marginTop: 0 }}>Remove {removeConfirm.name}?</h2>
             <p>
-              Transfers, Cursor/MCP calls, and errors — with how long each took and which link was
-              used when known.
+              Removes it from <strong>this</strong> Mac’s device list. If reachable, Porter also asks
+              the other Mac to drop <strong>this</strong> Mac. Pair token is unchanged — rotate token
+              in Settings to fully revoke access.
             </p>
-            <div className="activity">
-              {activity.length === 0 && <div className="empty">No events yet</div>}
-              {activity.map((a) => (
-                <div key={a.id} className={`item ${a.ok ? "" : "fail"}`}>
-                  <strong>{a.humanMessage || a.action}</strong>
-                  <div className="fmeta">
-                    {a.source || "local"}
-                    {a.via ? ` · ${a.via}` : ""}
-                    {a.ok ? " · ok" : " · failed"}
-                    {typeof a.durationMs === "number" ? ` · ${a.durationMs} ms` : ""}
-                    {typeof a.mbps === "number" ? ` · ${a.mbps} Mbps` : ""}
-                    {typeof a.bytes === "number" ? ` · ${formatBytes(a.bytes)}` : ""}
-                  </div>
-                  {a.humanMessage && a.detail !== a.humanMessage ? (
-                    <div className="fmeta">{a.detail}</div>
-                  ) : !a.humanMessage ? (
-                    <div>{a.detail}</div>
-                  ) : null}
-                  <div style={{ color: "var(--muted)" }}>{new Date(a.at).toLocaleString()}</div>
-                </div>
-              ))}
-            </div>
             <div className="row">
-              <button className="btn" type="button" onClick={() => setShowActivity(false)}>
-                Close
+              <button
+                className="btn"
+                type="button"
+                disabled={removeBusy}
+                onClick={() => setRemoveConfirm(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn danger"
+                type="button"
+                disabled={removeBusy}
+                onClick={() => void doRemoveDevice()}
+              >
+                {removeBusy ? "Removing…" : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showActivityView && (
+        <div className="activity-view">
+          <div className="activity-view-header">
+            <div>
+              <h2>Activity</h2>
+              <p>Transfers, pairing, Cursor/MCP calls, and errors — with timing when known.</p>
+            </div>
+            <button className="btn" type="button" onClick={() => closeActivityView()}>
+              Back to Finder
+            </button>
+          </div>
+          <div className="activity-toolbar">
+            <input
+              className="activity-search"
+              value={activityQ}
+              onChange={(e) => setActivityQ(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void loadActivityPage({ offset: 0, q: activityQ });
+              }}
+              placeholder="Search action, detail, source…"
+            />
+            <select
+              value={activityOk}
+              onChange={(e) => {
+                const next = e.target.value as "" | "true" | "false";
+                setActivityOk(next);
+                void loadActivityPage({ offset: 0, ok: next });
+              }}
+            >
+              <option value="">All</option>
+              <option value="true">OK</option>
+              <option value="false">Failed</option>
+            </select>
+            <button
+              className="btn"
+              type="button"
+              disabled={activityBusy}
+              onClick={() => void loadActivityPage({ offset: activityPage.offset })}
+            >
+              {activityBusy ? "Loading…" : "Refresh"}
+            </button>
+          </div>
+          <div className="activity-table-wrap">
+            <table className="activity-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Action</th>
+                  <th>Detail</th>
+                  <th>Source</th>
+                  <th>Via</th>
+                  <th>Duration</th>
+                  <th>Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activityPage.events.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="empty">
+                      {activityBusy ? "Loading…" : "No events yet"}
+                    </td>
+                  </tr>
+                )}
+                {activityPage.events.map((a) => (
+                  <tr key={a.id} className={a.ok ? "" : "fail"}>
+                    <td>{new Date(a.at).toLocaleString()}</td>
+                    <td>{a.action}</td>
+                    <td title={a.detail}>{a.humanMessage || a.detail}</td>
+                    <td>{a.source || "—"}</td>
+                    <td>{a.via || "—"}</td>
+                    <td>
+                      {typeof a.durationMs === "number"
+                        ? a.durationMs >= 1000
+                          ? `${(a.durationMs / 1000).toFixed(1)}s`
+                          : `${a.durationMs}ms`
+                        : "—"}
+                    </td>
+                    <td>{a.ok ? "OK" : "Failed"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="activity-pager">
+            <span>
+              {activityPage.total === 0
+                ? "Showing 0 of 0"
+                : `Showing ${activityPage.offset + 1}–${Math.min(
+                    activityPage.offset + activityPage.events.length,
+                    activityPage.total,
+                  )} of ${activityPage.total}`}
+            </span>
+            <div className="row" style={{ marginTop: 0 }}>
+              <button
+                className="btn"
+                type="button"
+                disabled={activityBusy || activityPage.offset <= 0}
+                onClick={() =>
+                  void loadActivityPage({
+                    offset: Math.max(0, activityPage.offset - activityPage.limit),
+                  })
+                }
+              >
+                Previous
+              </button>
+              <button
+                className="btn"
+                type="button"
+                disabled={
+                  activityBusy ||
+                  activityPage.offset + activityPage.limit >= activityPage.total
+                }
+                onClick={() =>
+                  void loadActivityPage({
+                    offset: activityPage.offset + activityPage.limit,
+                  })
+                }
+              >
+                Next
               </button>
             </div>
           </div>

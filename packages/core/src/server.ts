@@ -8,8 +8,8 @@ import {
   addSharedFolder,
   appendActivity,
   humanError,
-  loadActivity,
   loadConfig,
+  queryActivity,
   removeSharedFolder,
   saveConfig,
 } from "./config.js";
@@ -19,16 +19,25 @@ import {
   readFileLimited,
   searchFiles,
 } from "./files.js";
-import { listDevices, localLanHint, networkInfo, startDiscovery, hydrateManualPeers, refreshPeerHealth } from "./discovery.js";
+import {
+  listDevices,
+  localLanHint,
+  networkInfo,
+  startDiscovery,
+  hydrateManualPeers,
+  refreshPeerHealth,
+} from "./discovery.js";
 import {
   addPeerByAddress,
   authorizePeer,
+  forgetRemoteCaller,
   remoteDownloadToLocal,
   remoteListDirectory,
   remoteListFolders,
   remoteReadFile,
   remoteSearch,
   remoteUploadFromLocal,
+  removePeer,
   setSharedToken,
 } from "./peer.js";
 import {
@@ -664,6 +673,62 @@ export async function startServer(opts?: {
     }
   });
 
+  app.delete("/api/peers/:deviceId", async (req, res) => {
+    if (!isLocalRequest(req)) {
+      res.status(403).json({ error: "Removing peers is local only" });
+      return;
+    }
+    try {
+      const deviceId = String(req.params.deviceId ?? "").trim();
+      if (!deviceId) {
+        res.status(400).json({ error: "deviceId required" });
+        return;
+      }
+      const notifyRemote =
+        req.body?.notifyRemote === undefined
+          ? true
+          : Boolean(req.body.notifyRemote);
+      const result = await removePeer(deviceId, { notifyRemote });
+      res.json(result);
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  // authorizePeer may briefly noteSeen the caller — remove+forget after.
+  app.post("/api/peers/forget-remote", (req, res) => {
+    const peerId = String(req.header("x-porter-device") ?? "").trim();
+    // Local UI never uses this; remote peers are already authorized by middleware.
+    // Re-check so localhost callers with headers still work in tests.
+    if (isLocalRequest(req)) {
+      const authOk = authorizePeer(
+        req.header("authorization") ?? undefined,
+        peerId || undefined,
+        req.header("x-porter-pair") ?? undefined,
+      );
+      if (!authOk) {
+        res.status(401).json({
+          error: "Unauthorized peer. Pair devices with the same secret token.",
+        });
+        return;
+      }
+    }
+    if (!peerId) {
+      res.status(400).json({ error: "X-Porter-Device required" });
+      return;
+    }
+    try {
+      const result = forgetRemoteCaller(peerId);
+      appendActivity("peer_remove", `Forgot peer ${peerId} (remote request)`, true, "peer", {
+        humanMessage: "Removed a Mac after it asked (two-way remove)",
+        durationMs: 1,
+      });
+      res.json(result);
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
   /** One-way sync: mirror a local approved folder onto a remote write-enabled path. */
   app.post("/api/sync/one-way", async (req, res) => {
     if (!isLocalRequest(req)) {
@@ -884,7 +949,20 @@ export async function startServer(opts?: {
 
   app.get("/api/activity", (req, res) => {
     if (!requireLocal(req, res)) return;
-    res.json(loadActivity());
+    const q = typeof req.query.q === "string" ? req.query.q : undefined;
+    const okRaw = typeof req.query.ok === "string" ? req.query.ok : undefined;
+    const ok =
+      okRaw === "true" ? true : okRaw === "false" ? false : null;
+    const limit = req.query.limit != null ? Number(req.query.limit) : 50;
+    const offset = req.query.offset != null ? Number(req.query.offset) : 0;
+    res.json(
+      queryActivity({
+        q,
+        ok,
+        limit: Number.isFinite(limit) ? limit : 50,
+        offset: Number.isFinite(offset) ? offset : 0,
+      }),
+    );
   });
 
   app.post("/api/kill", (req, res) => {

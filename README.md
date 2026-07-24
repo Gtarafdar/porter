@@ -8,9 +8,9 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 
 Pick your Mac chip. Prefer the **DMG** (drag Porter → Applications). Zip is for in-app updates / CI:
 
-> **Apple Silicon only (M1/M2/M3/M4):** [⬇ Porter-0.2.30-mac-arm64.dmg](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.30-mac-arm64.dmg) · [zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.30-mac-arm64.zip)  
+> **Apple Silicon only (M1/M2/M3/M4):** [⬇ Porter-0.2.31-mac-arm64.dmg](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.31-mac-arm64.dmg) · [zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.31-mac-arm64.zip)  
 > **Intel Mac:** not in this release — use an older [Intel build](https://github.com/Gtarafdar/porter/releases) or ask for a rebuild.  
-> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.30 · [All releases](https://github.com/Gtarafdar/porter/releases)
+> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.31 · [All releases](https://github.com/Gtarafdar/porter/releases)
 
 Not sure which chip?  menu → About This Mac → look for “Chip” (Apple) or “Processor” (Intel).
 
@@ -29,6 +29,14 @@ Not sure which chip?  menu → About This Mac → look for “Chip” (Apple)
 **Chrome:** Everyday file copy never requires quitting Chrome. Optional Chrome-extension sync only: quit Chrome → share/copy folders → reopen (see [CHROME.md](CHROME.md)).
 
 **Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Chrome extensions:** [CHROME.md](CHROME.md) · **Roadmap:** [PLAN.md](PLAN.md)
+
+## What’s new in 0.2.31
+
+- **Remove Mac** from the Devices list (right‑click or Settings → Connected Macs), with a clear confirm warning
+- Two-way remove when the other Mac is online; offline → local remove + warning (pair token unchanged)
+- Soft-forget so removed Macs don’t immediately reappear until you Add Mac again
+- **Activity** is a full in-app view (`/?activity=1`) with search, OK/Failed filter, timing columns, and AJAX pagination — uses Porter.app’s real traffic lights
+- Builds on 0.2.30 Remote Login break-glass
 
 ## What’s new in 0.2.30
 

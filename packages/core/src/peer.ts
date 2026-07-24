@@ -1,4 +1,14 @@
 import type { DeviceInfo, FileEntry, SearchHit, SharedFolder } from "@porter/protocol";
+import fs from "node:fs";
+import path from "node:path";
+import {
+  appendActivity,
+  forgetDeviceId,
+  humanError,
+  loadConfig,
+  saveConfig,
+  sanitizePeerBody,
+} from "./config.js";
 import {
   getDevice,
   listDevices,
@@ -6,17 +16,9 @@ import {
   networkInfo,
   noteSeenPeer,
   registerManualPeer,
+  removeManualPeer,
   updatePeerActivePath,
 } from "./discovery.js";
-import fs from "node:fs";
-import path from "node:path";
-import {
-  appendActivity,
-  humanError,
-  loadConfig,
-  saveConfig,
-  sanitizePeerBody,
-} from "./config.js";
 
 /** Resolve http(s) base for a peer (LAN / Tailscale / Cloudflare). */
 export function deviceBaseUrl(device: DeviceInfo): string {
@@ -386,6 +388,72 @@ export async function addPeerByAddress(
     },
   );
   return device;
+}
+
+export async function removePeer(
+  deviceId: string,
+  opts?: { notifyRemote?: boolean },
+): Promise<{ ok: true; notified: boolean; detail: string }> {
+  const started = performance.now();
+  const device = getDevice(deviceId);
+  if (!device || device.isLocal) {
+    throw new Error("Device not found");
+  }
+  const notifyRemote = opts?.notifyRemote !== false;
+  let notified = false;
+
+  if (notifyRemote) {
+    try {
+      const res = await peerFetch(device, "/api/peers/forget-remote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      if (res.ok) notified = true;
+    } catch {
+      notified = false;
+    }
+  }
+
+  const removed = removeManualPeer(deviceId);
+  if (!removed) {
+    throw new Error("Device not found");
+  }
+
+  const durationMs = Math.max(1, Math.round(performance.now() - started));
+  const via = device.activeVia || (device.via !== "local" ? device.via : undefined);
+  let detail: string;
+  if (notified) {
+    detail = `Removed ${device.name} here and on the other Mac`;
+  } else if (notifyRemote) {
+    detail = `Removed ${device.name} here; other Mac offline — still listed there until they remove or you rotate the pair token.`;
+  } else {
+    detail = `Removed ${device.name} from this Mac only`;
+  }
+
+  appendActivity("peer_remove", `${device.name} (${deviceId})`, true, "ui", {
+    durationMs,
+    humanMessage: detail,
+    via,
+  });
+
+  return { ok: true, notified, detail };
+}
+
+/**
+ * Drop the calling peer from this Mac’s device list (best-effort two-way remove).
+ */
+export function forgetRemoteCaller(peerId: string): { ok: true; removed: boolean } {
+  if (!peerId) throw new Error("peer device id required");
+  const config = loadConfig();
+  if (peerId === config.deviceId) {
+    throw new Error("Cannot forget this Mac");
+  }
+  const removed = Boolean(removeManualPeer(peerId));
+  if (!removed) {
+    forgetDeviceId(peerId);
+  }
+  return { ok: true, removed };
 }
 
 export function authorizePeer(
