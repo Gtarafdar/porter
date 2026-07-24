@@ -892,7 +892,8 @@ export async function startServer(opts?: {
   maybeStartPreventSleep();
   maybeRepairKeepAlivePaths();
   // Away-mode: prefer Tailscale Serve; Cloudflare only if user opted into autoStartTunnel.
-  // Defer Serve: execFileSync Tailscale must not block HTTP accept /api/health (keep-alive).
+  // Defer Serve by a couple seconds so /api/health and the UI stay responsive first
+  // (execFileSync Tailscale would otherwise freeze the event loop on the next tick).
   const away = loadConfig().awayMode;
   if (away?.enabled && away.preferTailscaleServe !== false) {
     setTimeout(() => {
@@ -901,7 +902,7 @@ export async function startServer(opts?: {
       } catch {
         // non-fatal — Travel Ready / Set & forget can retry
       }
-    }, 0);
+    }, 2500);
   }
   void maybeAutoStartTunnel(config.port);
   return { port: config.port };
