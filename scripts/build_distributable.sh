@@ -67,11 +67,33 @@ download_cloudflared() {
 }
 
 echo "==> Building native Mac window (WKWebView shell)"
-(
+SWIFT_BIN=""
+# Prefer SwiftPM when a full Xcode/platform path is available; otherwise compile with swiftc + CLT SDK.
+if (
   cd apps/mac-window
   swift build -c release
-)
-SWIFT_BIN="$(cd apps/mac-window && swift build -c release --show-bin-path)/PorterWindow"
+) 2>/tmp/porter-swift-build.err; then
+  SWIFT_BIN="$(cd apps/mac-window && swift build -c release --show-bin-path)/PorterWindow"
+else
+  echo "==> swift build unavailable (Command Line Tools / missing PlatformPath) — using swiftc"
+  cat /tmp/porter-swift-build.err | tail -5 || true
+  SDKROOT="${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || echo /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk)}"
+  HOST_M="$(uname -m)"
+  TARGET_TRIPLE="arm64-apple-macos13.0"
+  [[ "${HOST_M}" == "x86_64" ]] && TARGET_TRIPLE="x86_64-apple-macos13.0"
+  mkdir -p apps/mac-window/.build/release
+  SWIFT_BIN="${ROOT}/apps/mac-window/.build/release/PorterWindow"
+  /usr/bin/swiftc -parse-as-library -sdk "${SDKROOT}" -target "${TARGET_TRIPLE}" -O \
+    -framework AppKit -framework WebKit -framework QuartzCore -framework Foundation \
+    -o "${SWIFT_BIN}" \
+    apps/mac-window/Sources/PorterWindow/*.swift
+fi
+if [[ ! -x "${SWIFT_BIN}" ]]; then
+  echo "error: PorterWindow binary missing at ${SWIFT_BIN}" >&2
+  echo "Install Xcode (or working Command Line Tools) and re-run packaging." >&2
+  exit 1
+fi
+echo "==> Window binary: ${SWIFT_BIN}"
 
 # Shared production node_modules (built once, copied per arch)
 STAGE_APP="${OUT}/_stage_app"
@@ -200,8 +222,7 @@ health_ok() {
 }
 
 health_version() {
-  curl -sf -m 12 --connect-timeout 2 "http://127.0.0.1:47831/api/health" 2>/dev/null \\
-    | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' | head -1
+  curl -sf -m 12 --connect-timeout 2 "http://127.0.0.1:47831/api/health" 2>/dev/null | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1
 }
 
 WANT_VER="$(cat "${RES}/VERSION" 2>/dev/null || echo unknown)"
@@ -209,7 +230,7 @@ WANT_VER="$(cat "${RES}/VERSION" 2>/dev/null || echo unknown)"
 if health_ok; then
   HAVE_VER="$(health_version)"
   if [[ -n "$HAVE_VER" && "$HAVE_VER" != "$WANT_VER" ]]; then
-    log "healthy but version mismatch have=\${HAVE_VER} want=\${WANT_VER} — taking over"
+    log "healthy but version mismatch have=${HAVE_VER} want=${WANT_VER} — taking over"
     pkill -f 'packages/core/dist/cli.js serve' 2>/dev/null || true
     pkill -f 'Porter.app/Contents/Resources/node' 2>/dev/null || true
     sleep 0.6
@@ -304,29 +325,32 @@ PLIST
 Porter ${VERSION} — ${chip_label}
 ==========================================
 
-Install:
+Preferred install (DMG):
+1. Open Porter-${VERSION}-mac-${arch}.dmg
+2. Drag Porter → Applications
+3. Eject the disk image
+4. Open Porter from Applications (FIRST TIME: right-click → Open → Open)
+5. Inside Porter: use “Choose folder…” (Finder picker) — no typing paths
+
+Zip install (in-app updates / CI):
 1. Unzip this archive
 2. Drag Porter.app to Applications (required — do not open from Downloads)
 3. FIRST OPEN: right-click Porter.app → Open → Open
-   (macOS shows a malware warning because Porter is not paid Apple-notarized.
-    Right-click → Open is the normal fix for free/local apps.)
-4. If blocked again: System Settings → Privacy & Security → scroll to
-   “Porter was blocked…” → Open Anyway
-5. Inside Porter: use “Choose folder…” (Finder picker) — no typing paths
+
+Gatekeeper (not Apple-notarized):
+- macOS may show a malware warning — right-click → Open is the normal fix
+- If blocked again: System Settings → Privacy & Security → Open Anyway
+- Or once in Terminal:
+  xattr -dr com.apple.quarantine /Applications/Porter.app
 
 Share a folder: Share folder → Choose folder… → Approve
 
-If Mac says “malware” / “can’t be opened”:
-- Do NOT delete the app — use right-click → Open
-- Or run (once) in Terminal:
-  xattr -dr com.apple.quarantine /Applications/Porter.app
-
 If you see libuv / Homebrew errors: you have an old broken build.
-Delete Porter.app and download 0.2.6+ again.
+Delete Porter.app and download 0.2.7+ again.
 
-Wrong chip? This zip is for ${chip_label} only.
-Apple Silicon: Porter-*-mac-arm64.zip
-Intel:         Porter-*-mac-x64.zip
+Wrong chip? This build is for ${chip_label} only.
+Apple Silicon: Porter-*-mac-arm64.dmg / .zip
+Intel:         Porter-*-mac-x64.dmg / .zip
 
 Travel: Travel Ready → Set & forget (cloudflared bundled). Tailscale optional.
 Logs: ~/Library/Logs/Porter/porter.log
@@ -336,7 +360,7 @@ TXT
   codesign --force --deep --sign - "${app_dir}" 2>/dev/null || true
   touch "${app_dir}"
 
-  # Zip as Porter.app (standard name inside archive)
+  # Zip as Porter.app (standard name inside archive) — kept for in-app updater
   local stage_zip="${OUT}/_zip_${arch}"
   rm -rf "${stage_zip}"
   mkdir -p "${stage_zip}"
@@ -349,19 +373,32 @@ TXT
   )
   rm -rf "${stage_zip}"
 
-  local size app_size
+  # Cursor-style DMG (primary GitHub download)
+  local dmg="${OUT}/Porter-${VERSION}-mac-${arch}.dmg"
+  local stage_app="${OUT}/_dmg_app_${arch}"
+  rm -rf "${stage_app}"
+  mkdir -p "${stage_app}"
+  cp -R "${app_dir}" "${stage_app}/Porter.app"
+  bash "${ROOT}/scripts/build_dmg.sh" "${stage_app}/Porter.app" "${dmg}" "${VERSION}" "${arch}"
+  rm -rf "${stage_app}"
+
+  local size app_size dmg_size
   size="$(du -sh "${zip}" | awk '{print $1}')"
+  dmg_size="$(du -sh "${dmg}" | awk '{print $1}')"
   app_size="$(du -sh "${app_dir}" | awk '{print $1}')"
   echo "Built: ${app_dir} (${app_size})"
-  echo "Share: ${zip} (${size})"
+  echo "DMG:   ${dmg} (${dmg_size})"
+  echo "Zip:   ${zip} (${size})"
 
-  # Convenience: host-arch app as Porter.app + generic zip name
+  # Convenience: host-arch app as Porter.app + generic zip/dmg names
   if [[ "${arch}" == "${HOST_ARCH}" ]]; then
     rm -rf "${OUT}/Porter.app"
     cp -R "${app_dir}" "${OUT}/Porter.app"
     cp "${OUT}/HOW-TO-INSTALL-${arch}.txt" "${OUT}/HOW-TO-INSTALL.txt"
     rm -f "${OUT}/Porter-${VERSION}-mac.zip"
     cp "${zip}" "${OUT}/Porter-${VERSION}-mac.zip"
+    rm -f "${OUT}/Porter-${VERSION}-mac.dmg"
+    cp "${dmg}" "${OUT}/Porter-${VERSION}-mac.dmg"
   fi
 }
 
@@ -378,7 +415,7 @@ done
 rm -rf "${OUT}/_stage_app"
 
 echo ""
-echo "Done. Prefer arch-specific zips (smaller):"
-ls -lh "${OUT}"/Porter-${VERSION}-mac*.zip 2>/dev/null || true
+echo "Done. Prefer DMG for new installs; zip for in-app updates:"
+ls -lh "${OUT}"/Porter-${VERSION}-mac*.{dmg,zip} 2>/dev/null || true
 echo "Open host build:  open \"${OUT}/Porter.app\""
 echo "Tip: first open may need right-click → Open (not Apple notarized)"

@@ -6,20 +6,20 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 
 ## Download (Mac — no git)
 
-Pick your Mac chip (smaller downloads — about half the old universal zip):
+Pick your Mac chip. Prefer the **DMG** (drag Porter → Applications). Zip is for in-app updates / CI:
 
-> **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.27-mac-arm64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.27-mac-arm64.zip)  
-> **Intel Mac:** arm64-only for 0.2.27 — use an older [Intel release](https://github.com/Gtarafdar/porter/releases) until the next x64 build, or ask for a rebuild.  
-> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.27 · [All releases](https://github.com/Gtarafdar/porter/releases)
+> **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.28-mac-arm64.dmg](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.28-mac-arm64.dmg) · [zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.28-mac-arm64.zip)  
+> **Intel Mac:** arm64-only for 0.2.28 — use an older [Intel release](https://github.com/Gtarafdar/porter/releases) until the next x64 build, or ask for a rebuild.  
+> Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.28 · [All releases](https://github.com/Gtarafdar/porter/releases)
 
 Not sure which chip?  menu → About This Mac → look for “Chip” (Apple) or “Processor” (Intel).
 
-1. Unzip → drag **Porter.app** to **Applications** (important — don’t open from Downloads)
-2. **First open:** right‑click → **Open** → Open (macOS warns because Porter is not paid Apple-notarized — this is normal for free local apps)
+1. Open the **DMG** → drag **Porter** to **Applications** → eject the disk image
+2. Open Porter from **Applications** (FIRST TIME: right‑click → **Open** → Open — not notarized, normal for free local apps)
 3. If still blocked: System Settings → Privacy & Security → **Open Anyway**
 4. Share folders with **Choose folder…** (Finder picker) — no typing paths
 5. Travel: **Travel Ready → Set & forget** (Tailscale required; enable Tailscale SSH before you leave). Cloudflare Quick Tunnel optional under Advanced.
-6. Later updates: **Settings → This Mac → Check for updates** (or Help → Check for Updates) — installs from GitHub and relaunches.
+6. Later updates: **Settings → This Mac → Check for updates** (or Help → Check for Updates) — installs the **zip** from GitHub and relaunches.
 
 **Bundled:** Node + native Mac window + Finder UI + `cloudflared` (for that chip only)  
 **Not bundled:** Tailscale
@@ -27,6 +27,13 @@ Not sure which chip?  menu → About This Mac → look for “Chip” (Apple)
 **Chrome:** Everyday file copy never requires quitting Chrome. Optional Chrome-extension sync only: quit Chrome → share/copy folders → reopen (see [CHROME.md](CHROME.md)).
 
 **Security:** [SECURITY.md](SECURITY.md) · **Connect / travel:** [CONNECTING.md](CONNECTING.md) · **Chrome extensions:** [CHROME.md](CHROME.md) · **Roadmap:** [PLAN.md](PLAN.md)
+
+## What’s new in 0.2.28
+
+- Native animated splash while the local engine starts (real phase labels; respects Reduce Motion)
+- App Translocation warning includes **Open Applications** so the fix is one click away
+- Primary download is a Cursor-style **DMG** (drag Porter → Applications); zip kept for in-app updates
+- Builds on 0.2.27 GitHub-token update checks
 
 ## What’s new in 0.2.27
 
