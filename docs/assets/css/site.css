@@ -1101,7 +1101,7 @@ a.btn-primary:visited,
   border: none;
   padding: 12px;
   margin: 0;
-  background: rgba(0, 0, 0, 0.28);
+  background: #12161d;
   cursor: zoom-in;
   display: grid;
   place-items: center;
