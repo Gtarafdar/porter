@@ -99,20 +99,24 @@
   const lightbox = document.getElementById("lightbox");
   const lightboxImg = document.getElementById("lightbox-img");
   const lightboxClose = document.getElementById("lightbox-close");
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function openLightbox(src, alt) {
+    if (!src || !lightbox || !lightboxImg) return;
+    lightboxImg.src = src;
+    lightboxImg.alt = alt || "Screenshot";
+    lightbox.classList.add("open");
+  }
 
   function closeLightbox() {
     lightbox?.classList.remove("open");
     if (lightboxImg) lightboxImg.src = "";
   }
 
-  document.querySelectorAll(".shot, .howto-shot[data-full]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const src = btn.getAttribute("data-full");
-      if (!src || !lightbox || !lightboxImg) return;
-      lightboxImg.src = src;
-      lightboxImg.alt = btn.querySelector("img")?.alt || "Screenshot";
-      lightbox.classList.add("open");
-    });
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest?.(".shot[data-full], .howto-shot[data-full]");
+    if (!btn) return;
+    openLightbox(btn.getAttribute("data-full"), btn.querySelector("img")?.alt || "Screenshot");
   });
   lightboxClose?.addEventListener("click", closeLightbox);
   lightbox?.addEventListener("click", (e) => {
@@ -122,8 +126,212 @@
     if (e.key === "Escape") closeLightbox();
   });
 
+  /* Gallery auto carousel (seamless loop, pauses on interaction) */
+  (function initFilmstripCarousel() {
+    const strip = document.getElementById("filmstrip");
+    if (!strip || reduce || strip.dataset.autoplay !== "true") return;
+
+    const originals = [...strip.querySelectorAll(":scope > .shot")];
+    if (originals.length < 2) return;
+
+    originals.forEach((node) => {
+      const clone = node.cloneNode(true);
+      clone.setAttribute("aria-hidden", "true");
+      clone.tabIndex = -1;
+      clone.removeAttribute("aria-label");
+      const img = clone.querySelector("img");
+      if (img) {
+        img.loading = "lazy";
+        img.decoding = "async";
+        img.setAttribute("aria-hidden", "true");
+      }
+      strip.appendChild(clone);
+    });
+
+    strip.classList.add("filmstrip--loop");
+
+    let last = 0;
+    let visible = true;
+    let resumeTimer = 0;
+    let hovering = false;
+    let focusing = false;
+    let interacting = false;
+    let autoplaying = false;
+    let programmatic = false;
+    const speed = 0.38; // ~23px/s — calm, readable
+    let loopWidth = 0;
+    let carry = 0;
+
+    function measure() {
+      const firstClone = strip.children[originals.length];
+      if (!firstClone) {
+        loopWidth = 0;
+        return;
+      }
+      // Distance from start of first original to start of first clone (= one full set + gaps)
+      loopWidth = firstClone.offsetLeft - strip.children[0].offsetLeft;
+    }
+
+    function setAutoplaying(on) {
+      if (autoplaying === on) return;
+      autoplaying = on;
+      strip.classList.toggle("is-autoplaying", on);
+    }
+
+    function shouldRun() {
+      return (
+        visible &&
+        !hovering &&
+        !focusing &&
+        !interacting &&
+        !lightbox?.classList.contains("open")
+      );
+    }
+
+    function clearResume() {
+      if (resumeTimer) {
+        clearTimeout(resumeTimer);
+        resumeTimer = 0;
+      }
+    }
+
+    function softPause() {
+      interacting = true;
+      setAutoplaying(false);
+      clearResume();
+      last = 0;
+      carry = 0;
+    }
+
+    function resumeSoon(ms = 3800) {
+      interacting = true;
+      setAutoplaying(false);
+      clearResume();
+      resumeTimer = setTimeout(() => {
+        interacting = false;
+        last = 0;
+        carry = 0;
+      }, ms);
+    }
+
+    function tick(now) {
+      requestAnimationFrame(tick);
+      if (!shouldRun()) {
+        setAutoplaying(false);
+        last = 0;
+        carry = 0;
+        return;
+      }
+      if (!last) {
+        last = now;
+        setAutoplaying(true);
+        return;
+      }
+      const dt = Math.min(40, now - last);
+      last = now;
+      if (!loopWidth) measure();
+      if (loopWidth <= 0) return;
+
+      setAutoplaying(true);
+      carry += speed * dt;
+      if (carry < 1) return;
+      const step = carry | 0;
+      carry -= step;
+      programmatic = true;
+      strip.scrollLeft += step;
+      if (strip.scrollLeft >= loopWidth - 0.5) {
+        strip.scrollLeft -= loopWidth;
+      }
+      programmatic = false;
+    }
+
+    measure();
+    window.addEventListener("load", measure, { once: true });
+    window.addEventListener(
+      "resize",
+      () => {
+        const ratio = loopWidth > 0 ? strip.scrollLeft / loopWidth : 0;
+        measure();
+        if (loopWidth > 0) {
+          programmatic = true;
+          strip.scrollLeft = (ratio % 1) * loopWidth;
+          programmatic = false;
+        }
+      },
+      { passive: true },
+    );
+
+    strip.addEventListener(
+      "scroll",
+      () => {
+        // Ignore our own autoplay / resize writes (scroll can fire async)
+        if (autoplaying || programmatic) return;
+        resumeSoon();
+      },
+      { passive: true },
+    );
+
+    strip.addEventListener("pointerenter", () => {
+      hovering = true;
+      setAutoplaying(false);
+      last = 0;
+    });
+    strip.addEventListener("pointerleave", () => {
+      hovering = false;
+      last = 0;
+    });
+    strip.addEventListener("focusin", () => {
+      focusing = true;
+      setAutoplaying(false);
+      last = 0;
+    });
+    strip.addEventListener("focusout", (e) => {
+      if (!strip.contains(e.relatedTarget)) focusing = false;
+    });
+    strip.addEventListener("wheel", () => resumeSoon(), { passive: true });
+    strip.addEventListener("touchstart", () => softPause(), { passive: true });
+    strip.addEventListener("touchend", () => resumeSoon(), { passive: true });
+    strip.addEventListener(
+      "pointerdown",
+      (e) => {
+        if (e.button !== 0) return;
+        softPause();
+        const end = () => {
+          resumeSoon(2800);
+          window.removeEventListener("pointerup", end);
+          window.removeEventListener("pointercancel", end);
+        };
+        window.addEventListener("pointerup", end);
+        window.addEventListener("pointercancel", end);
+      },
+      { passive: true },
+    );
+
+    if ("IntersectionObserver" in window) {
+      const io = new IntersectionObserver(
+        (entries) => {
+          visible = entries.some((en) => en.isIntersecting && en.intersectionRatio > 0.1);
+          if (!visible) {
+            last = 0;
+            setAutoplaying(false);
+          }
+        },
+        { threshold: [0, 0.1, 0.35] },
+      );
+      io.observe(strip.closest(".filmstrip-wrap") || strip);
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        last = 0;
+        setAutoplaying(false);
+      }
+    });
+
+    requestAnimationFrame(tick);
+  })();
+
   /* Reveal */
-  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (!reduce && "IntersectionObserver" in window) {
     const io = new IntersectionObserver(
       (entries) => {

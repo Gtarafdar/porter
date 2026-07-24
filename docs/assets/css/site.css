@@ -599,14 +599,45 @@ a.btn-primary:visited,
   margin-top: 6px;
 }
 
-/* Filmstrip */
+/* Filmstrip carousel */
+.filmstrip-wrap {
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius);
+  mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+}
+
 .filmstrip {
   display: flex;
   gap: 14px;
   overflow-x: auto;
+  overflow-y: hidden;
   scroll-snap-type: x mandatory;
-  padding-bottom: 10px;
+  padding: 4px 8px 14px;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(126, 184, 168, 0.45) transparent;
+}
+
+/* Loop mode: keep snap off so pause/resume never jumps */
+.filmstrip.filmstrip--loop {
+  scroll-snap-type: none;
+  scroll-behavior: auto;
+}
+
+.filmstrip.is-autoplaying {
+  scrollbar-color: rgba(126, 184, 168, 0.28) transparent;
+}
+
+.filmstrip::-webkit-scrollbar {
+  height: 6px;
+}
+
+.filmstrip::-webkit-scrollbar-thumb {
+  background: rgba(126, 184, 168, 0.4);
+  border-radius: 999px;
 }
 
 .shot {
@@ -618,6 +649,19 @@ a.btn-primary:visited,
   text-align: left;
   font: inherit;
   color: inherit;
+  content-visibility: auto;
+  contain: content;
+}
+
+/* Avoid paint flicker while the strip is continuously scrolling */
+.filmstrip--loop .shot {
+  content-visibility: visible;
+  contain: layout style;
+}
+
+.filmstrip--loop .shot img {
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .shot img {
@@ -634,6 +678,13 @@ a.btn-primary:visited,
   margin-top: 10px;
   font-size: 0.88rem;
   color: var(--muted);
+}
+
+@media (max-width: 640px) {
+  .filmstrip-wrap {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
 }
 
 /* Steps */
