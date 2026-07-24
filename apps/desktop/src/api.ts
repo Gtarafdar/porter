@@ -84,11 +84,25 @@ export interface SetupSnapshot {
   token: string;
   agentLinkAcknowledged: boolean;
   mcpInstalled: boolean;
+  mcpClients?: Record<string, boolean>;
   schemaVersion?: number;
   tailscaleSkipped?: boolean;
   sleeping: boolean;
   mcpEntryPath: string;
   mcpSnippet: string;
+  mcpClientStatus?: McpClientStatus[];
+}
+
+export interface McpClientStatus {
+  id: string;
+  label: string;
+  hint: string;
+  afterConnect: string;
+  rootKey: string;
+  configPath: string;
+  detected: boolean;
+  installed: boolean;
+  snippetJson: string;
 }
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -430,6 +444,22 @@ export const porter = {
       "/api/mcp/install-cursor",
       { method: "POST", body: "{}" },
     ),
+  listMcpClients: () =>
+    api<{
+      clients: McpClientStatus[];
+      entryPath: string;
+      snippet: { json: string; entryPath: string };
+      wizard: { mcpInstalled: boolean; mcpClients: Record<string, boolean> };
+    }>("/api/mcp/clients"),
+  installMcpClient: (clientId: string) =>
+    api<{
+      ok: boolean;
+      clientId: string;
+      path: string;
+      alreadyPresent: boolean;
+      merged: boolean;
+      detected: boolean;
+    }>("/api/mcp/install", { method: "POST", body: JSON.stringify({ clientId }) }),
   sleep: () => api<{ ok: boolean }>("/api/sleep", { method: "POST", body: "{}" }),
   wake: () => api<{ ok: boolean }>("/api/wake", { method: "POST", body: "{}" }),
   travelReady: () =>

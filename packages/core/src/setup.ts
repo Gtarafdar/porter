@@ -1,64 +1,37 @@
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { loadConfig, saveConfig, appendActivity, WIZARD_SCHEMA_VERSION } from "./config.js";
+import { loadConfig, saveConfig, WIZARD_SCHEMA_VERSION } from "./config.js";
+import {
+  buildClassicMcpSnippet,
+  installMcpClient,
+  listMcpClients,
+  mcpEntryPath,
+} from "./mcpClients.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-/** Absolute path to the MCP entry used by Cursor on this machine. */
-export function mcpEntryPath(): string {
-  return path.resolve(__dirname, "mcp.js");
-}
+export { mcpEntryPath } from "./mcpClients.js";
 
 export function buildMcpSnippet(): {
   snippet: Record<string, unknown>;
   json: string;
   entryPath: string;
 } {
-  const entryPath = mcpEntryPath();
-  const snippet = {
-    mcpServers: {
-      porter: {
-        command: "node",
-        args: [entryPath],
-      },
-    },
-  };
-  return { snippet, json: JSON.stringify(snippet, null, 2), entryPath };
+  return buildClassicMcpSnippet();
 }
 
 /**
  * Merge Porter into ~/.cursor/mcp.json without removing other servers
  * (Slack Agent Bridge, AI Site Connector, etc.).
+ * Thin wrapper — same behavior as installMcpClient("cursor").
  */
 export function installCursorMcp(): {
   path: string;
   merged: boolean;
   alreadyPresent: boolean;
 } {
-  const cursorDir = path.join(os.homedir(), ".cursor");
-  const mcpPath = path.join(cursorDir, "mcp.json");
-  fs.mkdirSync(cursorDir, { recursive: true });
-
-  let existing: { mcpServers?: Record<string, unknown> } = {};
-  if (fs.existsSync(mcpPath)) {
-    existing = JSON.parse(fs.readFileSync(mcpPath, "utf8")) as {
-      mcpServers?: Record<string, unknown>;
-    };
-  }
-  const servers = { ...(existing.mcpServers ?? {}) };
-  const alreadyPresent = Boolean(servers.porter);
-  const { snippet } = buildMcpSnippet();
-  servers.porter = (snippet.mcpServers as Record<string, unknown>).porter;
-  const next = { ...existing, mcpServers: servers };
-  fs.writeFileSync(mcpPath, JSON.stringify(next, null, 2) + "\n", { mode: 0o600 });
-
-  const config = loadConfig();
-  config.wizard.mcpInstalled = true;
-  saveConfig(config);
-  appendActivity("mcp_install_cursor", mcpPath, true, "wizard");
-  return { path: mcpPath, merged: true, alreadyPresent };
+  const result = installMcpClient("cursor");
+  return {
+    path: result.path,
+    merged: result.merged,
+    alreadyPresent: result.alreadyPresent,
+  };
 }
 
 export function wizardSnapshot() {
@@ -76,11 +49,13 @@ export function wizardSnapshot() {
     token: c.token,
     agentLinkAcknowledged: c.wizard.agentLinkAcknowledged,
     mcpInstalled: c.wizard.mcpInstalled,
+    mcpClients: c.wizard.mcpClients ?? {},
     schemaVersion: c.wizard.schemaVersion ?? WIZARD_SCHEMA_VERSION,
     tailscaleSkipped: Boolean(c.wizard.tailscaleSkipped),
     sleeping: c.sleeping,
     mcpEntryPath: mcpEntryPath(),
     mcpSnippet: buildMcpSnippet().json,
+    mcpClientStatus: listMcpClients(),
   };
 }
 

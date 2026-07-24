@@ -64,6 +64,23 @@ See the full guide: **[CHROME.md](CHROME.md)**.
 
 ---
 
+## AI tools (MCP)
+
+Porter exposes one MCP server (`mcp.js`) with the same tools for every host. Installers only merge a `porter` entry into that app’s config.
+
+| Client | One-click in Porter | Config | After connect |
+| --- | --- | --- | --- |
+| **Cursor** | Setup → Link AI tools, or Settings → This Mac | `~/.cursor/mcp.json` (`mcpServers`) | Reload MCP / window |
+| **Claude Desktop** | Same | `~/Library/Application Support/Claude/claude_desktop_config.json` | Fully quit & reopen Claude |
+| **Claude Code** | Same | `~/.claude.json` (`mcpServers`) | New session / restart CLI |
+| **VS Code / Copilot** | Same | `~/Library/Application Support/Code/User/mcp.json` (`servers`) | MCP: List Servers → restart; use **Agent** mode |
+
+Manual: copy the per-client snippet from Porter. Other MCP hosts can paste the Cursor/Claude `mcpServers` shape and point `args` at Porter’s `mcp.js`.
+
+AI tools only see **shared folders** on paired Macs — not your whole disk.
+
+---
+
 ## Same Wi‑Fi (desk)
 
 Same pair token → Add Mac with LAN IP. No Cloudflare / Tailscale needed (Tailscale still fine).

@@ -8,6 +8,7 @@ import {
   type DeviceInfo,
   type DeviceSettings,
   type FileEntry,
+  type McpClientStatus,
   type SharedFolder,
 } from "./api";
 import {
@@ -52,7 +53,7 @@ const ACTIVITY_CATEGORY_LABELS: { key: keyof ActivityLogCategories; label: strin
   { key: "devices", label: "Devices & pairing" },
   { key: "shares", label: "Shares" },
   { key: "travel", label: "Travel & network" },
-  { key: "mcp", label: "Cursor / MCP" },
+  { key: "mcp", label: "AI / MCP" },
   { key: "system", label: "System" },
 ];
 
@@ -245,6 +246,8 @@ export function App() {
     steps?: { id: string; title: string; detail: string; done: boolean }[];
   } | null>(null);
   const [chromeBusy, setChromeBusy] = useState(false);
+  const [mcpClients, setMcpClients] = useState<McpClientStatus[]>([]);
+  const [mcpBusy, setMcpBusy] = useState(false);
 
   const [left, setLeft] = useState<PaneState | null>(null);
   const [right, setRight] = useState<PaneState | null>(null);
@@ -729,6 +732,10 @@ export function App() {
           }),
         )
         .catch(() => undefined);
+      void porter
+        .listMcpClients()
+        .then((r) => setMcpClients(r.clients))
+        .catch(() => setMcpClients([]));
     }
   }, [showSettings, settingsTab, refreshShareLinks]);
 
@@ -1640,6 +1647,74 @@ export function App() {
                           Release notes →
                         </button>
                       ) : null}
+                    </div>
+                  </div>
+                  <div className="field">
+                    <label>AI tools (MCP)</label>
+                    <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: 13 }}>
+                      Same Porter capabilities in Cursor, Claude Desktop, Claude Code, and VS
+                      Code/Copilot. Connect merges Porter into that app’s MCP config without
+                      removing other servers.
+                    </p>
+                    <div className="mcp-client-list">
+                      {mcpClients.map((c) => (
+                        <div key={c.id} className="mcp-client-row">
+                          <div className="mcp-client-meta">
+                            <strong>{c.label}</strong>
+                            <div className="fmeta">
+                              {c.installed
+                                ? "Connected"
+                                : c.detected
+                                  ? "Detected"
+                                  : "Not detected"}{" "}
+                              · {c.hint}
+                            </div>
+                          </div>
+                          <div
+                            className="row"
+                            style={{ justifyContent: "flex-start", flexWrap: "wrap", gap: 8 }}
+                          >
+                            <button
+                              className="btn primary"
+                              type="button"
+                              disabled={mcpBusy}
+                              onClick={() => {
+                                setMcpBusy(true);
+                                void porter
+                                  .installMcpClient(c.id)
+                                  .then((r) => {
+                                    const msg = r.alreadyPresent
+                                      ? `Updated ${c.label} MCP`
+                                      : `Connected ${c.label}`;
+                                    setSettingsMsg(`${msg}. ${c.afterConnect}`);
+                                    showToast(msg);
+                                    return porter.listMcpClients();
+                                  })
+                                  .then((r) => setMcpClients(r.clients))
+                                  .catch((e) => {
+                                    const msg = e instanceof Error ? e.message : String(e);
+                                    setSettingsMsg(msg);
+                                    showToast(msg);
+                                  })
+                                  .finally(() => setMcpBusy(false));
+                              }}
+                            >
+                              {c.installed ? "Repair" : "Connect"}
+                            </button>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => {
+                                void navigator.clipboard.writeText(c.snippetJson);
+                                showToast(`Copied ${c.label} snippet`);
+                                setSettingsMsg(`Snippet copied for ${c.label}.`);
+                              }}
+                            >
+                              Copy snippet
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                   <div className="field chrome-guide">

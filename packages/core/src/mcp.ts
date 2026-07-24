@@ -50,7 +50,7 @@ async function timed<T>(
     const durationMs = Math.round(performance.now() - started);
     appendActivity(action, detail, true, "mcp", {
       durationMs,
-      humanMessage: `Cursor/MCP ${action.replace(/^mcp_/, "").replaceAll("_", " ")} · ${durationMs} ms`,
+      humanMessage: `AI/MCP ${action.replace(/^mcp_/, "").replaceAll("_", " ")} · ${durationMs} ms`,
       via: "mcp",
     });
     return result;
@@ -58,7 +58,7 @@ async function timed<T>(
     const durationMs = Math.round(performance.now() - started);
     appendActivity(action, humanError(err), false, "mcp", {
       durationMs,
-      humanMessage: `Cursor/MCP failed: ${humanError(err)} (${durationMs} ms)`,
+      humanMessage: `AI/MCP failed: ${humanError(err)} (${durationMs} ms)`,
       via: "mcp",
     });
     throw err;
