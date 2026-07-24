@@ -1,24 +1,37 @@
 # Porter
 
-> Private AI + Finder-like file bridge across your Macs. No Porter cloud.
+> Copy folders between your Macs like Finder. Home Wi-Fi, internet, or travel with Tailscale. Optional MCP for Cursor, Claude, and Copilot. No Porter cloud. Not remote desktop.
 
 Site: https://gtarafdar.github.io/porter/
 Repo: https://github.com/Gtarafdar/porter
 Releases: https://github.com/Gtarafdar/porter/releases
+Privacy: https://gtarafdar.github.io/porter/privacy.html
+Security: https://gtarafdar.github.io/porter/security.html
 
 ## What it is
 
-- Dual-pane Finder UI for approved folders between paired Macs
-- MCP tools for Cursor, Claude Desktop, Claude Code, VS Code / Copilot
-- LAN at the desk; Tailscale for travel
-- Activity log, Travel Ready, optional Chrome extension code + local data copy
+- Finder-like dual-pane UI to browse and copy approved folders between paired Macs
+- Works on the same Wi-Fi (LAN) and across networks / abroad via Tailscale
+- Optional MCP for Cursor, Claude Desktop, Claude Code, VS Code / Copilot
+- Activity log, Travel Ready, optional Chrome extension folder copy helpers
+
+## Who it is for
+
+- People with a home desk Mac and a travel Mac
+- Same-roof two-Mac setups that need a project folder tonight
+- AI IDE users who want agents to use the same allowlisted folders
 
 ## What it is not
 
 - Not TeamViewer / full remote desktop
 - Not a Porter cloud sync service
-- Not an iPhone app (this version)
+- Not an iPhone / iPad app (this version)
+- Not Dropbox-style two-way conflict sync in V1
 - Not Apple ID auto-discovery
+
+## Honest limits
+
+Apple Silicon builds in the current line. Tailscale required for reliable travel. Gatekeeper may ask for right-click → Open (non-notarized indie MIT build).
 
 ## Security summary
 
@@ -35,7 +48,6 @@ Details: https://gtarafdar.github.io/porter/privacy.html
 Prefer DMG for new installs. Zip for in-app updates.
 
 - Latest: https://github.com/Gtarafdar/porter/releases/latest
-- Docs site download buttons sync from the GitHub Releases API
 
 First open: Applications folder, then right-click → Open if Gatekeeper asks.
 

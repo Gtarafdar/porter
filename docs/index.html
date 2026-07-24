@@ -3,37 +3,44 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Porter - Private AI + Finder bridge across your Macs</title>
+    <title>Porter - Copy folders between your Macs like Finder</title>
     <meta
       name="description"
-      content="Porter copies approved folders between your Macs over home Wi-Fi, the internet, or travel (Tailscale). Finder-like UI, optional Cursor/Claude/Copilot MCP. No Porter cloud. Not remote desktop."
+      content="Porter copies folders between your Macs like Finder over home Wi-Fi, the internet, or abroad with Tailscale. Optional Cursor, Claude, and Copilot via MCP. No Porter cloud. Not remote desktop."
     />
     <link rel="canonical" href="https://gtarafdar.github.io/porter/" />
     <meta name="author" content="Gobinda Tarafdar" />
     <meta name="theme-color" content="#12151a" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="keywords" content="Porter, Mac file bridge, copy folders between Macs, Tailscale, LAN, MCP, Cursor, Claude, Copilot, Finder, Apple Silicon" />
 
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:site_name" content="Porter" />
     <meta property="og:url" content="https://gtarafdar.github.io/porter/" />
-    <meta property="og:title" content="Porter - Private AI + Finder bridge across your Macs" />
+    <meta property="og:title" content="Porter - Copy folders between your Macs like Finder" />
     <meta
       property="og:description"
-      content="Copy approved folders between your Macs over Wi-Fi, the internet, or while traveling. Optional Cursor, Claude, and Copilot via MCP. No Porter cloud."
+      content="Install on each Mac, share approved folders, copy over Wi-Fi or Tailscale when you travel, then optionally connect Cursor, Claude, or Copilot. No Porter cloud."
     />
     <meta property="og:image" content="https://gtarafdar.github.io/porter/assets/img/og.png" />
+    <meta property="og:image:alt" content="Porter app icon and Finder-like dual-pane bridge" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Porter - Private AI + Finder bridge across your Macs" />
+    <meta name="twitter:title" content="Porter - Copy folders between your Macs like Finder" />
     <meta
       name="twitter:description"
-      content="Copy approved folders between your Macs over Wi-Fi, the internet, or while traveling. Optional AI IDE access via MCP. No Porter cloud."
+      content="Finder-like folder copy between Macs on Wi-Fi, internet, or travel. Optional AI IDE access via MCP. No Porter cloud."
     />
     <meta name="twitter:image" content="https://gtarafdar.github.io/porter/assets/img/og.png" />
+    <meta name="twitter:image:alt" content="Porter app icon and Finder-like dual-pane bridge" />
 
     <link rel="icon" href="assets/favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://api.github.com" crossorigin />
+    <link rel="dns-prefetch" href="https://api.github.com" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -47,7 +54,16 @@
         "@context": "https://schema.org",
         "@graph": [
           {
+            "@type": "WebSite",
+            "@id": "https://gtarafdar.github.io/porter/#website",
+            "url": "https://gtarafdar.github.io/porter/",
+            "name": "Porter",
+            "description": "Copy folders between your Macs like Finder over LAN, internet, or Tailscale. Optional MCP for Cursor, Claude, and Copilot.",
+            "publisher": { "@id": "https://github.com/Gtarafdar#person" }
+          },
+          {
             "@type": "SoftwareApplication",
+            "@id": "https://gtarafdar.github.io/porter/#app",
             "name": "Porter",
             "applicationCategory": "DeveloperApplication",
             "operatingSystem": "macOS",
@@ -59,8 +75,10 @@
             "license": "https://github.com/Gtarafdar/porter/blob/main/LICENSE",
             "url": "https://gtarafdar.github.io/porter/",
             "downloadUrl": "https://github.com/Gtarafdar/porter/releases/latest",
-            "description": "Private AI and Finder-like file bridge across your Macs. Approved folders, MCP for AI IDEs, LAN or Tailscale. No Porter cloud.",
-            "author": { "@id": "https://github.com/Gtarafdar#person" }
+            "softwareVersion": "0.2.34",
+            "description": "Copy folders between your Macs like Finder. Share approved folders, transfer over home Wi-Fi or Tailscale when you travel, and optionally connect Cursor, Claude, or Copilot through MCP. No Porter cloud. Not remote desktop.",
+            "author": { "@id": "https://github.com/Gtarafdar#person" },
+            "image": "https://gtarafdar.github.io/porter/assets/img/og.png"
           },
           {
             "@type": "Person",
@@ -71,6 +89,17 @@
               "https://x.com/Gtarafdarr",
               "https://www.linkedin.com/in/gobinda-tarafdar/",
               "https://github.com/Gtarafdar"
+            ]
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Porter",
+                "item": "https://gtarafdar.github.io/porter/"
+              }
             ]
           }
         ]
@@ -753,7 +782,7 @@
 <section class="section reveal" id="changelog">
           <p class="eyebrow">History</p>
           <h2>Changelog</h2>
-          <p class="lede">Full notes from GitHub Releases. Newest tag stays on top when a release ships.</p>
+          <p class="lede">Newest release opens fully. Older notes stay one click away. Synced from GitHub Releases.</p>
           <ol class="changelog-tree" id="changelog-tree">
             <li>
               <time>…</time>

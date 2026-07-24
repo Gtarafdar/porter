@@ -223,15 +223,23 @@
   function renderChangelog(releases) {
     const tree = document.getElementById("changelog-tree");
     if (!tree) return;
-    tree.innerHTML = "";
     const sorted = [...(releases || [])]
       .filter((r) => r && !r.draft)
       .sort((a, b) => {
         const tb = Date.parse(b.published_at || b.created_at || 0) || 0;
         const ta = Date.parse(a.published_at || a.created_at || 0) || 0;
         return tb - ta;
-      });
-    sorted.slice(0, 20).forEach((r) => {
+      })
+      .slice(0, 12);
+
+    const frag = document.createDocumentFragment();
+    if (!sorted.length) {
+      tree.innerHTML =
+        '<li><strong><a href="https://github.com/Gtarafdar/porter/releases">Releases</a></strong><div class="changelog-body"><p>Could not load changelog. Open GitHub Releases.</p></div></li>';
+      return;
+    }
+
+    sorted.forEach((r, idx) => {
       const li = document.createElement("li");
       const time = document.createElement("time");
       const date = r.published_at ? new Date(r.published_at) : null;
@@ -239,55 +247,126 @@
       time.textContent = date
         ? date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
         : "";
-      const strong = document.createElement("strong");
+
+      const heading = document.createElement("strong");
       const a = document.createElement("a");
       a.href = r.html_url;
       a.rel = "noopener";
       a.textContent = r.tag_name || r.name || "Release";
-      strong.appendChild(a);
+      heading.appendChild(a);
       if (r.name && r.name !== r.tag_name) {
         const title = document.createElement("span");
         title.className = "changelog-title";
         title.textContent = ` · ${r.name}`;
-        strong.appendChild(title);
+        heading.appendChild(title);
       }
-      const body = document.createElement("div");
-      body.className = "changelog-body";
-      body.innerHTML = formatReleaseBody(r.body || r.name || "");
-      li.append(time, strong, body);
-      tree.appendChild(li);
+
+      const bodyHtml = formatReleaseBody(r.body || r.name || "");
+      if (idx === 0) {
+        const body = document.createElement("div");
+        body.className = "changelog-body";
+        body.innerHTML = bodyHtml;
+        li.append(time, heading, body);
+      } else {
+        const details = document.createElement("details");
+        details.className = "changelog-details";
+        const summary = document.createElement("summary");
+        summary.append(heading.cloneNode(true));
+        const preview = document.createElement("span");
+        preview.className = "changelog-preview";
+        const firstLine = String(r.body || "")
+          .replace(/\r\n/g, "\n")
+          .split("\n")
+          .map((l) => l.trim())
+          .find((l) => l && !l.startsWith("#"));
+        preview.textContent = firstLine ? ` — ${firstLine.slice(0, 90)}${firstLine.length > 90 ? "…" : ""}` : " — Full notes";
+        summary.appendChild(preview);
+        const body = document.createElement("div");
+        body.className = "changelog-body";
+        body.innerHTML = bodyHtml;
+        details.append(summary, body);
+        li.append(time, details);
+      }
+      frag.appendChild(li);
     });
-    if (!tree.children.length) {
-      tree.innerHTML =
-        '<li><strong><a href="https://github.com/Gtarafdar/porter/releases">Releases</a></strong><div class="changelog-body"><p>Could not load changelog. Open GitHub Releases.</p></div></li>';
+
+    tree.replaceChildren(frag);
+  }
+
+  const RELEASE_CACHE_KEY = "porter-releases-cache-v2";
+  const RELEASE_CACHE_MS = 15 * 60 * 1000;
+
+  function readReleaseCache() {
+    try {
+      const raw = sessionStorage.getItem(RELEASE_CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.list) || !parsed.ts) return null;
+      if (Date.now() - parsed.ts > RELEASE_CACHE_MS) return null;
+      return parsed.list;
+    } catch {
+      return null;
     }
   }
 
-  async function loadReleases() {
+  function writeReleaseCache(list) {
     try {
-      const [latestRes, listRes] = await Promise.all([
-        fetch(`${API}/releases/latest`, { headers: { Accept: "application/vnd.github+json" } }),
-        fetch(`${API}/releases?per_page=20`, { headers: { Accept: "application/vnd.github+json" } }),
-      ]);
-      if (!latestRes.ok) throw new Error("latest failed");
-      const latest = await latestRes.json();
-      let list = listRes.ok ? await listRes.json() : [latest];
-      if (!Array.isArray(list)) list = [latest];
-      if (latest?.id && !list.some((r) => r.id === latest.id)) list = [latest, ...list];
-      const dmg = pickAsset(latest.assets, "dmg");
-      const zip = pickAsset(latest.assets, "zip");
-      setDownloads(latest.tag_name || FALLBACK_TAG, dmg, zip);
-      renderChangelog(list);
+      sessionStorage.setItem(RELEASE_CACHE_KEY, JSON.stringify({ ts: Date.now(), list }));
     } catch {
+      /* ignore quota */
+    }
+  }
+
+  function applyReleases(list) {
+    const sorted = [...(list || [])]
+      .filter((r) => r && !r.draft)
+      .sort((a, b) => {
+        const tb = Date.parse(b.published_at || b.created_at || 0) || 0;
+        const ta = Date.parse(a.published_at || a.created_at || 0) || 0;
+        return tb - ta;
+      });
+    const latest = sorted[0];
+    if (latest) {
+      setDownloads(latest.tag_name || FALLBACK_TAG, pickAsset(latest.assets, "dmg"), pickAsset(latest.assets, "zip"));
+    } else {
       setDownloads(FALLBACK_TAG, FALLBACK_DMG, FALLBACK_ZIP);
-      renderChangelog([
-        {
-          tag_name: FALLBACK_TAG,
-          html_url: `https://github.com/${REPO}/releases/tag/${FALLBACK_TAG}`,
-          published_at: "2026-07-24T18:31:42Z",
-          body: "Multi-IDE MCP connectors. Activity Save panel. See GitHub for full notes.",
-        },
-      ]);
+    }
+    renderChangelog(sorted);
+  }
+
+  async function loadReleases() {
+    const cached = readReleaseCache();
+    if (cached) {
+      applyReleases(cached);
+    }
+
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    try {
+      // One request: newest first. Avoids waiting on a second /releases/latest round-trip.
+      const listRes = await fetch(`${API}/releases?per_page=12`, {
+        headers: { Accept: "application/vnd.github+json" },
+        signal: ctrl.signal,
+      });
+      if (!listRes.ok) throw new Error("releases failed");
+      const list = await listRes.json();
+      if (!Array.isArray(list) || !list.length) throw new Error("empty releases");
+      writeReleaseCache(list);
+      applyReleases(list);
+    } catch {
+      if (!cached) {
+        setDownloads(FALLBACK_TAG, FALLBACK_DMG, FALLBACK_ZIP);
+        renderChangelog([
+          {
+            tag_name: FALLBACK_TAG,
+            html_url: `https://github.com/${REPO}/releases/tag/${FALLBACK_TAG}`,
+            published_at: "2026-07-24T18:31:42Z",
+            body: "Multi-IDE MCP connectors. Activity Save panel. See GitHub for full notes.",
+          },
+        ]);
+      }
+    } finally {
+      clearTimeout(timer);
     }
   }
 
