@@ -9,7 +9,7 @@ Private **AI + Finder-like** file bridge across your Macs. No Porter cloud. No p
 Pick your Mac chip (smaller downloads — about half the old universal zip):
 
 > **Apple Silicon (M1/M2/M3/M4):** [⬇ Porter-0.2.27-mac-arm64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.27-mac-arm64.zip)  
-> **Intel Mac:** [⬇ Porter-0.2.27-mac-x64.zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.27-mac-x64.zip)  
+> **Intel Mac:** arm64-only for 0.2.27 — use an older [Intel release](https://github.com/Gtarafdar/porter/releases) until the next x64 build, or ask for a rebuild.  
 > Release page: https://github.com/Gtarafdar/porter/releases/tag/v0.2.27 · [All releases](https://github.com/Gtarafdar/porter/releases)
 
 Not sure which chip?  menu → About This Mac → look for “Chip” (Apple) or “Processor” (Intel).
