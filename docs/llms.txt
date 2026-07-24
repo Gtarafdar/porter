@@ -1,0 +1,49 @@
+# Porter
+
+> Private AI + Finder-like file bridge across your Macs. No Porter cloud.
+
+Site: https://gtarafdar.github.io/porter/
+Repo: https://github.com/Gtarafdar/porter
+Releases: https://github.com/Gtarafdar/porter/releases
+
+## What it is
+
+- Dual-pane Finder UI for approved folders between paired Macs
+- MCP tools for Cursor, Claude Desktop, Claude Code, VS Code / Copilot
+- LAN at the desk; Tailscale for travel
+- Activity log, Travel Ready, optional Chrome extension code + local data copy
+
+## What it is not
+
+- Not TeamViewer / full remote desktop
+- Not a Porter cloud sync service
+- Not an iPhone app (this version)
+- Not Apple ID auto-discovery
+
+## Security summary
+
+Tailscale (reachability) + pair token + folder allowlists + secret-path blocks + localhost settings.
+Details: https://gtarafdar.github.io/porter/security.html and SECURITY.md
+
+## Privacy summary
+
+Local-first. No Porter analytics cloud for file contents. Config under ~/.porter/
+Details: https://gtarafdar.github.io/porter/privacy.html
+
+## Download (Apple Silicon)
+
+Prefer DMG for new installs. Zip for in-app updates.
+
+- Latest: https://github.com/Gtarafdar/porter/releases/latest
+- Docs site download buttons sync from the GitHub Releases API
+
+First open: Applications folder, then right-click → Open if Gatekeeper asks.
+
+## Maker
+
+Gobinda Tarafdar — https://github.com/Gtarafdar
+Donate: https://gtarafdar.com/donate
+
+## License
+
+MIT — https://github.com/Gtarafdar/porter/blob/main/LICENSE

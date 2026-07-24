@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy · Porter</title>
+    <meta
+      name="description"
+      content="Porter privacy: local-first, no Porter cloud, no analytics account. What stays on your Macs."
+    />
+    <link rel="canonical" href="https://gtarafdar.github.io/porter/privacy.html" />
+    <link rel="icon" href="assets/favicon.png" type="image/png" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/site.css" />
+  </head>
+  <body>
+    <main class="main" style="max-width: 720px; margin: 0 auto; padding: 40px 20px 80px">
+      <p><a href="index.html">← Porter</a></p>
+      <h1 style="font-family: var(--display); font-weight: 400">Privacy</h1>
+      <div class="glass" style="padding: 24px; margin-top: 16px">
+        <p>
+          Porter is <strong>local-first</strong>. There is no Porter cloud account and no Porter analytics backend that
+          receives your file contents.
+        </p>
+        <ul>
+          <li>Config and activity live under <code>~/.porter/</code> on your Mac.</li>
+          <li>File transfer happens between your Macs over LAN, Tailscale, or an optional tunnel you start.</li>
+          <li>GitHub is used for releases and optional update checks. You may save a personal access token locally for rate limits.</li>
+          <li>Tailscale is a separate product you install. Its privacy practices are Tailscale’s.</li>
+        </ul>
+        <p>
+          This site is static on GitHub Pages. It may call the public GitHub API in your browser to show the latest
+          release and changelog.
+        </p>
+        <p>
+          Security model:
+          <a href="security.html">Security notes</a> ·
+          <a href="https://github.com/Gtarafdar/porter/blob/main/SECURITY.md">SECURITY.md</a>
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

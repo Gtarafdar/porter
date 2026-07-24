@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Porter — Private AI + Finder bridge across your Macs</title>
+    <meta
+      name="description"
+      content="Porter is a private Finder-like file bridge for your Macs. Share approved folders, copy over LAN or Tailscale, and connect Cursor, Claude, or Copilot through MCP. No Porter cloud. Not remote desktop."
+    />
+    <link rel="canonical" href="https://gtarafdar.github.io/porter/" />
+    <meta name="author" content="Gobinda Tarafdar" />
+    <meta name="theme-color" content="#0f5c4c" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Porter" />
+    <meta property="og:url" content="https://gtarafdar.github.io/porter/" />
+    <meta property="og:title" content="Porter — Private AI + Finder bridge across your Macs" />
+    <meta
+      property="og:description"
+      content="Approved folders between your Macs. Finder UI for you. MCP for Cursor, Claude, and Copilot. LAN or Tailscale. No Porter cloud."
+    />
+    <meta property="og:image" content="https://gtarafdar.github.io/porter/assets/img/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Porter — Private AI + Finder bridge across your Macs" />
+    <meta
+      name="twitter:description"
+      content="Approved folders between your Macs. Finder UI for you. MCP for your AI IDE. No Porter cloud."
+    />
+    <meta name="twitter:image" content="https://gtarafdar.github.io/porter/assets/img/og.png" />
+
+    <link rel="icon" href="assets/favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/site.css" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "SoftwareApplication",
+            "name": "Porter",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "macOS",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "license": "https://github.com/Gtarafdar/porter/blob/main/LICENSE",
+            "url": "https://gtarafdar.github.io/porter/",
+            "downloadUrl": "https://github.com/Gtarafdar/porter/releases/latest",
+            "description": "Private AI and Finder-like file bridge across your Macs. Approved folders, MCP for AI IDEs, LAN or Tailscale. No Porter cloud.",
+            "author": { "@id": "https://github.com/Gtarafdar#person" }
+          },
+          {
+            "@type": "Person",
+            "@id": "https://github.com/Gtarafdar#person",
+            "name": "Gobinda Tarafdar",
+            "url": "https://github.com/Gtarafdar",
+            "sameAs": [
+              "https://x.com/Gtarafdarr",
+              "https://www.linkedin.com/in/gobinda-tarafdar/",
+              "https://github.com/Gtarafdar"
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <div class="shell">
+      <aside class="side-nav" aria-label="Section navigation">
+        <a class="side-brand" href="#top">
+          <img src="assets/img/porter-mark.png" width="40" height="40" alt="" />
+          <span>Porter</span>
+        </a>
+        <nav>
+          <a href="#top" data-nav>Overview</a>
+          <a href="#difference" data-nav>Not TeamViewer</a>
+          <a href="#gallery" data-nav>Screenshots</a>
+          <a href="#how" data-nav>How it works</a>
+          <a href="#features" data-nav>Features</a>
+          <a href="#mcp" data-nav>AI tools</a>
+          <a href="#security" data-nav>Security</a>
+          <a href="#download" data-nav>Download</a>
+          <a href="#changelog" data-nav>Changelog</a>
+          <a href="#faq" data-nav>FAQ</a>
+          <a href="#maker" data-nav>Maker</a>
+        </nav>
+        <div class="side-cta">
+          <a class="btn btn-primary" href="#download" id="nav-download">Download</a>
+          <a class="btn btn-ghost" href="https://github.com/Gtarafdar/porter" rel="noopener">GitHub</a>
+        </div>
+      </aside>
+
+      <div class="main" id="top">
+        <div class="topbar-mobile">
+          <a class="side-brand" href="#top">
+            <img src="assets/img/porter-mark.png" width="32" height="32" alt="" />
+            <span>Porter</span>
+          </a>
+          <button type="button" class="menu-btn" id="menu-open" aria-expanded="false" aria-controls="mobile-drawer">
+            Menu
+          </button>
+        </div>
+
+        <div class="mobile-drawer" id="mobile-drawer" hidden>
+          <div class="mobile-drawer-panel glass-strong" role="dialog" aria-label="Menu">
+            <button type="button" class="btn btn-ghost" id="menu-close">Close</button>
+            <nav>
+              <a href="#top">Overview</a>
+              <a href="#difference">Not TeamViewer</a>
+              <a href="#gallery">Screenshots</a>
+              <a href="#how">How it works</a>
+              <a href="#features">Features</a>
+              <a href="#mcp">AI tools</a>
+              <a href="#security">Security</a>
+              <a href="#download">Download</a>
+              <a href="#changelog">Changelog</a>
+              <a href="#faq">FAQ</a>
+              <a href="#maker">Maker</a>
+            </nav>
+            <a class="btn btn-primary" href="#download">Download</a>
+          </div>
+        </div>
+
+        <header class="section hero" id="overview">
+          <p class="eyebrow">Mac to Mac · LAN or Tailscale · MCP for AI IDEs</p>
+          <img class="hero-mark" src="assets/img/porter-mark.png" width="88" height="88" alt="Porter app icon" />
+          <h1>Porter</h1>
+          <p class="tagline">Private AI + Finder bridge across your Macs</p>
+          <p class="sub">
+            Share only the folders you approve. Browse them like Finder. Let Cursor, Claude, or Copilot
+            reach the same folders through MCP. No Porter cloud. Not remote desktop.
+          </p>
+          <div class="btn-row" style="justify-content: center">
+            <a class="btn btn-primary" id="btn-dmg" href="https://github.com/Gtarafdar/porter/releases/latest">
+              Download DMG
+            </a>
+            <a class="btn btn-ghost" id="btn-zip" href="https://github.com/Gtarafdar/porter/releases/latest">
+              Download Zip
+            </a>
+            <a class="btn btn-ghost" href="https://github.com/Gtarafdar/porter">View source</a>
+          </div>
+          <p class="trust-line">
+            <span class="chip" id="version-chip">Latest release</span>
+            MIT · Apple Silicon · First open may need right-click → Open
+          </p>
+          <figure class="hero-visual glass reveal">
+            <img
+              src="assets/img/shots/01-finder-dual-pane.png"
+              width="1200"
+              height="800"
+              alt="Porter dual-pane Finder UI with approved folders"
+              loading="eager"
+            />
+          </figure>
+        </header>
+
+        <section class="section reveal" id="difference">
+          <p class="eyebrow">The gap</p>
+          <h2>Your files are on the other Mac. Your AI is on this one.</h2>
+          <p class="lede">
+            Cloud drives sync everything or nothing. Remote desktop gives full control when you only
+            needed a project folder. Porter keeps access narrow and visible.
+          </p>
+          <div class="compare">
+            <article class="glass">
+              <h3>Remote desktop</h3>
+              <ul>
+                <li>Full screen, mouse, and keyboard</li>
+                <li>Broad session risk</li>
+                <li>Awkward for AI agents</li>
+                <li>Often a vendor cloud in the middle</li>
+              </ul>
+            </article>
+            <article class="glass glass-strong">
+              <h3>Porter</h3>
+              <ul>
+                <li>Folders you approved, Finder-like panes</li>
+                <li>List, search, read, copy with confirm</li>
+                <li>Native MCP tools for AI IDEs</li>
+                <li>No Porter cloud account</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="section reveal" id="gallery">
+          <p class="eyebrow">Product</p>
+          <h2>See Porter in use</h2>
+          <p class="lede">Setup, AI tools, travel, activity, and Finder panes. Sensitive details redacted for public screenshots.</p>
+          <div class="filmstrip" id="filmstrip">
+            <button type="button" class="shot glass" data-full="assets/img/shots/01-finder-dual-pane.png">
+              <img src="assets/img/shots/01-finder-dual-pane.png" alt="Dual-pane file browser" loading="lazy" />
+              <span class="cap">Dual-pane Finder bridge</span>
+            </button>
+            <button type="button" class="shot glass" data-full="assets/img/shots/05-setup-ai-tools.png">
+              <img src="assets/img/shots/05-setup-ai-tools.png" alt="Link AI tools setup step" loading="lazy" />
+              <span class="cap">Link AI tools (MCP)</span>
+            </button>
+            <button type="button" class="shot glass" data-full="assets/img/shots/06-travel-ready.png">
+              <img src="assets/img/shots/06-travel-ready.png" alt="Travel Ready checklist" loading="lazy" />
+              <span class="cap">Travel Ready</span>
+            </button>
+            <button type="button" class="shot glass" data-full="assets/img/shots/08-settings-ai-tools.png">
+              <img src="assets/img/shots/08-settings-ai-tools.png" alt="Settings AI tools" loading="lazy" />
+              <span class="cap">Settings · AI tools</span>
+            </button>
+            <button type="button" class="shot glass" data-full="assets/img/shots/09-activity.png">
+              <img src="assets/img/shots/09-activity.png" alt="Activity log view" loading="lazy" />
+              <span class="cap">Activity log</span>
+            </button>
+            <button type="button" class="shot glass" data-full="assets/img/shots/02-setup-link-macs-choice.png">
+              <img src="assets/img/shots/02-setup-link-macs-choice.png" alt="Link Macs wizard" loading="lazy" />
+              <span class="cap">Link Macs wizard</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="section reveal" id="how">
+          <p class="eyebrow">Setup</p>
+          <h2>How it works</h2>
+          <p class="lede">Three steps on each Mac. Travel Ready when you leave home.</p>
+          <div class="steps">
+            <div class="step glass">
+              <div>
+                <h3>Install into Applications</h3>
+                <p>Open the DMG, drag Porter to Applications. First launch: right-click → Open if Gatekeeper asks.</p>
+              </div>
+            </div>
+            <div class="step glass">
+              <div>
+                <h3>Share folders and pair</h3>
+                <p>Choose folders with the Finder picker. Use the same pair token on every Mac. Add via LAN or Tailscale.</p>
+              </div>
+            </div>
+            <div class="step glass">
+              <div>
+                <h3>Connect AI tools (optional)</h3>
+                <p>One click merges Porter MCP into Cursor, Claude Desktop, Claude Code, or VS Code. Ask the agent to list devices.</p>
+              </div>
+            </div>
+            <div class="step glass">
+              <div>
+                <h3>Travel Ready on the home Mac</h3>
+                <p>Set and forget: keep-alive, Tailscale, break-glass Remote Login. Cloudflare is optional backup only.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section reveal" id="features">
+          <p class="eyebrow">Capabilities</p>
+          <h2>Built for real multi-Mac work</h2>
+          <p class="lede">Tap a card for more detail.</p>
+          <div class="bento">
+            <button type="button" class="feat glass" aria-expanded="false">
+              <h3>Finder-like dual pane</h3>
+              <p>Browse approved folders on this Mac and the other. Search, multi-select, copy with progress.</p>
+              <div class="more">Destinations are other Macs, not same-Mac Finder moves. Confirm writes stay on by default.</div>
+            </button>
+            <button type="button" class="feat glass" aria-expanded="false">
+              <h3>Travel Ready</h3>
+              <p>Checklist, Set and forget, keep-alive LaunchAgent, Tailscale Serve, revive command.</p>
+              <div class="more">Prefer Tailscale for unattended travel. Cloudflare Quick Tunnel URLs can change after reboot.</div>
+            </button>
+            <button type="button" class="feat glass" aria-expanded="false">
+              <h3>AI tools via MCP</h3>
+              <p>One Porter MCP for Cursor, Claude Desktop, Claude Code, and VS Code Copilot.</p>
+              <div class="more">Agents use the same folder allowlists and pair rules as the Finder UI. Activity logs MCP actions.</div>
+            </button>
+            <button type="button" class="feat glass" aria-expanded="false">
+              <h3>Activity log</h3>
+              <p>Search, filter, export JSON or CSV, delete with confirms, retention you control.</p>
+              <div class="more">Categories for transfers, devices, shares, travel, MCP, and system. Auto-prune by age and size.</div>
+            </button>
+            <button type="button" class="feat glass" aria-expanded="false">
+              <h3>Devices and Remove Mac</h3>
+              <p>Add by LAN, Tailscale list, or optional Cloudflare. Soft-forget when removing.</p>
+              <div class="more">Two-way remove when the peer is online. Offline remove stays local with a clear warning.</div>
+            </button>
+            <button type="button" class="feat glass" aria-expanded="false">
+              <h3>Chrome extensions (optional)</h3>
+              <p>Share extension code and local extension data between Macs. Not passwords or cookies.</p>
+              <div class="more">Quit Chrome on both Macs for this flow. Everyday file copy does not require quitting Chrome.</div>
+            </button>
+          </div>
+        </section>
+
+        <section class="section reveal" id="mcp">
+          <p class="eyebrow">MCP</p>
+          <h2>Same bridge for you and your agent</h2>
+          <p class="lede">
+            Porter exposes tools to list devices, search, read, and copy within shares. The IDE never mounts your whole home disk.
+          </p>
+          <div class="matrix-wrap glass">
+            <table class="matrix">
+              <thead>
+                <tr>
+                  <th>Client</th>
+                  <th>Status</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Cursor</td>
+                  <td>Recommended</td>
+                  <td>~/.cursor/mcp.json</td>
+                </tr>
+                <tr>
+                  <td>Claude Desktop</td>
+                  <td>Supported</td>
+                  <td>Quit and reopen after Connect</td>
+                </tr>
+                <tr>
+                  <td>Claude Code</td>
+                  <td>Supported</td>
+                  <td>~/.claude.json</td>
+                </tr>
+                <tr>
+                  <td>VS Code / Copilot</td>
+                  <td>Supported</td>
+                  <td>User mcp.json · use Agent mode</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section reveal" id="security">
+          <p class="eyebrow">Trust</p>
+          <h2>Four locks, on purpose</h2>
+          <p class="lede">Narrow and visible. Not zero risk. Details on dedicated pages.</p>
+          <div class="locks">
+            <div class="lock glass">
+              <strong>Tailscale</strong>
+              <span>Who can reach the Mac on the private mesh when you travel.</span>
+            </div>
+            <div class="lock glass">
+              <strong>Pair token</strong>
+              <span>What Porter allows after connect. Treat it like a password.</span>
+            </div>
+            <div class="lock glass">
+              <strong>Folder allowlists</strong>
+              <span>Only shared paths can be listed or copied.</span>
+            </div>
+            <div class="lock glass">
+              <strong>Secret blocks</strong>
+              <span>.env, keys, and dangerous profile paths blocked by default.</span>
+            </div>
+          </div>
+          <div class="btn-row" style="margin-top: 18px">
+            <a class="btn btn-ghost" href="security.html">Security notes</a>
+            <a class="btn btn-ghost" href="privacy.html">Privacy</a>
+            <a class="btn btn-ghost" href="https://github.com/Gtarafdar/porter/blob/main/SECURITY.md">SECURITY.md</a>
+          </div>
+        </section>
+
+        <section class="section reveal" id="download">
+          <p class="eyebrow">Get Porter</p>
+          <h2>Download for Mac</h2>
+          <div class="download-panel glass glass-strong">
+            <p class="chip">Apple Silicon (M1–M4)</p>
+            <p class="ver" id="release-label">Loading latest release…</p>
+            <div class="btn-row" style="justify-content: center">
+              <a class="btn btn-primary" id="download-dmg" href="https://github.com/Gtarafdar/porter/releases/latest">
+                Download DMG
+              </a>
+              <a class="btn btn-ghost" id="download-zip" href="https://github.com/Gtarafdar/porter/releases/latest">
+                Download Zip
+              </a>
+              <a class="btn btn-ghost" href="https://github.com/Gtarafdar/porter/releases">All releases</a>
+            </div>
+            <div class="gate-steps">
+              <strong>First open on macOS</strong>
+              <ol>
+                <li>Drag Porter to Applications (not Downloads).</li>
+                <li>Right-click Porter → Open → Open.</li>
+                <li>If blocked: System Settings → Privacy and Security → Open Anyway.</li>
+              </ol>
+              <p style="margin-top: 10px">
+                Gatekeeper friction is normal for indie MIT apps that are not Apple-notarized. It does not mean Porter is malware.
+                Prefer downloads from official GitHub Releases.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section class="section reveal" id="changelog">
+          <p class="eyebrow">History</p>
+          <h2>Changelog</h2>
+          <p class="lede">Synced from GitHub Releases.</p>
+          <ol class="changelog-tree" id="changelog-tree">
+            <li>
+              <time>…</time>
+              <strong><a href="https://github.com/Gtarafdar/porter/releases">Loading releases</a></strong>
+              <p>Fetching release notes.</p>
+            </li>
+          </ol>
+        </section>
+
+        <section class="section faq reveal" id="faq">
+          <p class="eyebrow">FAQ</p>
+          <h2>Common questions</h2>
+          <details class="glass">
+            <summary>Is Porter malware? macOS warns me.</summary>
+            <p>
+              No. Porter is an MIT-licensed app from GitHub Releases. Without Apple notarization, Gatekeeper shows a warning.
+              Install to Applications, then right-click → Open, or use Privacy and Security → Open Anyway.
+            </p>
+          </details>
+          <details class="glass">
+            <summary>Is this like TeamViewer?</summary>
+            <p>
+              No. TeamViewer-style tools remote a whole computer. Porter bridges approved folders between your Macs and exposes
+              those same folders to AI IDEs through MCP.
+            </p>
+          </details>
+          <details class="glass">
+            <summary>Why Tailscale?</summary>
+            <p>
+              Tailscale gives a private mesh with stable addresses for travel. Your Tailscale account gates reachability.
+              Porter’s pair token gates what the app allows. Cloudflare Quick Tunnel is optional and can change after reboot.
+            </p>
+          </details>
+          <details class="glass">
+            <summary>Do I need Tailscale on the same Wi‑Fi?</summary>
+            <p>No. Same LAN works with the pair token and LAN address. Tailscale is required for reliable travel and unattended home access.</p>
+          </details>
+          <details class="glass">
+            <summary>Intel Macs? iPhone?</summary>
+            <p>
+              Current builds target Apple Silicon. Intel may exist in older releases. There is no iPhone or iPad app in this version.
+            </p>
+          </details>
+          <details class="glass">
+            <summary>Two-way Dropbox-style sync?</summary>
+            <p>Not in V1. Porter focuses on explicit copy and one-way sync without conflict UI.</p>
+          </details>
+          <details class="glass">
+            <summary>What about licensing?</summary>
+            <p>
+              Porter is MIT licensed. Free to use, modify, and share.
+              See <a href="https://github.com/Gtarafdar/porter/blob/main/LICENSE">LICENSE</a>.
+            </p>
+          </details>
+        </section>
+
+        <section class="section reveal" id="maker">
+          <p class="eyebrow">Maker</p>
+          <h2>About the maker</h2>
+          <div class="maker glass">
+            <img
+              src="assets/img/gobinda-tarafdar.png"
+              width="140"
+              height="140"
+              alt="Portrait of Gobinda Tarafdar"
+              loading="lazy"
+            />
+            <div>
+              <h3>Gobinda Tarafdar</h3>
+              <p class="role">WordPress product marketer · stubborn problem-solver · lifelong Harry Potter devotee</p>
+              <p>
+                By day I am the Product Marketing Specialist at
+                <a href="https://wpbakery.com/" rel="noopener">WPBakery</a>.
+                Before that, I helped a single plugin cross <strong>400,000+ active users</strong>.
+              </p>
+              <p>
+                When the day-job owl flies home, I tinker on my own workshop. Porter is one of those spells: a private
+                Finder-like bridge so you and your AI tools can reach approved folders across your Macs.
+              </p>
+              <div class="btn-row">
+                <a class="btn btn-ghost" href="https://x.com/Gtarafdarr" rel="noopener">X / Twitter</a>
+                <a class="btn btn-ghost" href="https://www.linkedin.com/in/gobinda-tarafdar/" rel="noopener">LinkedIn</a>
+                <a class="btn btn-ghost" href="https://github.com/Gtarafdar" rel="noopener">GitHub</a>
+                <a class="btn btn-primary" href="https://gtarafdar.com/donate" rel="noopener">Donate</a>
+              </div>
+            </div>
+          </div>
+
+          <h3 style="font-family: var(--display); font-weight: 400; margin: 28px 0 12px">Also from the workshop</h3>
+          <div class="workshop">
+            <a class="glass" href="https://gtarafdar.github.io/aligner/" rel="noopener">
+              <strong>Aligner</strong>
+              <span>Free local Chrome toolkit for design, measure, and WordPress</span>
+            </a>
+            <a class="glass" href="https://gtarafdar.github.io/FinderFlow/" rel="noopener">
+              <strong>FinderFlow</strong>
+              <span>Mac file manager with built-in editor</span>
+            </a>
+            <a class="glass" href="https://gtarafdar.github.io/slack-agent-bridge/" rel="noopener">
+              <strong>Slack Agent Bridge</strong>
+              <span>MCP bridge for Cursor and Claude</span>
+            </a>
+            <a class="glass" href="https://gtarafdar.github.io/auto-afk-slack/" rel="noopener">
+              <strong>Auto AFK Slack</strong>
+              <span>Lock your Mac, Slack goes AFK</span>
+            </a>
+            <a class="glass" href="https://gtarafdar.github.io/slack-teammate-local-time/" rel="noopener">
+              <strong>Slack Teammate Time</strong>
+              <span>Teammate local times inline in Slack</span>
+            </a>
+            <a class="glass" href="https://gtarafdar.github.io/broken-link-checker/" rel="noopener">
+              <strong>Broken Link Checker</strong>
+              <span>Find broken links without leaving the page</span>
+            </a>
+            <a class="glass" href="https://thedocscriber.com/" rel="noopener">
+              <strong>Docscriber</strong>
+              <span>Documentation, conjured</span>
+            </a>
+            <a class="glass" href="https://therecaller.com/" rel="noopener">
+              <strong>TheRecaller</strong>
+              <span>A memory charm for what you forget online</span>
+            </a>
+            <a class="glass" href="https://theeditra.com/" rel="noopener">
+              <strong>TheEditra</strong>
+              <span>AI video editor</span>
+            </a>
+            <a class="glass" href="https://thequillpress.com/" rel="noopener">
+              <strong>The Quill Press</strong>
+              <span>Tech news, Daily Prophet style</span>
+            </a>
+            <a class="glass" href="https://costlas.com/" rel="noopener">
+              <strong>Costlas</strong>
+              <span>Cost of living for 140+ countries</span>
+            </a>
+            <a class="glass" href="https://wpbakery.com/" rel="noopener">
+              <strong>WPBakery</strong>
+              <span>Page builder I do product marketing for</span>
+            </a>
+          </div>
+        </section>
+
+        <section class="section reveal" id="support">
+          <div class="support-band glass">
+            <h2 style="margin-top: 0">If Porter saves you a trip through zip and chat</h2>
+            <p class="lede" style="margin-left: auto; margin-right: auto">
+              Porter is MIT-licensed and ships without ads or a Porter cloud. A GitHub star helps others find it.
+              A small donation keeps the workshop lit.
+            </p>
+            <div class="btn-row" style="justify-content: center">
+              <a class="btn btn-primary" href="https://github.com/Gtarafdar/porter" rel="noopener">★ Star on GitHub</a>
+              <a class="btn btn-ghost" href="https://gtarafdar.com/donate" rel="noopener">Donate</a>
+              <a class="btn btn-ghost" href="https://x.com/Gtarafdarr" rel="noopener">Follow on X</a>
+            </div>
+          </div>
+        </section>
+
+        <footer class="site-footer">
+          <div>
+            Porter · MIT © <span id="year">2026</span> Gobinda Tarafdar
+          </div>
+          <nav aria-label="Footer">
+            <a href="privacy.html">Privacy</a>
+            <a href="security.html">Security</a>
+            <a href="https://github.com/Gtarafdar/porter/blob/main/LICENSE">License</a>
+            <a href="https://github.com/Gtarafdar/porter/blob/main/CONNECTING.md">Connecting</a>
+            <a href="https://github.com/Gtarafdar/porter/blob/main/CHROME.md">Chrome</a>
+            <a href="https://github.com/Gtarafdar/porter/releases">Releases</a>
+            <a href="llms.txt">llms.txt</a>
+            <a href="https://github.com/Gtarafdar/porter">GitHub</a>
+          </nav>
+        </footer>
+      </div>
+    </div>
+
+    <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Screenshot">
+      <button type="button" class="btn btn-ghost lightbox-close" id="lightbox-close">Close</button>
+      <img src="" alt="" id="lightbox-img" />
+    </div>
+
+    <script src="assets/js/site.js" defer></script>
+  </body>
+</html>
