@@ -165,12 +165,17 @@ function friendlyGithubError(status: number, text: string, authenticated: boolea
     return new Error(
       authenticated
         ? "GitHub rate limit hit even with a token — wait a few minutes and try again."
-        : "GitHub rate limit exceeded for this network. Porter needs a GitHub token for private releases (and higher limits). Save a PAT under Settings → Updates, or: echo YOUR_TOKEN > ~/.porter/github-token && chmod 600 ~/.porter/github-token",
+        : "GitHub rate limit exceeded for this network. Optional: save a PAT under Settings → Updates for higher limits (echo TOKEN > ~/.porter/github-token && chmod 600 ~/.porter/github-token).",
     );
   }
-  if (status === 404 || (status === 401 && !authenticated)) {
+  if (status === 404) {
     return new Error(
-      "Cannot read GitHub releases (private repo or missing auth). Add a GitHub token with repo read access in Settings → Updates.",
+      "No GitHub release found for this repo (missing tag/assets, or wrong PORTER_GITHUB_REPO). Public releases normally work without a token.",
+    );
+  }
+  if (status === 401 && !authenticated) {
+    return new Error(
+      "GitHub rejected the request. If releases are private, add a token with repo read access in Settings → Updates.",
     );
   }
   return new Error(`GitHub HTTP ${status}: ${text.slice(0, 180)}`);

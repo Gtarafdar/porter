@@ -9,7 +9,7 @@ const STEPS = [
   {
     id: 3,
     title: "Tailscale",
-    blurb: "Tailscale privately connects your Macs for travel. Install, sign in, then continue.",
+    blurb: "Install → sign up → open the app → approve macOS prompts → wait for green. Same account on every Mac.",
   },
   {
     id: 4,
@@ -346,8 +346,22 @@ export function SetupWizard({
             <div className="pair-role">
               <p>
                 Porter uses <strong>Tailscale</strong> so your Macs stay private and reachable when
-                you travel. Same Tailscale account on every Mac.
+                you travel. Use the <strong>same Tailscale account</strong> on every Mac.
               </p>
+              <ol className="ts-setup-steps" style={{ marginTop: 12, paddingLeft: 18, lineHeight: 1.45 }}>
+                <li>
+                  <strong>Get Tailscale</strong> — install the official Mac app (not bundled in Porter).
+                </li>
+                <li>
+                  <strong>Create account / sign in</strong> — free signup, then open the Tailscale app.
+                </li>
+                <li>
+                  <strong>Approve macOS prompts</strong> — allow VPN / Network Extension / notifications if asked.
+                </li>
+                <li>
+                  <strong>Wait for green below</strong> — a <code>100.x</code> address means you’re connected.
+                </li>
+              </ol>
               {tsStatus?.connected && tsStatus.selfIp ? (
                 <div className="callout ok" style={{ marginTop: 12 }}>
                   <IconShield size={18} />
@@ -364,7 +378,7 @@ export function SetupWizard({
                   <div>
                     <strong>Tailscale installed</strong>
                     <div className="fmeta">
-                      {tsStatus?.installed ? "Found on this Mac" : "Not found yet"}
+                      {tsStatus?.installed ? "Found on this Mac" : "Not found yet — tap Get Tailscale"}
                     </div>
                   </div>
                 </div>
@@ -388,16 +402,16 @@ export function SetupWizard({
                     {tsStatus?.sshLikelyEnabled === true ? <IconCheck size={12} /> : "·"}
                   </span>
                   <div>
-                    <strong>Tailscale SSH (recommended)</strong>
+                    <strong>Tailscale SSH (recommended before travel)</strong>
                     <div className="fmeta">
-                      Enable in Tailscale → Settings so you can revive Porter while away. Optional
-                      for now.
+                      Enable in Tailscale → Settings so you can revive Porter while away. Not required
+                      to continue setup.
                     </div>
                   </div>
                 </div>
               </div>
               <div className="row" style={{ marginTop: 12, gap: 8, flexWrap: "wrap" }}>
-                {!tsStatus?.installed && (
+                {!tsStatus?.connected && (
                   <button
                     className="btn primary"
                     type="button"
@@ -412,6 +426,45 @@ export function SetupWizard({
                     Get Tailscale
                   </button>
                 )}
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    void porter
+                      .openTailscaleSignup()
+                      .then((r) => setMsg(r.note))
+                      .catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
+                  }}
+                >
+                  Sign up / sign in
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    void porter
+                      .openTailscaleApp()
+                      .then((r) => setMsg(r.detail))
+                      .catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
+                  }}
+                >
+                  Open Tailscale
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    void porter
+                      .openTailscaleSshSettings()
+                      .then((r) => setMsg(r.detail))
+                      .catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
+                  }}
+                >
+                  Open SSH settings
+                </button>
                 <button
                   className="btn"
                   type="button"
@@ -472,7 +525,7 @@ export function SetupWizard({
                   }}
                 >
                   <strong>Join Home Mac</strong>
-                  <span>Paste the token from Home, then add Home’s IP or Cloudflare URL.</span>
+                  <span>Paste Home’s pair token, then Home’s Tailscale address (or pick it later in Add Mac).</span>
                 </button>
               </div>
 
@@ -481,7 +534,8 @@ export function SetupWizard({
                   <div className="connect-block" style={{ borderBottom: 0, marginBottom: 0, paddingBottom: 0 }}>
                     <h3>Copy these for the travel Mac</h3>
                     <p className="connect-hint">
-                      Labels match the paste fields on the other Mac (Add Mac / Join).
+                      Prefer <strong>Tailscale</strong> for travel. LAN works on the same Wi‑Fi.
+                      Cloudflare is optional advanced only.
                     </p>
                     <div className="share-rows">
                       <div className="share-row">
@@ -505,7 +559,44 @@ export function SetupWizard({
                       <div className="share-row">
                         <div>
                           <span className="share-label">
-                            Other Mac address (LAN) — paste into “Other Mac address”
+                            Primary (Tailscale) — paste into “Other Mac address” or pick from Tailscale list
+                          </span>
+                          <code>
+                            {shareLinks?.tailscale
+                              ? `${shareLinks.tailscale}:${shareLinks.port}`
+                              : "Install / sign in to Tailscale first"}
+                          </code>
+                        </div>
+                        {shareLinks?.tailscale ? (
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() => {
+                              const v = `${shareLinks.tailscale}:${shareLinks.port}`;
+                              void navigator.clipboard.writeText(v);
+                              setMsg("Tailscale address copied");
+                            }}
+                          >
+                            Copy
+                          </button>
+                        ) : (
+                          <button
+                            className="btn primary"
+                            type="button"
+                            onClick={() => {
+                              void porter.openTailscaleDownload().then((r) => {
+                                setMsg(r.note);
+                              });
+                            }}
+                          >
+                            Get Tailscale
+                          </button>
+                        )}
+                      </div>
+                      <div className="share-row">
+                        <div>
+                          <span className="share-label">
+                            Same Wi‑Fi (LAN) — paste into “Other Mac address” when nearby
                           </span>
                           <code>{shareLinks?.lan || "—"}</code>
                         </div>
@@ -525,10 +616,10 @@ export function SetupWizard({
                       <div className="share-row">
                         <div>
                           <span className="share-label">
-                            Other Mac address (Cloudflare URL) — paste into “Other Mac address”
+                            Optional Cloudflare URL (advanced) — URLs can change after reboot
                           </span>
                           <code className="share-url">
-                            {shareLinks?.cloudflare || "Not started — tap Start tunnel"}
+                            {shareLinks?.cloudflare || "Not started — only if you need it"}
                           </code>
                         </div>
                         {shareLinks?.cloudflare ? (
@@ -544,7 +635,7 @@ export function SetupWizard({
                           </button>
                         ) : (
                           <button
-                            className="btn primary"
+                            className="btn"
                             type="button"
                             disabled={linksBusy}
                             onClick={() => {
@@ -569,49 +660,11 @@ export function SetupWizard({
                           </button>
                         )}
                       </div>
-                      <div className="share-row">
-                        <div>
-                          <span className="share-label">
-                            Fallback (Tailscale) — paste into “Fallback”
-                          </span>
-                          <code>
-                            {shareLinks?.tailscale
-                              ? `${shareLinks.tailscale}:${shareLinks.port}`
-                              : "Install Tailscale for travel backup"}
-                          </code>
-                        </div>
-                        {shareLinks?.tailscale ? (
-                          <button
-                            className="btn"
-                            type="button"
-                            onClick={() => {
-                              const v = `${shareLinks.tailscale}:${shareLinks.port}`;
-                              void navigator.clipboard.writeText(v);
-                              setMsg("Tailscale fallback copied");
-                            }}
-                          >
-                            Copy
-                          </button>
-                        ) : (
-                          <button
-                            className="btn"
-                            type="button"
-                            onClick={() => {
-                              void porter.openTailscaleDownload().then((r) => {
-                                window.open(r.url, "_blank");
-                                setMsg(r.note);
-                              });
-                            }}
-                          >
-                            Get Tailscale
-                          </button>
-                        )}
-                      </div>
                     </div>
                   </div>
                   <div className="callout">
-                    On travel: choose <strong>Join Home Mac</strong>, paste token + Cloudflare URL,
-                    and Tailscale as Fallback (required if the Cloudflare link changes after reboot).
+                    On travel: same pair token → <strong>Add Mac</strong> → pick this Mac from the
+                    Tailscale list (or paste the Tailscale address). Prefer Tailscale over Cloudflare.
                   </div>
                 </>
               )}
@@ -628,24 +681,24 @@ export function SetupWizard({
                     />
                   </div>
                   <div className="field">
-                    <label>Other Mac address (LAN or Cloudflare URL from Home)</label>
+                    <label>Other Mac address (Tailscale IP preferred, or LAN)</label>
                     <input
                       value={peerAddress}
                       onChange={(e) => setPeerAddress(e.target.value)}
-                      placeholder="https://….trycloudflare.com or 192.168.x.x"
+                      placeholder="100.x.x.x:47831 or 192.168.x.x"
                     />
                   </div>
                   <div className="field">
-                    <label>Fallback (optional Tailscale from Home)</label>
+                    <label>Fallback (optional LAN or Cloudflare from Home)</label>
                     <input
                       value={peerFallback}
                       onChange={(e) => setPeerFallback(e.target.value)}
-                      placeholder="100.x.x.x:47831"
+                      placeholder="192.168.x.x or https://….trycloudflare.com"
                     />
                   </div>
                   <div className="callout">
-                    Copy each value from Home’s matching labeled Copy buttons. If Cloudflare fails
-                    later, Tailscale fallback keeps you connected.
+                    Prefer Tailscale: paste Home’s <code>100.x</code> address, or later use{" "}
+                    <strong>Add Mac</strong> → Tailscale list. Cloudflare is optional backup only.
                   </div>
                 </>
               )}

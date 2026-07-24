@@ -31,6 +31,8 @@ Porter is a **local-first** file bridge. There is no Porter cloud and no remote 
 
 - **Tailscale.app** — official install + your Tailscale login. Porter opens the [official Mac download](https://tailscale.com/download/mac) instead of shipping a third-party VPN binary.
 
+Installing Tailscale asks macOS to approve a **VPN / Network Extension**. That is expected. Anyone on the **same Tailscale account** can reach your Mac on the private mesh — treat that account like a trust boundary (same as the pair token).
+
 ## Your responsibilities
 
 1. Keep the **pair token** secret (treat like a password).  

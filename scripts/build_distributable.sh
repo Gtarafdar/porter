@@ -352,7 +352,7 @@ Wrong chip? This build is for ${chip_label} only.
 Apple Silicon: Porter-*-mac-arm64.dmg / .zip
 Intel:         Porter-*-mac-x64.dmg / .zip
 
-Travel: Travel Ready → Set & forget (cloudflared bundled). Tailscale optional.
+Travel: Travel Ready → Set & forget (Tailscale required for travel; cloudflared bundled as optional advanced).
 Logs: ~/Library/Logs/Porter/porter.log
 TXT
 

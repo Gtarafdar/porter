@@ -29,15 +29,37 @@ import {
   detectTailscaleSsh,
 } from "./tailscaleServe.js";
 
-function openTailscaleSshSettings(): void {
+export function openTailscaleApp(): { ok: boolean; detail: string } {
+  try {
+    if (fs.existsSync("/Applications/Tailscale.app")) {
+      execSync('open -a Tailscale', { timeout: 3000 });
+      return { ok: true, detail: "Opened Tailscale — sign in with the same account on every Mac" };
+    }
+    execSync('open "https://tailscale.com/download/mac"', { timeout: 3000 });
+    return {
+      ok: true,
+      detail: "Tailscale is not installed yet — opened the official download page",
+    };
+  } catch (e) {
+    return { ok: false, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export function openTailscaleSshSettings(): { ok: boolean; detail: string } {
   try {
     execSync('open "tailscale://"', { timeout: 3000 });
+    return {
+      ok: true,
+      detail: "Opened Tailscale — enable SSH in Settings, then return here and tap Repair",
+    };
   } catch {
-    try {
-      execSync('open "/Applications/Tailscale.app"', { timeout: 3000 });
-    } catch {
-      // ignore
-    }
+    const opened = openTailscaleApp();
+    return {
+      ok: opened.ok,
+      detail: opened.ok
+        ? "Opened Tailscale — go to Settings and enable SSH"
+        : opened.detail,
+    };
   }
 }
 
@@ -109,12 +131,12 @@ export function travelReady() {
     },
     {
       id: "serve",
-      label: "Private Tailscale Serve (stable MagicDNS)",
+      label: "Private Tailscale link (MagicDNS)",
       ok: Boolean(serve.configured && serveUrl),
       detail: serveUrl
         ? `Live: ${serveUrl}`
         : tsIp
-          ? "Porter is starting private Serve — wait a few seconds, or tap Set & forget"
+          ? "Set & forget turns this on — wait a few seconds, or tap Repair"
           : "Needs Tailscale first",
     },
     {
@@ -126,7 +148,7 @@ export function travelReady() {
           ? "Enabled — from travel you can restart Porter"
           : ssh === false
             ? "Open Tailscale → Settings → enable SSH, then Repair"
-            : "Open Tailscale → enable SSH on this Mac (required before you leave)",
+            : "Required before you leave — Open SSH settings, enable SSH, then Repair",
     },
     {
       id: "cloudflare",
@@ -151,9 +173,9 @@ export function travelReady() {
     !c.sleeping &&
     remoteOk;
   const ready = coreOk;
-  // Unattended: keepalive + Tailscale; SSH strongly preferred (block green when known-off)
+  // Unattended: keepalive + Tailscale + SSH confirmed on (never “safe” when SSH unknown)
   const unattendedReady = Boolean(
-    coreOk && keepAlive && tsIp && ssh !== false && (serve.configured || tsIp),
+    coreOk && keepAlive && tsIp && ssh === true && (serve.configured || tsIp),
   );
 
   const peerHint =
@@ -187,7 +209,7 @@ export function travelReady() {
     sshEnabled: ssh,
     reviveCommand: reviveCommandForPeer(hostname),
     travelSteps: [
-      "On THIS (home) Mac: click “Set & forget for travel” once.",
+      "On THIS (home) Mac: tap Set & forget once.",
       "Enable Tailscale SSH on this Mac (Break-glass) before you leave.",
       "On travel Mac: same pair token → Add Mac → pick this Mac from Tailscale list (or paste Tailscale IP).",
       tsIp
@@ -289,7 +311,7 @@ export async function repairTravelReady(): Promise<ReturnType<typeof enableSetAn
   return enableSetAndForget({ alsoStartCloudflare: false });
 }
 
-export { openTailscaleSshSettings, listTailnetPeersForPorter };
+export { listTailnetPeersForPorter };
 
 /** One-click share common work folders (safe presets — not entire home). */
 export function shareTravelPresets(): { added: string[]; skipped: string[] } {

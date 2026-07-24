@@ -71,7 +71,7 @@ If an extension is missing on travel: install it once from the Web Store, quit C
 /Users/YOUR_USERNAME/Library/Application Support/Google/Chrome/Default/Local Extension Settings
 ```
 
-Replace `YOUR_USERNAME` with your Mac username (e.g. `gtarafdar`).
+Replace `YOUR_USERNAME` with your Mac username (e.g. `alex`).
 
 In Finder: **Go → Go to Folder…** (⇧⌘G) → paste the path.
 

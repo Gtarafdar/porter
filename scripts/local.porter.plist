@@ -1,34 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Example LaunchAgent for a *source checkout* only. End users should use Porter.app Set & forget. -->
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>local.porter</string>
+  <string>local.porter.dev</string>
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>/Users/gtarafdar/Library/Application Support/Porter/start-porter.sh</string>
+    <string>/ABSOLUTE/PATH/TO/porter/scripts/start-porter.sh</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
   <true/>
-  <key>ThrottleInterval</key>
-  <integer>10</integer>
   <key>StandardOutPath</key>
-  <string>/Users/gtarafdar/Library/Logs/Porter.launchd.out.log</string>
+  <string>/tmp/porter.launchd.out.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/gtarafdar/Library/Logs/Porter.launchd.err.log</string>
-  <key>EnvironmentVariables</key>
-  <dict>
-    <key>HOME</key>
-    <string>/Users/gtarafdar</string>
-    <key>PATH</key>
-    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
-    <key>PORTER_OPEN_BROWSER</key>
-    <string>0</string>
-    <key>PORTER_NO_BONJOUR</key>
-    <string>1</string>
-  </dict>
+  <string>/tmp/porter.launchd.err.log</string>
+  <key>WorkingDirectory</key>
+  <string>/ABSOLUTE/PATH/TO/porter</string>
 </dict>
 </plist>

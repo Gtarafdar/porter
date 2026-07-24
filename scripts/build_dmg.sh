@@ -29,6 +29,23 @@ mkdir -p "${STAGE}/volume"
 cp -R "${APP_SRC}" "${STAGE}/volume/Porter.app"
 ln -s /Applications "${STAGE}/volume/Applications"
 
+# Short install notes on the volume (zip also ships HOW-TO)
+cat > "${STAGE}/volume/HOW-TO-INSTALL.txt" <<TXT
+Porter ${VERSION} (${ARCH})
+===========================
+
+1. Drag Porter → Applications
+2. Eject this disk image
+3. Open Porter from Applications
+   FIRST TIME: right-click → Open → Open
+   (not Apple-notarized — normal for free MIT apps)
+4. Setup: install Tailscale → sign in (same account on every Mac) → approve VPN prompts
+5. Travel: Travel Ready → Set & forget; enable Tailscale SSH before you leave
+
+In-app updates use the .zip release asset, not this DMG.
+Logs: ~/Library/Logs/Porter/porter.log
+TXT
+
 BG_DIR="${STAGE}/volume/.background"
 mkdir -p "${BG_DIR}"
 BG_PNG="${BG_DIR}/background.png"
