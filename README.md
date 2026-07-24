@@ -5,8 +5,8 @@
 <h1 align="center">Porter</h1>
 
 <p align="center">
-  <strong>Private AI + Finder bridge across your Macs</strong><br />
-  Approved folders. LAN or Tailscale. MCP for Cursor, Claude, and Copilot.<br />
+  <strong>Copy folders between your Macs like Finder</strong><br />
+  Home Wi‑Fi, internet, or travel abroad (Tailscale). Then optional Cursor / Claude / Copilot via MCP.<br />
   No Porter cloud. Not remote desktop.
 </p>
 
