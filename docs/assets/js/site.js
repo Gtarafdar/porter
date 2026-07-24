@@ -158,7 +158,7 @@
     let interacting = false;
     let autoplaying = false;
     let programmatic = false;
-    const speed = 0.1; // ~6px/s — easy to read while browsing
+    const speed = 0.06; // ~3.5px/s — glanceable screenshots
     let loopWidth = 0;
     let carry = 0;
 
