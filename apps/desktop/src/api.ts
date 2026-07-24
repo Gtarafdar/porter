@@ -44,6 +44,22 @@ export interface ActivityEvent {
   via?: string;
 }
 
+export interface ActivityLogCategories {
+  transfers: boolean;
+  devices: boolean;
+  shares: boolean;
+  travel: boolean;
+  mcp: boolean;
+  system: boolean;
+}
+
+export interface ActivityLogSettings {
+  retainDays: number;
+  maxEvents: number;
+  categories: ActivityLogCategories;
+  keepFailures: boolean;
+}
+
 export interface DeviceSettings {
   id: string;
   name: string;
@@ -55,6 +71,7 @@ export interface DeviceSettings {
   lan: string;
   sleeping?: boolean;
   wizardCompleted?: boolean;
+  activityLog?: ActivityLogSettings;
 }
 
 export interface SetupSnapshot {
@@ -101,8 +118,19 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 export const porter = {
   devices: () => api<DeviceInfo[]>("/api/devices"),
   device: () => api<DeviceSettings>("/api/device"),
-  updateDevice: (body: Partial<DeviceSettings> & { deviceName?: string; token?: string }) =>
-    api<{ ok: boolean }>("/api/device", { method: "PATCH", body: JSON.stringify(body) }),
+  updateDevice: (
+    body: Partial<DeviceSettings> & {
+      deviceName?: string;
+      token?: string;
+      activityLog?: Partial<ActivityLogSettings> & {
+        categories?: Partial<ActivityLogCategories>;
+      };
+    },
+  ) =>
+    api<{ ok: boolean; activityLog?: ActivityLogSettings }>("/api/device", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
   folders: (deviceId = "local") =>
     api<SharedFolder[]>(`/api/folders?deviceId=${encodeURIComponent(deviceId)}`),
   addFolder: (path: string, label?: string, write = false) =>
@@ -179,6 +207,42 @@ export const porter = {
       offset: number;
     }>(`/api/activity?${params.toString()}`);
   },
+  activityExport: async (opts?: {
+    q?: string;
+    ok?: "true" | "false" | "";
+    ids?: string[];
+    format?: "json" | "csv";
+  }) => {
+    const params = new URLSearchParams();
+    if (opts?.q) params.set("q", opts.q);
+    if (opts?.ok === "true" || opts?.ok === "false") params.set("ok", opts.ok);
+    if (opts?.ids?.length) params.set("ids", opts.ids.join(","));
+    params.set("format", opts?.format === "csv" ? "csv" : "json");
+    const res = await fetch(`/api/activity/export?${params.toString()}`);
+    if (!res.ok) {
+      const text = await res.text();
+      let msg = text;
+      try {
+        msg = String((JSON.parse(text) as { error?: string }).error || text);
+      } catch {
+        // ignore
+      }
+      throw new Error(msg || res.statusText);
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get("Content-Disposition") || "";
+    const match = /filename="([^"]+)"/.exec(cd);
+    const filename =
+      match?.[1] ||
+      `porter-activity.${opts?.format === "csv" ? "csv" : "json"}`;
+    const count = Number(res.headers.get("X-Porter-Export-Count") || "0");
+    return { blob, filename, count };
+  },
+  deleteActivity: (body: { ids: string[] } | { all: true }) =>
+    api<{ ok: boolean; deleted: number }>("/api/activity", {
+      method: "DELETE",
+      body: JSON.stringify(body),
+    }),
   kill: () => api<{ ok: boolean }>("/api/kill", { method: "POST", body: "{}" }),
   setToken: (token: string) =>
     api<{ ok: boolean }>("/api/pair/token", {

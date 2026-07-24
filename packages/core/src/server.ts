@@ -9,10 +9,19 @@ import {
   appendActivity,
   humanError,
   loadConfig,
+  normalizeActivityLog,
   queryActivity,
   removeSharedFolder,
   saveConfig,
+  type ActivityLogSettings,
 } from "./config.js";
+import {
+  clearActivity,
+  deleteActivityByIds,
+  exportActivityEvents,
+  getActivityLogSettings,
+  loadAndPruneActivity,
+} from "./activityLog.js";
 import {
   assertAllowed,
   listDirectory,
@@ -464,6 +473,7 @@ export async function startServer(opts?: {
       lan: localLanHint(),
       sleeping: c.sleeping,
       wizardCompleted: c.wizard.completed,
+      activityLog: getActivityLogSettings(c),
     });
   });
 
@@ -483,9 +493,21 @@ export async function startServer(opts?: {
     if (typeof req.body.token === "string" && req.body.token.length >= 16) {
       c.token = req.body.token;
     }
+    if (req.body.activityLog && typeof req.body.activityLog === "object") {
+      c.activityLog = normalizeActivityLog({
+        ...c.activityLog,
+        ...(req.body.activityLog as Partial<ActivityLogSettings>),
+        categories: {
+          ...c.activityLog.categories,
+          ...((req.body.activityLog as Partial<ActivityLogSettings>).categories ?? {}),
+        },
+      });
+    }
     saveConfig(c);
+    // Prune immediately when retention settings change
+    loadAndPruneActivity(getActivityLogSettings(c));
     appendActivity("device_update", c.deviceName, true, "ui");
-    res.json({ ok: true });
+    res.json({ ok: true, activityLog: getActivityLogSettings(c) });
   });
 
   app.post("/api/pair/token", (req, res) => {
@@ -965,6 +987,55 @@ export async function startServer(opts?: {
     );
   });
 
+  app.get("/api/activity/export", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    const q = typeof req.query.q === "string" ? req.query.q : undefined;
+    const okRaw = typeof req.query.ok === "string" ? req.query.ok : undefined;
+    const ok =
+      okRaw === "true" ? true : okRaw === "false" ? false : null;
+    const format = req.query.format === "csv" ? "csv" : "json";
+    const idsRaw = typeof req.query.ids === "string" ? req.query.ids : "";
+    const ids = idsRaw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const exported = exportActivityEvents({
+      q,
+      ok,
+      ids: ids.length ? ids : undefined,
+      format,
+    });
+    res.setHeader("Content-Type", exported.contentType);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${exported.filename}"`,
+    );
+    res.setHeader("X-Porter-Export-Count", String(exported.count));
+    res.send(exported.body);
+  });
+
+  app.delete("/api/activity", (req, res) => {
+    if (!requireLocal(req, res)) return;
+    try {
+      if (req.body?.all === true) {
+        const result = clearActivity();
+        res.json({ ok: true, deleted: result.deleted });
+        return;
+      }
+      const ids = Array.isArray(req.body?.ids)
+        ? (req.body.ids as unknown[]).map((x) => String(x)).filter(Boolean)
+        : [];
+      if (ids.length === 0) {
+        res.status(400).json({ error: "Provide ids[] or { all: true }" });
+        return;
+      }
+      const result = deleteActivityByIds(ids);
+      res.json({ ok: true, deleted: result.deleted });
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
   app.post("/api/kill", (req, res) => {
     if (!requireLocal(req, res)) return;
     appendActivity("kill_switch", "disconnect requested", true, "ui");
@@ -1010,6 +1081,8 @@ export async function startServer(opts?: {
 
   hydrateManualPeers();
   startDiscovery();
+  // Drop expired activity on boot (age + maxEvents)
+  loadAndPruneActivity();
   // Reconnect saved peers automatically (same token + Tailscale/LAN IP from first Add peer)
   void refreshPeerHealth();
   setInterval(() => {

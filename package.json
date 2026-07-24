@@ -1,6 +1,6 @@
 {
   "name": "porter",
-  "version": "0.2.31",
+  "version": "0.2.32",
   "private": true,
   "description": "Private local AI + Finder-like file bridge across your Macs — no cloud, no paid servers",
   "workspaces": [
@@ -14,7 +14,7 @@
     "start": "npm run start -w @porter/core",
     "mcp": "npm run mcp -w @porter/core",
     "typecheck": "npm run typecheck -w @porter/protocol && npm run typecheck -w @porter/core",
-    "test:e2e": "npm run build -w @porter/protocol && npm run build -w @porter/core && npx tsx --test packages/core/src/__tests__/chromeDest.test.ts packages/core/src/__tests__/failover.test.ts packages/core/src/__tests__/keepalive.test.ts && npx tsx --test packages/core/src/__tests__/peers-remove.test.ts && npx tsx --test packages/core/src/__tests__/e2e.test.ts && npx tsx --test packages/core/src/__tests__/security.test.ts",
+    "test:e2e": "npm run build -w @porter/protocol && npm run build -w @porter/core && npx tsx --test packages/core/src/__tests__/chromeDest.test.ts packages/core/src/__tests__/failover.test.ts packages/core/src/__tests__/keepalive.test.ts && npx tsx --test packages/core/src/__tests__/peers-remove.test.ts && npx tsx --test packages/core/src/__tests__/activity-log.test.ts && npx tsx --test packages/core/src/__tests__/e2e.test.ts && npx tsx --test packages/core/src/__tests__/security.test.ts",
     "menubar:build": "bash apps/mac-menubar/scripts/build_app.sh",
     "window:build": "bash apps/mac-window/scripts/build_app.sh",
     "package": "bash scripts/build_distributable.sh",

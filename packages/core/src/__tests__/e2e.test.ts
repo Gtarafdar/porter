@@ -317,4 +317,95 @@ describe("Porter e2e", { timeout: 60_000 }, () => {
     ) as { forgottenDeviceIds: string[] };
     assert.ok(cfg.forgottenDeviceIds.includes(foreignId));
   });
+
+  it("activity log settings, export, delete, and prune", async () => {
+    const device = await json<{
+      activityLog: {
+        retainDays: number;
+        maxEvents: number;
+        keepFailures: boolean;
+        categories: Record<string, boolean>;
+      };
+    }>(`${BASE}/api/device`);
+    assert.ok(device.activityLog);
+    assert.ok(device.activityLog.maxEvents >= 50);
+
+    await json(`${BASE}/api/device`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        activityLog: {
+          retainDays: 7,
+          maxEvents: 200,
+          keepFailures: true,
+          categories: {
+            transfers: true,
+            devices: true,
+            shares: true,
+            travel: true,
+            mcp: true,
+            system: true,
+          },
+        },
+      }),
+    });
+
+    // Seed an old event that should prune on next activity GET
+    const activityPath = path.join(home, ".porter", "activity.json");
+    const existing = fs.existsSync(activityPath)
+      ? (JSON.parse(fs.readFileSync(activityPath, "utf8")) as Array<Record<string, unknown>>)
+      : [];
+    existing.unshift({
+      id: "old-e2e-event",
+      at: "2020-01-01T00:00:00.000Z",
+      action: "copy",
+      detail: "ancient",
+      source: "ui",
+      ok: true,
+    });
+    existing.unshift({
+      id: "fresh-e2e-event",
+      at: new Date().toISOString(),
+      action: "copy",
+      detail: "fresh-keep",
+      source: "ui",
+      ok: true,
+    });
+    fs.writeFileSync(activityPath, JSON.stringify(existing, null, 2));
+
+    const page = await json<{ events: Array<{ id: string }>; total: number }>(
+      `${BASE}/api/activity?limit=50&offset=0`,
+    );
+    assert.ok(!page.events.some((e) => e.id === "old-e2e-event"));
+    assert.ok(page.events.some((e) => e.id === "fresh-e2e-event"));
+
+    const exportRes = await fetch(`${BASE}/api/activity/export?format=json&q=fresh-keep`);
+    assert.equal(exportRes.status, 200);
+    assert.match(exportRes.headers.get("Content-Disposition") || "", /porter-activity-/);
+    const exported = (await exportRes.json()) as Array<{ id: string }>;
+    assert.ok(exported.some((e) => e.id === "fresh-e2e-event"));
+
+    const csvRes = await fetch(`${BASE}/api/activity/export?format=csv&ids=fresh-e2e-event`);
+    assert.equal(csvRes.status, 200);
+    const csv = await csvRes.text();
+    assert.match(csv, /fresh-e2e-event/);
+
+    const del = await json<{ ok: boolean; deleted: number }>(`${BASE}/api/activity`, {
+      method: "DELETE",
+      body: JSON.stringify({ ids: ["fresh-e2e-event"] }),
+    });
+    assert.equal(del.ok, true);
+    assert.ok(del.deleted >= 1);
+
+    const after = await json<{ events: Array<{ id: string }> }>(
+      `${BASE}/api/activity?limit=50&offset=0`,
+    );
+    assert.ok(!after.events.some((e) => e.id === "fresh-e2e-event"));
+
+    await json(`${BASE}/api/activity`, {
+      method: "DELETE",
+      body: JSON.stringify({ all: true }),
+    });
+    const empty = await json<{ total: number }>(`${BASE}/api/activity?limit=10&offset=0`);
+    assert.equal(empty.total, 0);
+  });
 });
