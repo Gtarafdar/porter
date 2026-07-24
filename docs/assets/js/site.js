@@ -106,6 +106,24 @@
     document.querySelectorAll(".reveal").forEach((el) => el.classList.add("in"));
   }
 
+  /* Liquid glass specular follow */
+  if (!reduce) {
+    const setSpecular = (el, clientX, clientY) => {
+      const r = el.getBoundingClientRect();
+      const x = ((clientX - r.left) / Math.max(r.width, 1)) * 100;
+      const y = ((clientY - r.top) / Math.max(r.height, 1)) * 100;
+      el.style.setProperty("--mx", `${x}%`);
+      el.style.setProperty("--my", `${y}%`);
+    };
+    document.querySelectorAll(".glass").forEach((el) => {
+      el.addEventListener(
+        "pointermove",
+        (e) => setSpecular(el, e.clientX, e.clientY),
+        { passive: true },
+      );
+    });
+  }
+
   function pickAsset(assets, kind) {
     const list = assets || [];
     const prefer =
