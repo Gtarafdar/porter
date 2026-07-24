@@ -1,7 +1,7 @@
 # Porter — Landing page copy kit
 
 Ready-to-paste sections for a marketing site. Tone: clear, confident, honest. Avoid hype and “AI-washed” filler.  
-Facts and deeper detail: [PRODUCT.md](PRODUCT.md). Screenshots: [SCREENSHOTS.md](SCREENSHOTS.md).
+Facts and deeper detail: [PRODUCT.md](PRODUCT.md). Screenshots: [docs/assets/img/shots/](assets/img/shots/) (public-safe exports). Guide: [SCREENSHOTS.md](SCREENSHOTS.md).
 
 **Brand:** Porter  
 **Tagline options (pick one):**
@@ -199,7 +199,7 @@ Source collected from: https://gtarafdar.github.io/aligner/ (About the maker)
 
 | Use | Path / URL |
 | --- | --- |
-| Local (Porter repo) | [`docs/images/gobinda-tarafdar.png`](images/gobinda-tarafdar.png) |
+| Local (Porter repo) | [`docs/assets/img/gobinda-tarafdar.png`](assets/img/gobinda-tarafdar.png) |
 | Canonical (Aligner site) | https://gtarafdar.github.io/aligner/assets/gobinda-tarafdar.png |
 | Alt text | Portrait of Gobinda Tarafdar |
 | Suggested size | 140×140 (site) · source file 400×400 PNG |
