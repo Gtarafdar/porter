@@ -158,7 +158,7 @@
     let interacting = false;
     let autoplaying = false;
     let programmatic = false;
-    const speed = 0.38; // ~23px/s — calm, readable
+    const speed = 0.18; // ~11px/s — slow enough to read captions
     let loopWidth = 0;
     let carry = 0;
 
