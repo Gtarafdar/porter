@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  macos:
+    name: Mac L0 (no-break)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:e2e
+
+  windows:
+    name: Windows L2 (build + package)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:e2e
+      - name: Assemble Windows payload
+        run: node scripts/windows/assemble-payload.mjs
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Build Porter.exe launcher
+        run: |
+          dotnet publish apps/win-launcher/Porter.csproj -c Release -o dist/windows/Porter
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+      - name: Compile Setup EXE
+        shell: pwsh
+        run: |
+          $ver = (Get-Content package.json | ConvertFrom-Json).version
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$ver" scripts/windows/porter-setup.iss
+      - name: Health smoke (portable)
+        shell: pwsh
+        run: |
+          $env:PORTER_RESOURCES = (Resolve-Path dist/windows/Porter).Path
+          $env:PORTER_UI_DIR = Join-Path $env:PORTER_RESOURCES "ui"
+          $env:PORTER_OPEN_BROWSER = "0"
+          $p = Start-Process -FilePath "$env:PORTER_RESOURCES\node.exe" -ArgumentList "`"$env:PORTER_RESOURCES\app\packages\core\dist\cli.js`" serve" -PassThru -WindowStyle Hidden
+          $ok = $false
+          for ($i = 0; $i -lt 40; $i++) {
+            Start-Sleep -Milliseconds 500
+            try {
+              $r = Invoke-WebRequest -Uri "http://127.0.0.1:47831/api/health" -UseBasicParsing -TimeoutSec 2
+              if ($r.Content -match '"ok"\s*:\s*true') { $ok = $true; break }
+            } catch {}
+          }
+          if ($p -and !$p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+          if (-not $ok) { throw "Porter health smoke failed on Windows" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: porter-windows-setup
+          path: |
+            dist/windows/Porter-Setup-*-windows-x64.exe
+            dist/windows/Porter/**
