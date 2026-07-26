@@ -15,6 +15,11 @@ export function porterPlatform(
   return "linux";
 }
 
+/** Path helpers for a *target* OS (so tests on Windows can assert Mac paths). */
+export function pathForPlatform(platform: PorterPlatform): path.PlatformPath {
+  return platform === "win32" ? path.win32 : path.posix;
+}
+
 export function isDarwin(platform: NodeJS.Platform = process.platform): boolean {
   return porterPlatform(platform) === "darwin";
 }
@@ -40,28 +45,32 @@ export function porterSupportDir(
   home = os.homedir(),
   platform: NodeJS.Platform = process.platform,
 ): string {
-  if (porterPlatform(platform) === "win32") {
+  const p = porterPlatform(platform);
+  const pathMod = pathForPlatform(p);
+  if (p === "win32") {
     const base =
-      process.env.LOCALAPPDATA?.trim() || path.join(home, "AppData", "Local");
-    return path.join(base, "Porter");
+      process.env.LOCALAPPDATA?.trim() || pathMod.join(home, "AppData", "Local");
+    return pathMod.join(base, "Porter");
   }
-  if (porterPlatform(platform) === "darwin") {
-    return path.join(home, "Library", "Application Support", "Porter");
+  if (p === "darwin") {
+    return pathMod.join(home.replace(/\\/g, "/"), "Library", "Application Support", "Porter");
   }
-  return path.join(home, ".local", "share", "porter");
+  return pathMod.join(home.replace(/\\/g, "/"), ".local", "share", "porter");
 }
 
 export function porterLogsDir(
   home = os.homedir(),
   platform: NodeJS.Platform = process.platform,
 ): string {
-  if (porterPlatform(platform) === "win32") {
-    return path.join(porterSupportDir(home, platform), "logs");
+  const p = porterPlatform(platform);
+  const pathMod = pathForPlatform(p);
+  if (p === "win32") {
+    return pathMod.join(porterSupportDir(home, platform), "logs");
   }
-  if (porterPlatform(platform) === "darwin") {
-    return path.join(home, "Library", "Logs");
+  if (p === "darwin") {
+    return pathMod.join(home.replace(/\\/g, "/"), "Library", "Logs");
   }
-  return path.join(home, ".local", "state", "porter", "logs");
+  return pathMod.join(home.replace(/\\/g, "/"), ".local", "state", "porter", "logs");
 }
 
 /** True if p looks absolute for the given peer OS (remote paths stay opaque). */
@@ -149,4 +158,9 @@ export function sanitizeWindowsFileName(name: string): string {
 export function quoteWindowsPath(p: string): string {
   if (!/[ \t"]/u.test(p)) return p;
   return `"${p.replace(/"/g, '\\"')}"`;
+}
+
+/** Normalize to forward slashes for embedding in Mac bash keep-alive scripts. */
+export function toPosixPath(p: string): string {
+  return p.replace(/\\/g, "/");
 }

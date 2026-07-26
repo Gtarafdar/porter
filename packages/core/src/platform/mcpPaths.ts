@@ -3,38 +3,53 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { porterPlatform, type PorterPlatform } from "./index.js";
+import { pathForPlatform, porterPlatform, type PorterPlatform } from "./index.js";
 
 export function windowsAppData(home: string): string {
-  return process.env.APPDATA?.trim() || path.join(home, "AppData", "Roaming");
+  return process.env.APPDATA?.trim() || path.win32.join(home, "AppData", "Roaming");
 }
 
 export function mcpCursorConfigPath(home: string): string {
-  return path.join(home, ".cursor", "mcp.json");
+  return path.posix.join(home.replace(/\\/g, "/"), ".cursor", "mcp.json");
 }
 
 export function mcpClaudeDesktopConfigPath(
   home: string,
   platform: PorterPlatform = porterPlatform(),
 ): string {
+  const pathMod = pathForPlatform(platform);
   if (platform === "win32") {
-    return path.join(windowsAppData(home), "Claude", "claude_desktop_config.json");
+    return pathMod.join(windowsAppData(home), "Claude", "claude_desktop_config.json");
   }
-  return path.join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json");
+  return pathMod.join(
+    home.replace(/\\/g, "/"),
+    "Library",
+    "Application Support",
+    "Claude",
+    "claude_desktop_config.json",
+  );
 }
 
 export function mcpClaudeCodeConfigPath(home: string): string {
-  return path.join(home, ".claude.json");
+  return path.posix.join(home.replace(/\\/g, "/"), ".claude.json");
 }
 
 export function mcpVscodeConfigPath(
   home: string,
   platform: PorterPlatform = porterPlatform(),
 ): string {
+  const pathMod = pathForPlatform(platform);
   if (platform === "win32") {
-    return path.join(windowsAppData(home), "Code", "User", "mcp.json");
+    return pathMod.join(windowsAppData(home), "Code", "User", "mcp.json");
   }
-  return path.join(home, "Library", "Application Support", "Code", "User", "mcp.json");
+  return pathMod.join(
+    home.replace(/\\/g, "/"),
+    "Library",
+    "Application Support",
+    "Code",
+    "User",
+    "mcp.json",
+  );
 }
 
 export function mcpCursorHint(platform: PorterPlatform = porterPlatform()): string {
@@ -56,15 +71,15 @@ export function mcpVscodeHint(platform: PorterPlatform = porterPlatform()): stri
 export function detectCursor(home: string, platform: PorterPlatform = porterPlatform()): boolean {
   if (fs.existsSync(path.join(home, ".cursor"))) return true;
   if (platform === "win32") {
-    const local = process.env.LOCALAPPDATA?.trim() || path.join(home, "AppData", "Local");
+    const local = process.env.LOCALAPPDATA?.trim() || path.win32.join(home, "AppData", "Local");
     return (
-      fs.existsSync(path.join(local, "Programs", "cursor")) ||
-      fs.existsSync(path.join(windowsAppData(home), "Cursor"))
+      fs.existsSync(path.win32.join(local, "Programs", "cursor")) ||
+      fs.existsSync(path.win32.join(windowsAppData(home), "Cursor"))
     );
   }
   return (
     fs.existsSync("/Applications/Cursor.app") ||
-    fs.existsSync(path.join(home, "Library", "Application Support", "Cursor"))
+    fs.existsSync(path.posix.join(home, "Library", "Application Support", "Cursor"))
   );
 }
 
@@ -73,11 +88,11 @@ export function detectClaudeDesktop(
   platform: PorterPlatform = porterPlatform(),
 ): boolean {
   if (platform === "win32") {
-    return fs.existsSync(path.join(windowsAppData(home), "Claude"));
+    return fs.existsSync(path.win32.join(windowsAppData(home), "Claude"));
   }
   return (
     fs.existsSync("/Applications/Claude.app") ||
-    fs.existsSync(path.join(home, "Library", "Application Support", "Claude"))
+    fs.existsSync(path.posix.join(home, "Library", "Application Support", "Claude"))
   );
 }
 
@@ -91,15 +106,15 @@ export function detectClaudeCode(home: string): boolean {
 
 export function detectVscode(home: string, platform: PorterPlatform = porterPlatform()): boolean {
   if (platform === "win32") {
-    const local = process.env.LOCALAPPDATA?.trim() || path.join(home, "AppData", "Local");
+    const local = process.env.LOCALAPPDATA?.trim() || path.win32.join(home, "AppData", "Local");
     return (
-      fs.existsSync(path.join(windowsAppData(home), "Code")) ||
-      fs.existsSync(path.join(local, "Programs", "Microsoft VS Code"))
+      fs.existsSync(path.win32.join(windowsAppData(home), "Code")) ||
+      fs.existsSync(path.win32.join(local, "Programs", "Microsoft VS Code"))
     );
   }
   return (
     fs.existsSync("/Applications/Visual Studio Code.app") ||
     fs.existsSync("/Applications/Code.app") ||
-    fs.existsSync(path.join(home, "Library", "Application Support", "Code"))
+    fs.existsSync(path.posix.join(home, "Library", "Application Support", "Code"))
   );
 }
