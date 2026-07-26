@@ -27,9 +27,16 @@ export function isDangerousPath(target: string): boolean {
   const normalized = path.resolve(target);
   // Opt-in carve-out: Chrome Extensions + Local Extension Settings only
   if (isChromeExtensionsPath(normalized)) return false;
-  return DANGEROUS_PATH_FRAGMENTS.some((frag) =>
-    normalized.includes(frag.replaceAll("/", path.sep)),
-  );
+  const asPosix = normalized.replaceAll("\\", "/");
+  const lowerPosix = process.platform === "win32" ? asPosix.toLowerCase() : asPosix;
+  return DANGEROUS_PATH_FRAGMENTS.some((frag) => {
+    const needle = frag.replaceAll("\\", "/");
+    const check = process.platform === "win32" ? needle.toLowerCase() : needle;
+    return (
+      lowerPosix.includes(check) ||
+      normalized.includes(frag.replaceAll("/", path.sep))
+    );
+  });
 }
 
 function matchSecretName(name: string): boolean {
@@ -49,6 +56,16 @@ export function findContainingFolder(
   targetPath: string,
 ): SharedFolder | null {
   const resolved = path.resolve(targetPath);
+  if (process.platform === "win32") {
+    const resolvedLower = resolved.toLowerCase();
+    const matches = config.sharedFolders
+      .filter((f) => {
+        const fp = path.resolve(f.path).toLowerCase();
+        return resolvedLower === fp || resolvedLower.startsWith(fp + "\\");
+      })
+      .sort((a, b) => b.path.length - a.path.length);
+    return matches[0] ?? null;
+  }
   const matches = config.sharedFolders
     .filter((f) => resolved === f.path || resolved.startsWith(f.path + path.sep))
     .sort((a, b) => b.path.length - a.path.length);

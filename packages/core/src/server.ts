@@ -161,6 +161,7 @@ export async function startServer(opts?: {
       deviceName: c.deviceName,
       sleeping: c.sleeping,
       version: currentVersion(),
+      platform: process.platform === "win32" ? "win32" : process.platform === "darwin" ? "darwin" : "linux",
       // Do not leak LAN details to remote/tunnel clients
       ...(local ? { lan: localLanHint() } : {}),
     });
@@ -505,6 +506,12 @@ export async function startServer(opts?: {
       sleeping: c.sleeping,
       wizardCompleted: c.wizard.completed,
       activityLog: getActivityLogSettings(c),
+      platform:
+        process.platform === "win32"
+          ? "win32"
+          : process.platform === "darwin"
+            ? "darwin"
+            : "linux",
     });
   });
 

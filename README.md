@@ -120,6 +120,8 @@ One `mcp.js`, same capabilities for every host:
 
 In the app: Setup → **Link AI tools**, or Settings → This Mac → **AI tools**.
 
+**Windows (preview):** Setup EXE → `C:\Program Files\Porter` — see [docs/WINDOWS.md](docs/WINDOWS.md). Mac DMG install is unchanged.
+
 ---
 
 ## Security and privacy

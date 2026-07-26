@@ -8,6 +8,8 @@
 4. Wait until Porter shows a green **Signed in & connected** (`100.x` address)
 5. Before travel: tap **Open Remote Login** in Porter (System Settings → Sharing → **Remote Login**)
 
+**Windows PC (preview):** install the Setup EXE to `C:\Program Files\Porter`, use the same Tailscale account + pair token, then Add peer with the other computer’s `100.x` address. Details: [docs/WINDOWS.md](docs/WINDOWS.md). Mac Travel Ready / LaunchAgent stay macOS-only.
+
 **Important:** Tailscale’s Mac app has **no SSH settings menu**. The GUI build cannot host [Tailscale SSH](https://tailscale.com/kb/1193/tailscale-ssh) (Apple sandbox). Porter uses **macOS Remote Login** for break-glass revive instead (`ssh user@100.x 'open -a Porter'`).
 
 Porter does not bundle Tailscale. Same Wi‑Fi desk use can skip Tailscale; travel cannot.

@@ -3,6 +3,20 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { appendActivity, loadConfig, saveConfig } from "./config.js";
+import { porterPlatform } from "./platform/index.js";
+import {
+  detectClaudeCode,
+  detectClaudeDesktop,
+  detectCursor,
+  detectVscode,
+  mcpClaudeCodeConfigPath,
+  mcpClaudeDesktopConfigPath,
+  mcpClaudeDesktopHint,
+  mcpCursorConfigPath,
+  mcpCursorHint,
+  mcpVscodeConfigPath,
+  mcpVscodeHint,
+} from "./platform/mcpPaths.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -51,40 +65,6 @@ export interface InstallMcpClientResult {
   detected: boolean;
 }
 
-function appsExist(...names: string[]): boolean {
-  return names.some((n) => fs.existsSync(path.join("/Applications", n)));
-}
-
-function cursorDetected(home: string): boolean {
-  return (
-    appsExist("Cursor.app") ||
-    fs.existsSync(path.join(home, ".cursor")) ||
-    fs.existsSync(path.join(home, "Library", "Application Support", "Cursor"))
-  );
-}
-
-function claudeDesktopDetected(home: string): boolean {
-  return (
-    appsExist("Claude.app") ||
-    fs.existsSync(path.join(home, "Library", "Application Support", "Claude"))
-  );
-}
-
-function claudeCodeDetected(home: string): boolean {
-  return (
-    fs.existsSync(path.join(home, ".claude.json")) ||
-    fs.existsSync(path.join(home, ".claude")) ||
-    fs.existsSync(path.join(home, ".local", "bin", "claude"))
-  );
-}
-
-function vscodeDetected(home: string): boolean {
-  return (
-    appsExist("Visual Studio Code.app", "Code.app") ||
-    fs.existsSync(path.join(home, "Library", "Application Support", "Code"))
-  );
-}
-
 /** Classic MCP hosts (Cursor, Claude Desktop, Claude Code). */
 export function porterMcpStdioEntry(entryPath = mcpEntryPath()): Record<string, unknown> {
   return {
@@ -117,50 +97,53 @@ export function porterVscodeStdioEntry(entryPath = mcpEntryPath()): Record<strin
   };
 }
 
-export const MCP_CLIENTS: McpClientDef[] = [
-  {
-    id: "cursor",
-    label: "Cursor",
-    hint: "~/.cursor/mcp.json",
-    afterConnect: "Reload MCP in Cursor (Command Palette → MCP: Restart or reload window).",
-    rootKey: "mcpServers",
-    configPath: (home) => path.join(home, ".cursor", "mcp.json"),
-    detect: cursorDetected,
-    porterEntry: porterMcpStdioEntry,
-  },
-  {
-    id: "claudeDesktop",
-    label: "Claude Desktop",
-    hint: "~/Library/Application Support/Claude/claude_desktop_config.json",
-    afterConnect: "Fully quit Claude Desktop and reopen so MCP loads.",
-    rootKey: "mcpServers",
-    configPath: (home) =>
-      path.join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json"),
-    detect: claudeDesktopDetected,
-    porterEntry: porterMcpStdioEntry,
-  },
-  {
-    id: "claudeCode",
-    label: "Claude Code",
-    hint: "~/.claude.json",
-    afterConnect: "Restart Claude Code / open a new session so MCP tools appear.",
-    rootKey: "mcpServers",
-    configPath: (home) => path.join(home, ".claude.json"),
-    detect: claudeCodeDetected,
-    porterEntry: porterMcpStdioEntry,
-  },
-  {
-    id: "vscode",
-    label: "VS Code / Copilot",
-    hint: "~/Library/Application Support/Code/User/mcp.json",
-    afterConnect: "Command Palette → MCP: List Servers → restart Porter; use Agent mode.",
-    rootKey: "servers",
-    configPath: (home) =>
-      path.join(home, "Library", "Application Support", "Code", "User", "mcp.json"),
-    detect: vscodeDetected,
-    porterEntry: porterVscodeStdioEntry,
-  },
-];
+function buildMcpClients(): McpClientDef[] {
+  const plat = porterPlatform();
+  return [
+    {
+      id: "cursor",
+      label: "Cursor",
+      hint: mcpCursorHint(plat),
+      afterConnect: "Reload MCP in Cursor (Command Palette → MCP: Restart or reload window).",
+      rootKey: "mcpServers",
+      configPath: (home) => mcpCursorConfigPath(home),
+      detect: (home) => detectCursor(home, plat),
+      porterEntry: porterMcpStdioEntry,
+    },
+    {
+      id: "claudeDesktop",
+      label: "Claude Desktop",
+      hint: mcpClaudeDesktopHint(plat),
+      afterConnect: "Fully quit Claude Desktop and reopen so MCP loads.",
+      rootKey: "mcpServers",
+      configPath: (home) => mcpClaudeDesktopConfigPath(home, plat),
+      detect: (home) => detectClaudeDesktop(home, plat),
+      porterEntry: porterMcpStdioEntry,
+    },
+    {
+      id: "claudeCode",
+      label: "Claude Code",
+      hint: "~/.claude.json",
+      afterConnect: "Restart Claude Code / open a new session so MCP tools appear.",
+      rootKey: "mcpServers",
+      configPath: (home) => mcpClaudeCodeConfigPath(home),
+      detect: (home) => detectClaudeCode(home),
+      porterEntry: porterMcpStdioEntry,
+    },
+    {
+      id: "vscode",
+      label: "VS Code / Copilot",
+      hint: mcpVscodeHint(plat),
+      afterConnect: "Command Palette → MCP: List Servers → restart Porter; use Agent mode.",
+      rootKey: "servers",
+      configPath: (home) => mcpVscodeConfigPath(home, plat),
+      detect: (home) => detectVscode(home, plat),
+      porterEntry: porterVscodeStdioEntry,
+    },
+  ];
+}
+
+export const MCP_CLIENTS: McpClientDef[] = buildMcpClients();
 
 export function getMcpClientDef(id: string): McpClientDef | undefined {
   return MCP_CLIENTS.find((c) => c.id === id);

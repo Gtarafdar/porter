@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { appendActivity, loadConfig, saveConfig } from "./config.js";
+import { isDarwin, porterLogsDir, porterSupportDir } from "./platform/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -15,11 +16,12 @@ let caffeinateProc: ChildProcess | null = null;
 let caffeinateWatch: ReturnType<typeof setInterval> | null = null;
 
 export function supportDir(): string {
-  return path.join(os.homedir(), "Library", "Application Support", "Porter");
+  return porterSupportDir();
 }
 
 export function logsDir(): string {
-  return path.join(os.homedir(), "Library", "Logs");
+  // Darwin keeps ~/Library/Logs (Porter.log at top level — unchanged).
+  return porterLogsDir();
 }
 
 function readBundleVersion(resources: string): string {
@@ -67,6 +69,7 @@ function bundleVersionHint(resources: string): string {
 }
 
 export function isKeepAliveInstalled(): boolean {
+  if (!isDarwin()) return false;
   const plist = path.join(os.homedir(), "Library", "LaunchAgents", "local.porter.plist");
   return fs.existsSync(plist);
 }
@@ -179,6 +182,15 @@ export function installKeepAlive(): {
   startScript: string;
   detail: string;
 } {
+  // Travel Ready LaunchAgent is macOS-only — Windows uses Task Scheduler later.
+  if (!isDarwin()) {
+    return {
+      ok: false,
+      plist: "",
+      startScript: "",
+      detail: "Keep-alive LaunchAgent is macOS-only in this version",
+    };
+  }
   const home = os.homedir();
   const uid = process.getuid?.() ?? 501;
   const agents = path.join(home, "Library", "LaunchAgents");
@@ -278,6 +290,7 @@ ${resources ? `    <key>PORTER_RESOURCES</key>\n    <string>${resources}</string
  * away mode is on, rewrite keep-alive to the current bundle.
  */
 export function maybeRepairKeepAlivePaths(): void {
+  if (!isDarwin()) return;
   try {
     const c = loadConfig();
     if (!c.awayMode?.enabled && !c.awayMode?.keepAliveInstalled) return;
@@ -301,6 +314,7 @@ export function maybeRepairKeepAlivePaths(): void {
 }
 
 export function startPreventSleep(): void {
+  if (!isDarwin()) return;
   if (caffeinateProc && !caffeinateProc.killed) return;
   try {
     // -i idle, -m disk, -s AC system sleep; tied to Porter PID

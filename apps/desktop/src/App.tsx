@@ -68,14 +68,24 @@ function downloadBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-function pathLabel(d: DeviceInfo): { badge: string; detail: string; kind: string } {
+/** Local UI noun — Mac stays Mac-flavored; Windows uses PC. */
+function hostNoun(platform?: string | null): string {
+  if (platform === "win32") return "PC";
+  if (platform === "darwin") return "Mac";
+  return "computer";
+}
+
+function pathLabel(
+  d: DeviceInfo,
+  localPlatform?: string | null,
+): { badge: string; detail: string; kind: string } {
   if (d.isLocal) {
-    return { badge: "This Mac", detail: "Local", kind: "local" };
+    return { badge: `This ${hostNoun(localPlatform)}`, detail: "Local", kind: "local" };
   }
   if (d.host === "inbound" || (!d.online && d.host === "inbound")) {
     return {
       badge: "Seen",
-      detail: "Connected once — Add Mac with its Tailscale IP to browse from Home",
+      detail: `Connected once — Add ${hostNoun(localPlatform)} with its Tailscale IP to browse from Home`,
       kind: "off",
     };
   }
@@ -248,6 +258,9 @@ export function App() {
   const [chromeBusy, setChromeBusy] = useState(false);
   const [mcpClients, setMcpClients] = useState<McpClientStatus[]>([]);
   const [mcpBusy, setMcpBusy] = useState(false);
+  const [localPlatform, setLocalPlatform] = useState<"darwin" | "win32" | "linux" | null>(
+    null,
+  );
 
   const [left, setLeft] = useState<PaneState | null>(null);
   const [right, setRight] = useState<PaneState | null>(null);
@@ -267,6 +280,7 @@ export function App() {
     setFolders(f);
     setSettings(s);
     setPairToken(s.token);
+    if (s.platform) setLocalPlatform(s.platform);
     try {
       const n = await porter.network();
       const parts = [
@@ -925,7 +939,7 @@ export function App() {
               setShowSettings(true);
             }}
           >
-            <IconDevices size={16} /> Add Mac
+            <IconDevices size={16} /> Add {hostNoun(localPlatform)}
           </button>
           <button
             className="btn"
@@ -1040,7 +1054,7 @@ export function App() {
                   {reloadingDeviceId === d.id ? "…" : ""}
                 </span>
                 {(() => {
-                  const p = pathLabel(d);
+                  const p = pathLabel(d, localPlatform);
                   return (
                     <span className="meta">
                       <span className={`path-badge path-${p.kind}`}>{p.badge}</span>
@@ -1419,7 +1433,7 @@ export function App() {
                         {devices
                           .filter((d) => !d.isLocal)
                           .map((d) => {
-                            const p = pathLabel(d);
+                            const p = pathLabel(d, localPlatform);
                             return (
                               <div className="connected-mac-row" key={d.id}>
                                 <div>
@@ -1717,6 +1731,7 @@ export function App() {
                       ))}
                     </div>
                   </div>
+                  {localPlatform !== "win32" && (
                   <div className="field chrome-guide">
                     <label>Chrome extensions (optional)</label>
                     <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: 13 }}>
@@ -1859,6 +1874,7 @@ export function App() {
                       </p>
                     )}
                   </div>
+                  )}
                   <label className="check">
                     <input
                       type="checkbox"

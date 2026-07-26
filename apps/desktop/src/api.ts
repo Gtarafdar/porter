@@ -72,6 +72,7 @@ export interface DeviceSettings {
   sleeping?: boolean;
   wizardCompleted?: boolean;
   activityLog?: ActivityLogSettings;
+  platform?: "darwin" | "win32" | "linux";
 }
 
 export interface SetupSnapshot {

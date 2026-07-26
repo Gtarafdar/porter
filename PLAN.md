@@ -2,11 +2,11 @@
 
 Repo: https://github.com/Gtarafdar/porter
 
-## Connecting another Mac (not automatic)
+## Connecting another Mac (or Windows PC)
 
 **Apple ID does not connect Porter.** Same iCloud login alone will not sync or discover devices.
 
-**Phone / iPad:** skipped this version — Mac + Cursor only. See [CONNECTING.md](CONNECTING.md).
+**Phone / iPad:** skipped this version — computers + Cursor / MCP. See also [docs/WINDOWS.md](docs/WINDOWS.md) for the Windows Setup EXE preview.
 
 ### Required steps on the other Mac
 

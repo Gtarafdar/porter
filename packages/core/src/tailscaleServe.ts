@@ -15,11 +15,23 @@ function tailscaleBin(): string {
     "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
     "/usr/local/bin/tailscale",
     "/opt/homebrew/bin/tailscale",
+    path.join(process.env.ProgramFiles || "C:\\Program Files", "Tailscale", "tailscale.exe"),
+    path.join(
+      process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)",
+      "Tailscale",
+      "tailscale.exe",
+    ),
   ];
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
   try {
+    if (process.platform === "win32") {
+      const out = execSync("where.exe tailscale", { encoding: "utf8" })
+        .trim()
+        .split(/\r?\n/)[0];
+      return out || "tailscale";
+    }
     return execSync("command -v tailscale", { encoding: "utf8" }).trim() || "tailscale";
   } catch {
     return "tailscale";
@@ -27,7 +39,7 @@ function tailscaleBin(): string {
 }
 
 export function isTailscaleInstalled(): boolean {
-  if (fs.existsSync("/Applications/Tailscale.app")) return true;
+  if (process.platform === "darwin" && fs.existsSync("/Applications/Tailscale.app")) return true;
   const bin = tailscaleBin();
   return bin !== "tailscale" || fs.existsSync(bin);
 }
@@ -42,13 +54,14 @@ export function wizardTailscaleStatus(): {
   const installed = isTailscaleInstalled();
   const selfIp = getTailscaleSelfIp();
   const sshLikelyEnabled = detectTailscaleSsh();
+  const bothLabel = process.platform === "win32" ? "both computers" : "both Macs";
   if (!installed) {
     return {
       installed: false,
       connected: false,
       selfIp: null,
       sshLikelyEnabled: null,
-      detail: "Install Tailscale, then sign in with the same account on both Macs",
+      detail: `Install Tailscale, then sign in with the same account on ${bothLabel}`,
     };
   }
   if (!selfIp) {

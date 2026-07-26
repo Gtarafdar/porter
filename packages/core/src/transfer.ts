@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { assertAllowed, copyFolderLocal as copyFolderFiles } from "./files.js";
+import { assertDestFileNameAllowed, porterPlatform } from "./platform/index.js";
 
 const CHUNK = 2 * 1024 * 1024; // 2 MiB — fewer syscalls, better large-file throughput
 
@@ -33,6 +34,7 @@ export function copyFileChunked(
   assertAllowed(path.dirname(path.resolve(dest)), "write");
   const src = path.resolve(source);
   const dst = path.resolve(dest);
+  assertDestFileNameAllowed(path.basename(dst), porterPlatform());
   fs.mkdirSync(path.dirname(dst), { recursive: true });
 
   const hash = createHash("sha256");

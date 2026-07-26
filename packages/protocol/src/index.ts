@@ -19,6 +19,8 @@ export interface DeviceInfo {
   fallbackBaseUrl?: string;
   /** Which path last succeeded. */
   activeVia?: "lan" | "tailscale" | "cloudflare";
+  /** Host OS when known (additive; older peers omit this). */
+  platform?: "darwin" | "win32" | "linux";
 }
 
 export interface SharedFolder {
@@ -75,6 +77,7 @@ export interface ApiError {
 }
 
 export const DANGEROUS_PATH_FRAGMENTS = [
+  // macOS (unchanged)
   "Library/Keychains",
   "Library/Cookies",
   ".ssh",
@@ -83,6 +86,16 @@ export const DANGEROUS_PATH_FRAGMENTS = [
   "Google/Chrome",
   "Application Support/Google/Chrome",
   "Application Support/Slack",
+  // Windows (additive — never remove Mac blocks)
+  "AppData/Roaming/Google/Chrome",
+  "AppData/Local/Google/Chrome",
+  "AppData/Local/Google/Chrome/User Data",
+  "AppData/Roaming/Mozilla/Firefox",
+  "AppData/Roaming/Slack",
+  "AppData/Microsoft/Credentials",
+  "AppData/Microsoft/Protect",
+  "AppData/Microsoft/Vault",
+  "AppData/Local/Microsoft/Credentials",
 ] as const;
 
 export const DEFAULT_SECRET_GLOBS = [
