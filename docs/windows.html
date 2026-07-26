@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Windows guide · Porter</title>
+    <meta
+      name="description"
+      content="Install Porter on Windows x64: Setup EXE to Program Files, same pair token and Tailscale as your Macs, SmartScreen notes, and Mac↔Windows pairing."
+    />
+    <link rel="canonical" href="https://gtarafdar.github.io/porter/windows.html" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#12151a" />
+    <meta property="og:title" content="Windows guide · Porter" />
+    <meta
+      property="og:description"
+      content="Windows x64 preview Setup EXE. Same pair token and Tailscale mesh as Mac. Mac DMG / Travel Ready unchanged."
+    />
+    <meta property="og:url" content="https://gtarafdar.github.io/porter/windows.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:image" content="https://gtarafdar.github.io/porter/assets/img/og.png" />
+    <link rel="icon" href="assets/favicon.png" type="image/png" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/site.css" />
+  </head>
+  <body>
+    <main class="main doc-page">
+      <p class="doc-back"><a href="index.html">← Porter</a></p>
+      <p class="eyebrow">Windows preview</p>
+      <h1 class="doc-title">Porter on Windows</h1>
+      <p class="lede doc-lede">
+        Separate Setup EXE for Windows x64. Same Finder UI, pair token, and Tailscale mesh as Mac —
+        without changing the Mac DMG or Travel Ready path.
+      </p>
+
+      <div class="btn-row" style="margin-bottom: 28px">
+        <a
+          class="btn btn-primary"
+          id="win-setup"
+          href="https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe"
+        >
+          Download Setup EXE
+        </a>
+        <a class="btn btn-ghost" href="index.html#download">Mac + Windows downloads</a>
+        <a class="btn btn-ghost" href="https://github.com/Gtarafdar/porter/releases">All releases</a>
+      </div>
+
+      <div class="glass glass-strong doc-card">
+        <p class="chip">Install</p>
+        <ol class="doc-steps">
+          <li>
+            Download
+            <a
+              id="win-setup-inline"
+              href="https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe"
+              >Porter-Setup-0.2.35-windows-x64.exe</a
+            >
+          </li>
+          <li>Run Setup → allow UAC</li>
+          <li>Installs to <code>C:\Program Files\Porter</code></li>
+          <li>Open Porter from the Start Menu</li>
+          <li>Optional: allow the Private firewall rule for TCP <code>47831</code></li>
+        </ol>
+        <p class="doc-note">
+          Mac users: keep
+          <a href="https://github.com/Gtarafdar/porter/releases/tag/v0.2.34">v0.2.34</a>
+          DMG — the Windows tag is not a Mac release. GitHub Latest stays Mac.
+        </p>
+      </div>
+
+      <div class="glass doc-card">
+        <p class="chip">First use</p>
+        <ol class="doc-steps">
+          <li>Set the <strong>same pair token</strong> as your Mac(s)</li>
+          <li>
+            Install
+            <a href="https://tailscale.com/download/windows" rel="noopener">Tailscale for Windows</a>
+            (same account)
+          </li>
+          <li>
+            <strong>Add PC / Add Mac</strong> → paste the other computer’s Tailscale
+            <code>100.x</code> address + port <code>47831</code>
+          </li>
+          <li>Share folders (enable write to receive copies)</li>
+        </ol>
+      </div>
+
+      <div class="glass doc-card">
+        <p class="chip">SmartScreen</p>
+        <p>
+          Porter is MIT and not Microsoft-signed yet. Windows may show “Windows protected your PC”.
+          Choose <strong>More info → Run anyway</strong>. Same class of warning as Mac Gatekeeper for
+          unsigned indie apps. Prefer downloads only from official GitHub Releases.
+        </p>
+      </div>
+
+      <div class="glass doc-card">
+        <p class="chip">Limits (v1)</p>
+        <ul>
+          <li>x64 Windows first (ARM later)</li>
+          <li>
+            Full Travel Ready / Set &amp; forget remains <strong>strongest on Mac home</strong>; Windows can
+            install a login Task Scheduler task via Set &amp; forget
+          </li>
+          <li>Chrome Library helpers are macOS-only for now</li>
+          <li>Prefer Tailscale over Cloudflare for travel</li>
+          <li>Mac↔Windows and Windows↔Windows both work with the same pair token</li>
+        </ul>
+      </div>
+
+      <div class="glass doc-card">
+        <p class="chip">More</p>
+        <p class="doc-more">
+          <a href="index.html#faq">FAQ on the site</a>
+          ·
+          <a href="security.html">Security</a>
+          ·
+          <a href="https://github.com/Gtarafdar/porter/blob/main/docs/WINDOWS-SMOKE.md">Smoke checklist</a>
+          ·
+          <a href="https://github.com/Gtarafdar/porter/blob/main/docs/TRAVEL-MATRIX.md">Travel matrix</a>
+          ·
+          <a href="https://github.com/Gtarafdar/porter/blob/main/docs/WINDOWS.md">Repo markdown</a>
+        </p>
+      </div>
+
+      <footer class="site-footer" style="margin-top: 48px; padding-top: 24px">
+        <div>Porter · MIT · Windows preview</div>
+        <nav aria-label="Footer">
+          <a href="index.html">Home</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="security.html">Security</a>
+          <a href="https://github.com/Gtarafdar/porter">GitHub</a>
+        </nav>
+      </footer>
+    </main>
+    <script>
+      (() => {
+        const FALLBACK =
+          "https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe";
+        fetch("https://api.github.com/repos/Gtarafdar/porter/releases?per_page=12", {
+          headers: { Accept: "application/vnd.github+json" },
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((list) => {
+            if (!Array.isArray(list)) return;
+            for (const rel of list) {
+              if (!rel || rel.draft) continue;
+              const hit = (rel.assets || []).find((a) =>
+                /Setup-.*windows.*\.exe$/i.test(a.name || ""),
+              );
+              if (hit?.browser_download_url) {
+                for (const id of ["win-setup", "win-setup-inline"]) {
+                  const el = document.getElementById(id);
+                  if (el) {
+                    el.href = hit.browser_download_url;
+                    if (id === "win-setup-inline") el.textContent = hit.name || el.textContent;
+                  }
+                }
+                return;
+              }
+            }
+          })
+          .catch(() => {
+            /* keep FALLBACK hrefs */
+            void FALLBACK;
+          });
+      })();
+    </script>
+  </body>
+</html>

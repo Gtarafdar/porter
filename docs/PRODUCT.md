@@ -238,7 +238,7 @@ The IDE does **not** magically see home Desktop. It only sees what you shared an
 ## 10. Limitations (say these clearly)
 
 - **No iPhone / iPad app** (computers + AI IDEs for this version)  
-- **Windows x64 Setup EXE is preview** — separate from Mac DMG; home Travel Ready stays Mac-focused ([WINDOWS.md](WINDOWS.md))  
+- **Windows x64 Setup EXE is preview** — separate from Mac DMG; home Travel Ready stays Mac-focused ([windows.html](https://gtarafdar.github.io/porter/windows.html) · [WINDOWS.md](WINDOWS.md))
 - **No Apple ID / iCloud auto-discovery** — same iCloud ≠ linked in Porter  
 - **No two-way sync with conflict UI** — copy and one-way sync instead  
 - **Not notarized / not Mac App Store** — first open needs right-click → Open (see below)  

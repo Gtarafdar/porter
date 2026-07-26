@@ -79,7 +79,7 @@ Separate Setup EXE — does **not** replace the Mac DMG or Mac Latest release.
 
 > **Windows x64:** [Porter Setup EXE](https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe)  
 > Installs to `C:\Program Files\Porter` (UAC once; optional Private firewall for TCP 47831).  
-> Guide: [docs/WINDOWS.md](docs/WINDOWS.md) · Smoke: [docs/WINDOWS-SMOKE.md](docs/WINDOWS-SMOKE.md) · Site: https://gtarafdar.github.io/porter/#download
+> Guide: [Windows site page](https://gtarafdar.github.io/porter/windows.html) · [docs/WINDOWS.md](docs/WINDOWS.md) · Smoke: [docs/WINDOWS-SMOKE.md](docs/WINDOWS-SMOKE.md) · Downloads: https://gtarafdar.github.io/porter/#download
 
 If SmartScreen appears: **More info → Run anyway** (unsigned indie build, same idea as Mac Gatekeeper).
 

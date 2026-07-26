@@ -1822,6 +1822,61 @@ body.dl-open {
   overflow: hidden;
 }
 
+/* Static doc pages (privacy, security, windows) */
+.doc-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+}
+
+.doc-back a {
+  color: var(--accent);
+}
+
+.doc-title {
+  font-family: var(--display);
+  font-weight: 400;
+  margin: 0 0 12px;
+}
+
+.doc-lede {
+  margin: 0 0 8px;
+}
+
+.doc-card {
+  padding: 24px;
+  margin-top: 16px;
+}
+
+.doc-card .chip {
+  margin-bottom: 10px;
+}
+
+.doc-steps {
+  margin: 8px 0 0;
+  padding-left: 1.2rem;
+  color: var(--text);
+}
+
+.doc-steps li + li {
+  margin-top: 6px;
+}
+
+.doc-note {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.doc-more {
+  margin: 0;
+  color: var(--muted);
+}
+
+.doc-more a {
+  color: var(--accent);
+}
+
 /* Scroll to top with fluid ring + percent */
 .scroll-top {
   position: fixed;
