@@ -8,7 +8,11 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { appendActivity, loadConfig, saveConfig } from "./config.js";
-import { isDarwin, porterLogsDir, porterSupportDir, toPosixPath } from "./platform/index.js";
+import { isDarwin, isWin32, porterLogsDir, porterSupportDir, toPosixPath } from "./platform/index.js";
+import {
+  installWindowsKeepAlive,
+  isWindowsKeepAliveInstalled,
+} from "./platform/windowsKeepAlive.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -69,9 +73,12 @@ function bundleVersionHint(resources: string): string {
 }
 
 export function isKeepAliveInstalled(): boolean {
-  if (!isDarwin()) return false;
-  const plist = path.join(os.homedir(), "Library", "LaunchAgents", "local.porter.plist");
-  return fs.existsSync(plist);
+  if (isDarwin()) {
+    const plist = path.join(os.homedir(), "Library", "LaunchAgents", "local.porter.plist");
+    return fs.existsSync(plist);
+  }
+  if (isWin32()) return isWindowsKeepAliveInstalled();
+  return false;
 }
 
 /** Bump when start-porter.sh semantics change (forces LaunchAgent rewrite). */
@@ -188,13 +195,23 @@ export function installKeepAlive(): {
   startScript: string;
   detail: string;
 } {
-  // Travel Ready LaunchAgent is macOS-only — Windows uses Task Scheduler later.
+  // Windows: Task Scheduler ONLOGON (does not use LaunchAgent / bash).
+  if (isWin32()) {
+    const win = installWindowsKeepAlive();
+    return {
+      ok: win.ok,
+      plist: "",
+      startScript: win.taskName,
+      detail: win.detail,
+    };
+  }
+  // Travel Ready LaunchAgent remains macOS-only.
   if (!isDarwin()) {
     return {
       ok: false,
       plist: "",
       startScript: "",
-      detail: "Keep-alive LaunchAgent is macOS-only in this version",
+      detail: "Keep-alive is only available on macOS and Windows in this version",
     };
   }
   const home = os.homedir();

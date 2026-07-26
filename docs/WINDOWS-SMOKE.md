@@ -30,6 +30,7 @@ Use after installing [Porter-Setup-0.2.35-windows-x64.exe](https://github.com/Gt
 
 - [ ] Home Mac has Travel Ready / Set & forget enabled
 - [ ] Travel Windows can reach home Mac over Tailscale while away
+- [ ] On a Windows home PC (optional): Set & forget creates Task Scheduler login task named **Porter**
 
 ## MCP (optional)
 

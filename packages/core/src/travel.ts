@@ -147,8 +147,12 @@ export function travelReady() {
       label: "Auto-start at login (survives crash / reboot login)",
       ok: keepAlive,
       detail: keepAlive
-        ? "LaunchAgent installed"
-        : "Click “Set & forget for travel” once before you leave",
+        ? process.platform === "win32"
+          ? "Task Scheduler login task installed"
+          : "LaunchAgent installed"
+        : process.platform === "win32"
+          ? "Click “Set & forget for travel” once (creates a Windows login task)"
+          : "Click “Set & forget for travel” once before you leave",
     },
     {
       id: "tailscale",

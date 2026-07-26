@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   macos:
@@ -63,9 +64,15 @@ jobs:
           }
           if ($p -and !$p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
           if (-not $ok) { throw "Porter health smoke failed on Windows" }
-      - uses: actions/upload-artifact@v4
+      - name: Upload Setup EXE
+        uses: actions/upload-artifact@v4
         with:
-          name: porter-windows-setup
-          path: |
-            dist/windows/Porter-Setup-*-windows-x64.exe
-            dist/windows/Porter/**
+          name: porter-windows-setup-exe
+          path: dist/windows/Porter-Setup-*-windows-x64.exe
+          if-no-files-found: error
+      - name: Upload portable payload (optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: porter-windows-payload
+          path: dist/windows/Porter/**
+          if-no-files-found: error

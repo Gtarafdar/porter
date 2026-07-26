@@ -26,7 +26,7 @@ Porter is MIT and not Microsoft-signed yet. Windows may show “Windows protecte
 ## Limits (v1)
 
 - x64 Windows first (ARM later)
-- Full Travel Ready Set & forget remains **Mac home** focused
+- Full Travel Ready Set & forget remains **strongest on Mac home**; Windows can install a **login Task Scheduler** task via Set & forget
 - Chrome Library helpers are macOS-only for now
 - Prefer Tailscale over Cloudflare for travel
 

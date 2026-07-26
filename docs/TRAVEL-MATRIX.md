@@ -4,8 +4,8 @@
 | --- | --- | --- |
 | Mac + Travel Ready / Set & forget | Mac | Supported (existing — must not regress) |
 | Mac + Travel Ready / Set & forget | Windows | Supported (primary new path) |
-| Windows (Porter running) | Mac or Windows | Peer works if awake; full Set & forget later |
-| Windows sleeping, no auto-start | anything | Unsupported — document honestly |
+| Windows (Porter running + optional login task) | Mac or Windows | Peer works; Task Scheduler login keep-alive available via Set & forget |
+| Windows sleeping, no auto-start | anything | Unsupported unless login task / user wakes the PC |
 
 ## Rules
 
