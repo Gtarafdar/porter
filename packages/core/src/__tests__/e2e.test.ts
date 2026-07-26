@@ -93,6 +93,8 @@ describe("Porter e2e", { timeout: 60_000 }, () => {
       env: {
         ...process.env,
         HOME: home,
+        USERPROFILE: home,
+        PORTER_HOME: home,
         PORTER_OPEN_BROWSER: "0",
         PORTER_NO_BONJOUR: "1",
       },

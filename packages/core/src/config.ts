@@ -11,7 +11,7 @@ import {
   saveActivity,
   shouldRecordActivity,
 } from "./activityLog.js";
-const HOME = os.homedir();
+const HOME = process.env.PORTER_HOME?.trim() || os.homedir();
 export const PORTER_DIR = path.join(HOME, ".porter");
 export const CONFIG_PATH = path.join(PORTER_DIR, "config.json");
 export const ACTIVITY_PATH = path.join(PORTER_DIR, "activity.json");

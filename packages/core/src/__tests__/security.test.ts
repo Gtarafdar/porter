@@ -67,6 +67,8 @@ describe("security bridges", { timeout: 60_000 }, () => {
         env: {
           ...process.env,
           HOME: home,
+          USERPROFILE: home,
+          PORTER_HOME: home,
           PORTER_NO_BONJOUR: "1",
           PORTER_OPEN_BROWSER: "0",
         },

@@ -9,7 +9,9 @@ import os from "node:os";
 import path from "node:path";
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), "porter-activity-"));
+process.env.PORTER_HOME = home;
 process.env.HOME = home;
+process.env.USERPROFILE = home;
 process.env.PORTER_NO_BONJOUR = "1";
 
 const {
