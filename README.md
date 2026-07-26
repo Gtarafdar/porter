@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Copy folders between your Macs like Finder</strong><br />
-  Home Wi‑Fi, internet, or travel abroad (Tailscale). Then optional Cursor / Claude / Copilot via MCP.<br />
+  Also on <strong>Windows x64 (preview)</strong>. Home Wi‑Fi, internet, or travel abroad (Tailscale). Then optional Cursor / Claude / Copilot via MCP.<br />
   No Porter cloud. Not remote desktop.
 </p>
 
@@ -16,14 +16,17 @@
   <a href="https://github.com/Gtarafdar/porter/stargazers"><img src="https://img.shields.io/github/stars/Gtarafdar/porter?style=flat-square&color=1f7a4c" alt="Stars" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-6b645a?style=flat-square" alt="MIT" /></a>
   <img src="https://img.shields.io/badge/macOS-Apple%20Silicon-d8efe8?style=flat-square&labelColor=0f5c4c" alt="Apple Silicon" />
+  <img src="https://img.shields.io/badge/Windows-x64%20preview-d8efe8?style=flat-square&labelColor=0f5c4c" alt="Windows preview" />
 </p>
 
 <p align="center">
-  <a href="https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.34-mac-arm64.dmg"><strong>⬇ Download DMG</strong></a>
+  <a href="https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.34-mac-arm64.dmg"><strong>⬇ Mac DMG</strong></a>
   ·
-  <a href="https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.34-mac-arm64.zip"><strong>Zip</strong></a>
+  <a href="https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.34-mac-arm64.zip"><strong>Mac Zip</strong></a>
   ·
-  <a href="https://gtarafdar.github.io/porter/#download">Live download on the site</a>
+  <a href="https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe"><strong>Windows Setup</strong></a>
+  ·
+  <a href="https://gtarafdar.github.io/porter/#download">Site downloads</a>
   ·
   <a href="https://github.com/Gtarafdar/porter">★ Star</a>
   ·
@@ -56,7 +59,7 @@ Prefer the **DMG** (drag Porter → Applications). Zip is for in-app updates.
 
 > **Apple Silicon (M1/M2/M3/M4):** [Porter DMG](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.34-mac-arm64.dmg) · [Zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.34-mac-arm64.zip)  
 > **All releases:** https://github.com/Gtarafdar/porter/releases  
-> **Product site** (buttons always track latest): https://gtarafdar.github.io/porter/#download
+> **Product site** (Mac + Windows chooser): https://gtarafdar.github.io/porter/#download
 
 ### First open (Gatekeeper)
 
@@ -72,12 +75,15 @@ Then: install Tailscale (travel) → share folders → pair Macs → optional **
 
 ## Download (Windows preview)
 
-Separate Setup EXE — does **not** replace the Mac DMG.
+Separate Setup EXE — does **not** replace the Mac DMG or Mac Latest release.
 
 > **Windows x64:** [Porter Setup EXE](https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe)  
-> Installs to `C:\Program Files\Porter`. Guide: [docs/WINDOWS.md](docs/WINDOWS.md) · Smoke: [docs/WINDOWS-SMOKE.md](docs/WINDOWS-SMOKE.md)
+> Installs to `C:\Program Files\Porter` (UAC once; optional Private firewall for TCP 47831).  
+> Guide: [docs/WINDOWS.md](docs/WINDOWS.md) · Smoke: [docs/WINDOWS-SMOKE.md](docs/WINDOWS-SMOKE.md) · Site: https://gtarafdar.github.io/porter/#download
 
 If SmartScreen appears: **More info → Run anyway** (unsigned indie build, same idea as Mac Gatekeeper).
+
+Use the **same pair token** and Tailscale account as your Macs for Mac↔Windows and Windows↔Windows.
 
 ---
 
@@ -131,8 +137,6 @@ One `mcp.js`, same capabilities for every host:
 
 In the app: Setup → **Link AI tools**, or Settings → This Mac → **AI tools**.
 
-**Windows (preview):** [Setup EXE 0.2.35](https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe) → `C:\Program Files\Porter` — see [docs/WINDOWS.md](docs/WINDOWS.md). Mac DMG install is unchanged (use v0.2.34).
-
 ---
 
 ## Security and privacy
@@ -158,9 +162,11 @@ Honest residual risk: allowlisted folders are readable by a connected agent or p
 - No iPhone / iPad app in this version  
 - No Apple ID auto-discovery  
 - No two-way sync with conflict UI  
-- Current release line is **Apple Silicon**  
+- Mac release line is **Apple Silicon**  
+- Windows is **x64 preview** (unsigned Setup EXE; ARM later)  
 - Not Mac App Store / not notarized (right-click → Open)  
-- Reliable travel needs **Tailscale** (not bundled)
+- Reliable travel needs **Tailscale** (not bundled)  
+- Strongest unattended home path remains **Mac Travel Ready**
 
 ---
 

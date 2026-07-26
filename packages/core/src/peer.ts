@@ -489,10 +489,7 @@ export function authorizePeer(
   }
 
   // Dangerous opt-in only. Never set in LaunchAgent / packaged app.
-  if (
-    process.env.PORTER_OPEN_LAN === "1" &&
-    process.env.PORTER_I_UNDERSTAND_OPEN_LAN === "1"
-  ) {
+  if (openLanAuthBypassEnabled()) {
     console.warn(
       "[porter] WARNING: PORTER_OPEN_LAN is enabled — peer auth is disabled. Do not use on untrusted networks.",
     );
@@ -501,6 +498,14 @@ export function authorizePeer(
 
   // Exact pair token required — never accept a random long bearer for a known peerId.
   return false;
+}
+
+/** Dual-gate: both env vars required. Single-flag must never weaken auth. */
+export function openLanAuthBypassEnabled(): boolean {
+  return (
+    process.env.PORTER_OPEN_LAN === "1" &&
+    process.env.PORTER_I_UNDERSTAND_OPEN_LAN === "1"
+  );
 }
 
 export function setSharedToken(token: string): void {

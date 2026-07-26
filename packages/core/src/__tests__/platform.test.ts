@@ -94,6 +94,41 @@ test("MCP paths: darwin Claude stays Library; win32 uses AppData", () => {
 test("dangerous path fragments still include Mac blocks and add Windows", () => {
   assert.ok(DANGEROUS_PATH_FRAGMENTS.includes("Library/Keychains"));
   assert.ok(DANGEROUS_PATH_FRAGMENTS.includes("AppData/Microsoft/Credentials"));
+  assert.ok(DANGEROUS_PATH_FRAGMENTS.includes("AppData/Roaming/Google/Chrome"));
+  assert.ok(DANGEROUS_PATH_FRAGMENTS.includes("AppData/Microsoft/Vault"));
+});
+
+test("isDangerousPath blocks Windows credential/Chrome fragments (Mac-runnable)", async () => {
+  const { isDangerousPath } = await import("../files.js");
+  assert.equal(isDangerousPath("/tmp/safe/notes.txt"), false);
+  assert.equal(isDangerousPath("/Users/demo/Library/Keychains/login.keychain-db"), true);
+  assert.equal(
+    isDangerousPath("/Users/demo/AppData/Microsoft/Credentials/abc"),
+    true,
+  );
+  assert.equal(
+    isDangerousPath("/Users/demo/AppData/Local/Google/Chrome/User Data/Default"),
+    true,
+  );
+});
+
+test("path opacity matrix: Win and Mac absolute paths stay distinct", () => {
+  assert.equal(isAbsoluteForPlatform("C:\\Users\\a\\Desktop\\x.txt", "win32"), true);
+  assert.equal(isAbsoluteForPlatform("D:/data/out", "win32"), true);
+  assert.equal(isAbsoluteForPlatform("/Users/a/Desktop/x.txt", "darwin"), true);
+  assert.equal(isAbsoluteForPlatform("relative/x.txt", "win32"), false);
+  assert.equal(isAbsoluteForPlatform("relative/x.txt", "darwin"), false);
+  // Remote Windows path must not be treated as darwin-absolute
+  assert.equal(isAbsoluteForPlatform("C:\\Users\\a\\x.txt", "darwin"), false);
+});
+
+test("Windows dest filename matrix: illegal chars fail loud; Mac dest allows them", () => {
+  for (const name of ["a<b.txt", "a>b.txt", 'a"b.txt', "a|b.txt", "a?b.txt", "a*b.txt"]) {
+    assert.throws(() => assertDestFileNameAllowed(name, "win32"));
+    assert.doesNotThrow(() => assertDestFileNameAllowed(name, "darwin"));
+  }
+  assert.throws(() => assertDestFileNameAllowed("CON.txt", "win32"));
+  assert.doesNotThrow(() => assertDestFileNameAllowed("hello.txt", "win32"));
 });
 
 test("Travel Ready keep-alive script generation stays Mac LaunchAgent semantics", () => {
@@ -113,6 +148,32 @@ test("Travel Ready keep-alive script generation stays Mac LaunchAgent semantics"
     assert.doesNotMatch(body, /Program Files/i);
     assert.doesNotMatch(body, /Task Scheduler/i);
   } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("cloudflared resolution honors PORTER_RESOURCES cloudflared.exe (Windows-shaped)", async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "porter-cf-"));
+  const prevRes = process.env.PORTER_RESOURCES;
+  const prevCf = process.env.PORTER_CLOUDFLARED;
+  try {
+    const exe = path.join(tmp, "cloudflared.exe");
+    fs.writeFileSync(exe, "");
+    process.env.PORTER_RESOURCES = tmp;
+    delete process.env.PORTER_CLOUDFLARED;
+    const { getTunnelStatus } = await import("../tunnel.js");
+    const st = getTunnelStatus();
+    // On darwin, whichCloudflared prefers darwin candidates; explicit PORTER_CLOUDFLARED still works
+    process.env.PORTER_CLOUDFLARED = exe;
+    const st2 = getTunnelStatus();
+    assert.equal(st2.cloudflaredInstalled, true);
+    assert.equal(st2.cloudflaredPath, exe);
+    void st;
+  } finally {
+    if (prevRes === undefined) delete process.env.PORTER_RESOURCES;
+    else process.env.PORTER_RESOURCES = prevRes;
+    if (prevCf === undefined) delete process.env.PORTER_CLOUDFLARED;
+    else process.env.PORTER_CLOUDFLARED = prevCf;
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });

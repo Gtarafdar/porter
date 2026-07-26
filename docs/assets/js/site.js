@@ -125,8 +125,52 @@
     if (e.target === lightbox) closeLightbox();
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeLightbox();
+    if (e.key === "Escape") {
+      closeLightbox();
+      closeDownloadModal();
+    }
   });
+
+  /* Download chooser modal */
+  const downloadModal = document.getElementById("download-modal");
+  let downloadFocusReturn = null;
+
+  function openDownloadModal() {
+    if (!downloadModal) return;
+    downloadFocusReturn = document.activeElement;
+    downloadModal.hidden = false;
+    document.body.classList.add("dl-open");
+    setNavOpen(false);
+    const closeBtn = downloadModal.querySelector("[data-download-close].dl-modal-close");
+    (closeBtn || downloadModal.querySelector("a.btn-primary"))?.focus?.();
+  }
+
+  function closeDownloadModal() {
+    if (!downloadModal || downloadModal.hidden) return;
+    downloadModal.hidden = true;
+    document.body.classList.remove("dl-open");
+    if (downloadFocusReturn && typeof downloadFocusReturn.focus === "function") {
+      downloadFocusReturn.focus();
+    }
+    downloadFocusReturn = null;
+  }
+
+  document.addEventListener("click", (e) => {
+    const openBtn = e.target.closest?.("[data-download-open]");
+    if (openBtn) {
+      e.preventDefault();
+      openDownloadModal();
+      return;
+    }
+    if (e.target.closest?.("[data-download-close]")) {
+      closeDownloadModal();
+    }
+  });
+
+  // Deep-link: #download-modal opens the chooser
+  if (location.hash === "#download-modal" || location.hash === "#download-choose") {
+    openDownloadModal();
+  }
 
   /* Gallery auto carousel (seamless loop, pauses on interaction) */
   (function initFilmstripCarousel() {
@@ -402,15 +446,17 @@
   function setDownloads(tag, dmgUrl, zipUrl) {
     const label = document.getElementById("release-label");
     const chip = document.getElementById("version-chip");
+    const modalMac = document.getElementById("modal-mac-label");
     if (label) label.textContent = tag ? `${tag} for Apple Silicon` : "Latest for Apple Silicon";
+    if (modalMac) modalMac.textContent = tag ? `${tag} · Apple Silicon` : "Latest · Apple Silicon";
     if (chip) chip.textContent = tag || "Latest release";
     const dmg = dmgUrl || FALLBACK_DMG;
     const zip = zipUrl || FALLBACK_ZIP;
-    ["btn-dmg", "download-dmg"].forEach((id) => {
+    ["download-dmg", "modal-download-dmg"].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.href = dmg;
     });
-    ["btn-zip", "download-zip"].forEach((id) => {
+    ["download-zip", "modal-download-zip"].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.href = zip;
     });
@@ -418,11 +464,15 @@
 
   function setWindowsDownload(tag, url) {
     const label = document.getElementById("windows-release-label");
+    const modalWin = document.getElementById("modal-win-label");
     if (label) label.textContent = tag ? `${tag} Windows x64 preview` : "Windows x64 preview";
-    const el = document.getElementById("download-windows");
-    if (el) el.href = url || FALLBACK_WIN;
+    if (modalWin) modalWin.textContent = tag ? `${tag} · Setup EXE` : "Setup EXE preview";
+    const href = url || FALLBACK_WIN;
+    ["download-windows", "modal-download-windows"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.href = href;
+    });
   }
-
   function escapeHtml(s) {
     return String(s)
       .replace(/&/g, "&amp;")
@@ -545,7 +595,7 @@
     tree.replaceChildren(frag);
   }
 
-  const RELEASE_CACHE_KEY = "porter-releases-cache-v2";
+  const RELEASE_CACHE_KEY = "porter-releases-cache-v3";
   const RELEASE_CACHE_MS = 15 * 60 * 1000;
 
   function readReleaseCache() {

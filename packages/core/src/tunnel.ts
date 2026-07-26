@@ -16,18 +16,35 @@ function whichCloudflared(): string | null {
   const arch = process.arch; // 'arm64' | 'x64' | …
   const res = process.env.PORTER_RESOURCES;
   const fromEnvExplicit = process.env.PORTER_CLOUDFLARED || null;
-  const candidates = [
-    fromEnvExplicit,
-    res ? path.join(res, arch === "arm64" ? "cloudflared-arm64" : "cloudflared-x64") : null,
-    res ? path.join(res, "cloudflared") : null,
-    path.join(process.env.HOME || "", "Library/Application Support/Porter/bin/cloudflared"),
-    "/opt/homebrew/bin/cloudflared",
-    "/usr/local/bin/cloudflared",
-    "cloudflared",
-  ].filter(Boolean) as string[];
+  const home = process.env.HOME || process.env.USERPROFILE || "";
+  const winCandidates =
+    process.platform === "win32"
+      ? [
+          res ? path.join(res, "cloudflared.exe") : null,
+          res ? path.join(res, arch === "arm64" ? "cloudflared-arm64.exe" : "cloudflared-x64.exe") : null,
+          path.join(home, "AppData", "Local", "Porter", "bin", "cloudflared.exe"),
+          path.join(process.env.ProgramFiles || "C:\\Program Files", "cloudflared", "cloudflared.exe"),
+          "cloudflared.exe",
+          "cloudflared",
+        ]
+      : [];
+  const darwinCandidates =
+    process.platform === "win32"
+      ? []
+      : [
+          res ? path.join(res, arch === "arm64" ? "cloudflared-arm64" : "cloudflared-x64") : null,
+          res ? path.join(res, "cloudflared") : null,
+          path.join(home, "Library/Application Support/Porter/bin/cloudflared"),
+          "/opt/homebrew/bin/cloudflared",
+          "/usr/local/bin/cloudflared",
+          "cloudflared",
+        ];
+  const candidates = [fromEnvExplicit, ...winCandidates, ...darwinCandidates].filter(
+    Boolean,
+  ) as string[];
   for (const c of candidates) {
     try {
-      if (c === "cloudflared") return c;
+      if (c === "cloudflared" || c === "cloudflared.exe") return c;
       if (fs.existsSync(c)) return c;
     } catch {
       // ignore
@@ -117,7 +134,9 @@ export async function startCloudflareTunnel(
   if (!bin) {
     wantRunning = false;
     throw new Error(
-      "cloudflared not installed. Run: brew install cloudflare/cloudflare/cloudflared (or use Porter.app which bundles it)",
+      process.platform === "win32"
+        ? "cloudflared not installed. Install from https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/ (or use a Porter Setup that bundles cloudflared.exe)"
+        : "cloudflared not installed. Run: brew install cloudflare/cloudflare/cloudflared (or use Porter.app which bundles it)",
     );
   }
 

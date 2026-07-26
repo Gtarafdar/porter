@@ -53,6 +53,15 @@ jobs:
           $env:PORTER_RESOURCES = (Resolve-Path dist/windows/Porter).Path
           $env:PORTER_UI_DIR = Join-Path $env:PORTER_RESOURCES "ui"
           $env:PORTER_OPEN_BROWSER = "0"
+          $required = @(
+            "$env:PORTER_RESOURCES\node.exe",
+            "$env:PORTER_RESOURCES\Porter.exe",
+            "$env:PORTER_RESOURCES\app\packages\core\dist\cli.js",
+            "$env:PORTER_RESOURCES\ui\index.html"
+          )
+          foreach ($f in $required) {
+            if (-not (Test-Path $f)) { throw "Missing required payload file: $f" }
+          }
           $p = Start-Process -FilePath "$env:PORTER_RESOURCES\node.exe" -ArgumentList "`"$env:PORTER_RESOURCES\app\packages\core\dist\cli.js`" serve" -PassThru -WindowStyle Hidden
           $ok = $false
           for ($i = 0; $i -lt 40; $i++) {
@@ -64,6 +73,22 @@ jobs:
           }
           if ($p -and !$p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
           if (-not $ok) { throw "Porter health smoke failed on Windows" }
+      - name: Silent install smoke (Setup EXE)
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist/windows/Porter-Setup-*-windows-x64.exe | Select-Object -First 1
+          if (-not $setup) { throw "Setup EXE missing" }
+          $dest = Join-Path $env:RUNNER_TEMP "PorterSilentInstall"
+          if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+          # /DIR avoids Program Files permission quirks in CI; still exercises the real Setup EXE.
+          $args = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=`"$dest`""
+          $proc = Start-Process -FilePath $setup.FullName -ArgumentList $args -Wait -PassThru
+          if ($proc.ExitCode -ne 0) { throw "Silent Setup failed with exit $($proc.ExitCode)" }
+          foreach ($name in @("Porter.exe", "node.exe", "app\packages\core\dist\cli.js", "ui\index.html")) {
+            $path = Join-Path $dest $name
+            if (-not (Test-Path $path)) { throw "Silent install missing: $path" }
+          }
+          Write-Host "Silent install OK → $dest"
       - name: Upload Setup EXE
         uses: actions/upload-artifact@v4
         with:

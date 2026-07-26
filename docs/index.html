@@ -3,25 +3,25 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Porter - Copy folders between your Macs like Finder</title>
+    <title>Porter - Copy folders between your Macs (and Windows) like Finder</title>
     <meta
       name="description"
-      content="Porter copies folders between your Macs like Finder over home Wi-Fi, the internet, or abroad with Tailscale. Optional Cursor, Claude, and Copilot via MCP. No Porter cloud. Not remote desktop."
+      content="Porter copies folders between your Macs and Windows PCs like Finder over home Wi-Fi, the internet, or abroad with Tailscale. Optional Cursor, Claude, and Copilot via MCP. No Porter cloud. Not remote desktop."
     />
     <link rel="canonical" href="https://gtarafdar.github.io/porter/" />
     <meta name="author" content="Gobinda Tarafdar" />
     <meta name="theme-color" content="#12151a" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
-    <meta name="keywords" content="Porter, Mac file bridge, copy folders between Macs, Tailscale, LAN, MCP, Cursor, Claude, Copilot, Finder, Apple Silicon" />
+    <meta name="keywords" content="Porter, Mac file bridge, Windows file bridge, copy folders between Macs, Tailscale, LAN, MCP, Cursor, Claude, Copilot, Finder, Apple Silicon" />
 
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:site_name" content="Porter" />
     <meta property="og:url" content="https://gtarafdar.github.io/porter/" />
-    <meta property="og:title" content="Porter - Copy folders between your Macs like Finder" />
+    <meta property="og:title" content="Porter - Copy folders between your Macs (and Windows) like Finder" />
     <meta
       property="og:description"
-      content="Install on each Mac, share approved folders, copy over Wi-Fi or Tailscale when you travel, then optionally connect Cursor, Claude, or Copilot. No Porter cloud."
+      content="Install on each Mac or Windows PC, share approved folders, copy over Wi-Fi or Tailscale when you travel, then optionally connect Cursor, Claude, or Copilot. No Porter cloud."
     />
     <meta property="og:image" content="https://gtarafdar.github.io/porter/assets/img/og.png" />
     <meta property="og:image:alt" content="Porter app icon and Finder-like dual-pane bridge" />
@@ -29,10 +29,10 @@
     <meta property="og:image:height" content="630" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Porter - Copy folders between your Macs like Finder" />
+    <meta name="twitter:title" content="Porter - Copy folders between your Macs (and Windows) like Finder" />
     <meta
       name="twitter:description"
-      content="Finder-like folder copy between Macs on Wi-Fi, internet, or travel. Optional AI IDE access via MCP. No Porter cloud."
+      content="Finder-like folder copy between Macs and Windows on Wi-Fi, internet, or travel. Optional AI IDE access via MCP. No Porter cloud."
     />
     <meta name="twitter:image" content="https://gtarafdar.github.io/porter/assets/img/og.png" />
     <meta name="twitter:image:alt" content="Porter app icon and Finder-like dual-pane bridge" />
@@ -58,7 +58,7 @@
             "@id": "https://gtarafdar.github.io/porter/#website",
             "url": "https://gtarafdar.github.io/porter/",
             "name": "Porter",
-            "description": "Copy folders between your Macs like Finder over LAN, internet, or Tailscale. Optional MCP for Cursor, Claude, and Copilot.",
+            "description": "Copy folders between your Macs and Windows PCs like Finder over LAN, internet, or Tailscale. Optional MCP for Cursor, Claude, and Copilot.",
             "publisher": { "@id": "https://github.com/Gtarafdar#person" }
           },
           {
@@ -66,7 +66,7 @@
             "@id": "https://gtarafdar.github.io/porter/#app",
             "name": "Porter",
             "applicationCategory": "DeveloperApplication",
-            "operatingSystem": "macOS",
+            "operatingSystem": "macOS, Windows",
             "offers": {
               "@type": "Offer",
               "price": "0",
@@ -74,9 +74,9 @@
             },
             "license": "https://github.com/Gtarafdar/porter/blob/main/LICENSE",
             "url": "https://gtarafdar.github.io/porter/",
-            "downloadUrl": "https://github.com/Gtarafdar/porter/releases/latest",
+            "downloadUrl": "https://gtarafdar.github.io/porter/#download",
             "softwareVersion": "0.2.34",
-            "description": "Copy folders between your Macs like Finder. Share approved folders, transfer over home Wi-Fi or Tailscale when you travel, and optionally connect Cursor, Claude, or Copilot through MCP. No Porter cloud. Not remote desktop.",
+            "description": "Copy folders between your Macs and Windows PCs like Finder. Share approved folders, transfer over home Wi-Fi or Tailscale when you travel, and optionally connect Cursor, Claude, or Copilot through MCP. No Porter cloud. Not remote desktop.",
             "author": { "@id": "https://github.com/Gtarafdar#person" },
             "image": "https://gtarafdar.github.io/porter/assets/img/og.png"
           },
@@ -137,7 +137,7 @@
           <a href="#faq" data-nav>FAQ</a>
         </nav>
         <div class="side-cta">
-          <a class="btn btn-primary" href="#download" id="nav-download">Download</a>
+          <button type="button" class="btn btn-primary" id="nav-download" data-download-open>Download</button>
           <a class="btn btn-ghost" href="https://github.com/Gtarafdar/porter" rel="noopener">GitHub</a>
         </div>
       </aside>
@@ -171,33 +171,34 @@
               <a href="#changelog">Changelog</a>
               <a href="#faq">FAQ</a>
             </nav>
-            <a class="btn btn-primary" href="#download">Download</a>
+            <button type="button" class="btn btn-primary" data-download-open>Download</button>
           </div>
         </div>
 
         <header class="section hero" id="overview">
-          <p class="eyebrow">For people with more than one Mac</p>
+          <p class="eyebrow">For people with more than one computer</p>
           <img class="hero-mark" src="assets/img/porter-mark.png" width="88" height="88" alt="Porter app icon" />
           <h1>Porter</h1>
           <p class="tagline">Copy folders between your Macs like Finder</p>
           <p class="sub">
-            Install Porter on each Mac, share only the folders you approve, then copy files over your
+            Install Porter on each Mac (and Windows, preview), share only the folders you approve, then copy files over your
             home Wi‑Fi, across the internet, or while you travel abroad (via Tailscale). When you want
             AI help, connect Cursor, Claude, or Copilot through MCP so they can use those same folders.
             No Porter cloud. Not remote desktop.
           </p>
           <div class="btn-row" style="justify-content: center">
-            <a class="btn btn-primary" id="btn-dmg" href="https://github.com/Gtarafdar/porter/releases/latest">
-              Download DMG
-            </a>
-            <a class="btn btn-ghost" id="btn-zip" href="https://github.com/Gtarafdar/porter/releases/latest">
-              Download Zip
-            </a>
+            <button type="button" class="btn btn-primary" id="btn-download" data-download-open>
+              Download
+            </button>
             <a class="btn btn-ghost" href="https://github.com/Gtarafdar/porter">View source</a>
           </div>
           <p class="trust-line">
             <span class="chip" id="version-chip">Latest release</span>
-            MIT · Apple Silicon · First open may need right-click → Open
+            MIT · Mac Apple Silicon · Windows x64 preview · First open may need Gatekeeper / SmartScreen
+          </p>
+          <p class="platform-note">
+            <span class="chip">Now on Windows</span>
+            Same pair token and Tailscale mesh — Mac↔Mac, Mac↔Windows, Windows↔Windows.
           </p>
           <figure class="hero-visual glass reveal">
             <img
@@ -631,59 +632,60 @@
 
         <section class="section reveal" id="download">
           <p class="eyebrow">Get Porter</p>
-          <h2>Download for Mac</h2>
-          <div class="download-panel glass glass-strong">
-            <p class="chip">Apple Silicon (M1-M4)</p>
-            <p class="ver" id="release-label">Loading latest release…</p>
-            <div class="btn-row" style="justify-content: center">
-              <a class="btn btn-primary" id="download-dmg" href="https://github.com/Gtarafdar/porter/releases/latest">
-                Download DMG
-              </a>
-              <a class="btn btn-ghost" id="download-zip" href="https://github.com/Gtarafdar/porter/releases/latest">
-                Download Zip
-              </a>
-              <a class="btn btn-ghost" href="https://github.com/Gtarafdar/porter/releases">All releases</a>
+          <h2>Download</h2>
+          <p class="lede">
+            Mac is the polished release line. Windows is a supported x64 preview with the same pair token and Tailscale mesh.
+          </p>
+          <div class="download-grid">
+            <div class="download-panel glass glass-strong">
+              <p class="chip">Mac · Apple Silicon</p>
+              <p class="ver" id="release-label">Loading latest release…</p>
+              <div class="btn-row" style="justify-content: center">
+                <a class="btn btn-primary" id="download-dmg" href="https://github.com/Gtarafdar/porter/releases/latest">
+                  Download DMG
+                </a>
+                <a class="btn btn-ghost" id="download-zip" href="https://github.com/Gtarafdar/porter/releases/latest">
+                  Download Zip
+                </a>
+              </div>
+              <div class="gate-steps">
+                <strong>First open on macOS</strong>
+                <ol>
+                  <li>Drag Porter to Applications (not Downloads).</li>
+                  <li>Right-click Porter → Open → Open.</li>
+                  <li>If blocked: System Settings → Privacy and Security → Open Anyway.</li>
+                </ol>
+              </div>
             </div>
-            <div class="gate-steps">
-              <strong>First open on macOS</strong>
-              <ol>
-                <li>Drag Porter to Applications (not Downloads).</li>
-                <li>Right-click Porter → Open → Open.</li>
-                <li>If blocked: System Settings → Privacy and Security → Open Anyway.</li>
-              </ol>
-              <p style="margin-top: 10px">
-                Gatekeeper friction is normal for indie MIT apps that are not Apple-notarized. It does not mean Porter is malware.
-                Prefer downloads from official GitHub Releases.
-              </p>
-            </div>
-          </div>
-
-          <h2 style="margin-top: 2.5rem">Download for Windows</h2>
-          <div class="download-panel glass glass-strong">
-            <p class="chip">Windows x64 preview</p>
-            <p class="ver" id="windows-release-label">Porter Setup EXE</p>
-            <div class="btn-row" style="justify-content: center">
-              <a
-                class="btn btn-primary"
-                id="download-windows"
-                href="https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe"
-              >
-                Download Setup EXE
-              </a>
-              <a class="btn btn-ghost" href="WINDOWS.md">Windows guide</a>
-            </div>
-            <div class="gate-steps">
-              <strong>Install notes</strong>
-              <ol>
-                <li>Run Setup → allow UAC → installs to <code>C:\Program Files\Porter</code>.</li>
-                <li>Same Tailscale account + pair token as your Macs.</li>
-                <li>If SmartScreen appears: More info → Run anyway (unsigned preview).</li>
-              </ol>
-              <p style="margin-top: 10px">
-                Mac Latest stays on the Apple Silicon DMG. Windows is a separate Setup EXE and does not replace Mac Travel Ready.
-              </p>
+            <div class="download-panel glass glass-strong">
+              <p class="chip">Windows · x64 preview</p>
+              <p class="ver" id="windows-release-label">Porter Setup EXE</p>
+              <div class="btn-row" style="justify-content: center">
+                <a
+                  class="btn btn-primary"
+                  id="download-windows"
+                  href="https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe"
+                >
+                  Download Setup EXE
+                </a>
+                <a class="btn btn-ghost" href="WINDOWS.md">Windows guide</a>
+              </div>
+              <div class="gate-steps">
+                <strong>Install notes</strong>
+                <ol>
+                  <li>Run Setup → allow UAC → installs to <code>C:\Program Files\Porter</code>.</li>
+                  <li>Same Tailscale account + pair token as your Macs.</li>
+                  <li>If SmartScreen appears: More info → Run anyway (unsigned preview).</li>
+                </ol>
+              </div>
             </div>
           </div>
+          <p class="download-footnote">
+            Prefer official
+            <a href="https://github.com/Gtarafdar/porter/releases">GitHub Releases</a>.
+            Mac Latest stays on the Apple Silicon DMG; Windows is a separate Setup EXE and does not replace Mac Travel Ready.
+            <button type="button" class="text-link" data-download-open>Open download chooser</button>
+          </p>
         </section>
 
         
@@ -841,8 +843,31 @@
           <details class="glass">
             <summary>Is this like TeamViewer?</summary>
             <p>
-              No. TeamViewer-style tools remote a whole computer. Porter bridges approved folders between your Macs and exposes
-              those same folders to AI IDEs through MCP.
+              No. TeamViewer-style tools remote a whole computer. Porter bridges approved folders between your Macs (and Windows)
+              and exposes those same folders to AI IDEs through MCP.
+            </p>
+          </details>
+          <details class="glass">
+            <summary>Do you support Windows?</summary>
+            <p>
+              Yes — Windows x64 is available as a preview Setup EXE (separate from the Mac DMG). Install to
+              <code>C:\Program Files\Porter</code>, use the same pair token and Tailscale account as your Macs, then Add PC / Add Mac.
+              Mac Travel Ready / Set &amp; forget remains the strongest unattended home path. Full guide:
+              <a href="WINDOWS.md">Windows docs</a>.
+            </p>
+          </details>
+          <details class="glass">
+            <summary>Windows SmartScreen blocked the Setup EXE</summary>
+            <p>
+              Expected for this unsigned indie preview (same class of warning as Mac Gatekeeper). Choose
+              <strong>More info → Run anyway</strong>. Prefer downloads only from official GitHub Releases.
+            </p>
+          </details>
+          <details class="glass">
+            <summary>Can Mac and Windows talk to each other?</summary>
+            <p>
+              Yes. Mac↔Windows and Windows↔Windows use the same pair token over LAN or Tailscale (<code>100.x:47831</code>).
+              Keep the home Mac on Travel Ready when you leave a machine unattended.
             </p>
           </details>
           <details class="glass">
@@ -857,10 +882,10 @@
             <p>No. Same LAN works with the pair token and LAN address. Tailscale is required for reliable travel and unattended home access.</p>
           </details>
           <details class="glass">
-            <summary>Intel Macs? Windows? iPhone?</summary>
+            <summary>Intel Macs? iPhone?</summary>
             <p>
-              Current Mac builds target Apple Silicon. A Windows x64 Setup EXE preview is available (separate from the Mac DMG).
-              There is no iPhone or iPad app in this version.
+              Current Mac builds target Apple Silicon. There is no iPhone or iPad app in this version.
+              Windows x64 preview is available via the Download chooser.
             </p>
           </details>
           <details class="glass">
@@ -913,6 +938,57 @@
     <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Screenshot">
       <button type="button" class="btn btn-ghost lightbox-close" id="lightbox-close">Close</button>
       <img src="" alt="" id="lightbox-img" />
+    </div>
+
+    <div class="dl-modal" id="download-modal" hidden>
+      <div class="dl-modal-backdrop" data-download-close tabindex="-1"></div>
+      <div
+        class="dl-modal-panel glass glass-strong"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dl-modal-title"
+        id="download-dialog"
+      >
+        <button type="button" class="btn btn-ghost dl-modal-close" data-download-close aria-label="Close download chooser">
+          Close
+        </button>
+        <p class="eyebrow">Get Porter</p>
+        <h2 id="dl-modal-title">Choose your download</h2>
+        <p class="dl-modal-lede">Mac is the polished release. Windows is a supported x64 preview — same pair token and Tailscale.</p>
+        <div class="dl-modal-grid">
+          <article class="dl-option">
+            <p class="chip">Mac</p>
+            <h3>Apple Silicon</h3>
+            <p class="dl-option-meta" id="modal-mac-label">Latest DMG</p>
+            <div class="btn-row">
+              <a class="btn btn-primary" id="modal-download-dmg" href="https://github.com/Gtarafdar/porter/releases/latest">
+                Download DMG
+              </a>
+              <a class="btn btn-ghost" id="modal-download-zip" href="https://github.com/Gtarafdar/porter/releases/latest">
+                Zip
+              </a>
+            </div>
+          </article>
+          <article class="dl-option">
+            <p class="chip">Windows</p>
+            <h3>x64 preview</h3>
+            <p class="dl-option-meta" id="modal-win-label">Setup EXE</p>
+            <div class="btn-row">
+              <a
+                class="btn btn-primary"
+                id="modal-download-windows"
+                href="https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe"
+              >
+                Download Setup
+              </a>
+              <a class="btn btn-ghost" href="WINDOWS.md">Guide</a>
+            </div>
+          </article>
+        </div>
+        <p class="dl-modal-foot">
+          <a href="https://github.com/Gtarafdar/porter/releases">All releases on GitHub</a>
+        </p>
+      </div>
     </div>
 
     <button type="button" class="scroll-top" id="scroll-top" aria-label="Scroll to top" hidden>

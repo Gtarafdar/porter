@@ -26,6 +26,7 @@ const VERSION =
   process.env.PORTER_VERSION ||
   JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")).version;
 const NODE_VER = process.env.PORTER_NODE_VERSION || "20.18.2";
+const CF_VER = process.env.PORTER_CLOUDFLARED_VERSION || "2026.7.3";
 const OUT = path.join(ROOT, "dist", "windows", "Porter");
 const CACHE = path.join(ROOT, "dist", "cache");
 
@@ -61,6 +62,27 @@ async function ensureNodeWin() {
     renameSync(cached + ".partial", cached);
   } else {
     console.log(`==> Using cached ${zipName}`);
+  }
+  return cached;
+}
+
+/** Optional Cloudflare Quick Tunnel binary (same role as Mac DMG bundle). Best-effort. */
+async function ensureCloudflaredWin() {
+  mkdirSync(CACHE, { recursive: true });
+  const exeName = "cloudflared-windows-amd64.exe";
+  const cached = path.join(CACHE, `${CF_VER}-${exeName}`);
+  if (!existsSync(cached)) {
+    const url = `https://github.com/cloudflare/cloudflared/releases/download/${CF_VER}/${exeName}`;
+    console.log(`==> Downloading cloudflared ${CF_VER} (windows amd64)`);
+    try {
+      await httpGet(url, cached + ".partial");
+      renameSync(cached + ".partial", cached);
+    } catch (err) {
+      console.warn(`==> cloudflared download failed — optional CF tunnel may need a separate install: ${err}`);
+      return null;
+    }
+  } else {
+    console.log(`==> Using cached cloudflared ${CF_VER}`);
   }
   return cached;
 }
@@ -101,6 +123,12 @@ async function main() {
     throw new Error(`node.exe missing after extract: ${nodeExe}`);
   }
   cpSync(nodeExe, path.join(OUT, "node.exe"));
+
+  const cfCached = await ensureCloudflaredWin();
+  if (cfCached) {
+    cpSync(cfCached, path.join(OUT, "cloudflared.exe"));
+    console.log(`==> Bundled cloudflared.exe ${CF_VER}`);
+  }
 
   const appOut = path.join(OUT, "app");
   mkdirSync(path.join(appOut, "packages", "core", "dist"), { recursive: true });

@@ -16,11 +16,17 @@ Living todo for the Windows peer product. Mac DMG / Travel Ready stay protected.
 - [x] Site download section for Windows (Mac buttons use Mac DMG release only)
 - [x] Windows Task Scheduler login keep-alive (Set & forget on win32; Mac LaunchAgent unchanged)
 - [x] CI uploads Setup EXE artifact separately (`porter-windows-setup-exe`)
+- [x] L1 Mac-runnable win32 mocks (paths, MCP AppData, filename sanitize, path opacity)
+- [x] Mixed-OS path opacity + Windows dest filename matrix tests
+- [x] Security: Windows dangerous fragments + OPEN_LAN dual-gate regression
+- [x] Windows `cloudflared.exe` resolve + optional bundle in Setup payload
+- [x] Landing download chooser modal (Mac + Windows) + FAQ/changelog notes
+- [x] Setup EXE: launch as original user; firewall fail-soft; CI silent-install smoke
 
 ## In progress / your action
 
 - [ ] **L3 human smoke** on a Windows PC or VM — follow [WINDOWS-SMOKE.md](WINDOWS-SMOKE.md)  
-  (Cannot finish from Mac alone; CI already proved build + health.)
+  (Cannot finish from Mac alone; CI already proved build + health + silent Setup.)
 
 ## Later (not blocking preview)
 
