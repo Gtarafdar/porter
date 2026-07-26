@@ -70,6 +70,17 @@ Then: install Tailscale (travel) → share folders → pair Macs → optional **
 
 ---
 
+## Download (Windows preview)
+
+Separate Setup EXE — does **not** replace the Mac DMG.
+
+> **Windows x64:** [Porter Setup EXE](https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe)  
+> Installs to `C:\Program Files\Porter`. Guide: [docs/WINDOWS.md](docs/WINDOWS.md) · Smoke: [docs/WINDOWS-SMOKE.md](docs/WINDOWS-SMOKE.md)
+
+If SmartScreen appears: **More info → Run anyway** (unsigned indie build, same idea as Mac Gatekeeper).
+
+---
+
 ## Screenshots
 
 <p align="center">
@@ -120,7 +131,7 @@ One `mcp.js`, same capabilities for every host:
 
 In the app: Setup → **Link AI tools**, or Settings → This Mac → **AI tools**.
 
-**Windows (preview):** Setup EXE → `C:\Program Files\Porter` — see [docs/WINDOWS.md](docs/WINDOWS.md). Mac DMG install is unchanged.
+**Windows (preview):** [Setup EXE 0.2.35](https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe) → `C:\Program Files\Porter` — see [docs/WINDOWS.md](docs/WINDOWS.md). Mac DMG install is unchanged (use v0.2.34).
 
 ---
 

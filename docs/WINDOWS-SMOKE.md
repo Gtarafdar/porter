@@ -1,6 +1,6 @@
 # Windows smoke checklist (L3)
 
-Use after GitHub Actions uploads `Porter-Setup-*-windows-x64.exe`.
+Use after installing [Porter-Setup-0.2.35-windows-x64.exe](https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe).
 
 ## Install
 

@@ -4,11 +4,13 @@ Separate Windows product. **Does not change** the Mac DMG / Porter.app install p
 
 ## Install
 
-1. Download `Porter-Setup-*-windows-x64.exe` from [Releases](https://github.com/Gtarafdar/porter/releases) or CI artifacts
+1. Download **[Porter-Setup-0.2.35-windows-x64.exe](https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe)**
 2. Run Setup → allow UAC
 3. Installs to `C:\Program Files\Porter`
 4. Open Porter from Start Menu
 5. Optional: allow firewall rule for private networks (TCP 47831)
+
+Mac users: keep [v0.2.34](https://github.com/Gtarafdar/porter/releases/tag/v0.2.34) DMG — this Windows tag is not a Mac release.
 
 ## First use
 
