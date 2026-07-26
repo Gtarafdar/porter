@@ -30,4 +30,4 @@ Porter is MIT and not Microsoft-signed yet. Windows may show “Windows protecte
 - Chrome Library helpers are macOS-only for now
 - Prefer Tailscale over Cloudflare for travel
 
-See [WINDOWS-SMOKE.md](WINDOWS-SMOKE.md) and [TRAVEL-MATRIX.md](TRAVEL-MATRIX.md).
+See [WINDOWS-SMOKE.md](WINDOWS-SMOKE.md), [TRAVEL-MATRIX.md](TRAVEL-MATRIX.md), and the shipping checklist [WINDOWS-STATUS.md](WINDOWS-STATUS.md).

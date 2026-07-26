@@ -4,6 +4,8 @@
   const FALLBACK_TAG = "v0.2.34";
   const FALLBACK_DMG = `https://github.com/${REPO}/releases/latest/download/Porter-0.2.34-mac-arm64.dmg`;
   const FALLBACK_ZIP = `https://github.com/${REPO}/releases/latest/download/Porter-0.2.34-mac-arm64.zip`;
+  const FALLBACK_WIN =
+    `https://github.com/${REPO}/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe`;
 
   const yearEl = document.getElementById("year");
   if (yearEl) yearEl.textContent = String(new Date().getFullYear());
@@ -354,12 +356,47 @@
     const prefer =
       kind === "dmg"
         ? [/arm64\.dmg$/i, /mac-arm64\.dmg$/i, /mac\.dmg$/i, /\.dmg$/i]
-        : [/arm64\.zip$/i, /mac-arm64\.zip$/i, /mac\.zip$/i, /\.zip$/i];
+        : kind === "zip"
+          ? [/arm64\.zip$/i, /mac-arm64\.zip$/i, /mac\.zip$/i, /\.zip$/i]
+          : [/Setup-.*windows.*\.exe$/i, /windows-x64\.exe$/i, /Porter-Setup.*\.exe$/i];
     for (const re of prefer) {
       const hit = list.find((a) => re.test(a.name || ""));
       if (hit) return hit.browser_download_url;
     }
     return null;
+  }
+
+  function pickMacRelease(releases) {
+    const sorted = [...(releases || [])]
+      .filter((r) => r && !r.draft)
+      .sort((a, b) => {
+        const tb = Date.parse(b.published_at || b.created_at || 0) || 0;
+        const ta = Date.parse(a.published_at || a.created_at || 0) || 0;
+        return tb - ta;
+      });
+    // Prefer non-prerelease with a Mac DMG so Windows-only tags never steal Mac buttons.
+    for (const r of sorted) {
+      if (!r.prerelease && pickAsset(r.assets, "dmg")) return r;
+    }
+    for (const r of sorted) {
+      if (pickAsset(r.assets, "dmg")) return r;
+    }
+    return sorted.find((r) => !r.prerelease) || sorted[0] || null;
+  }
+
+  function pickWindowsSetup(releases) {
+    const sorted = [...(releases || [])]
+      .filter((r) => r && !r.draft)
+      .sort((a, b) => {
+        const tb = Date.parse(b.published_at || b.created_at || 0) || 0;
+        const ta = Date.parse(a.published_at || a.created_at || 0) || 0;
+        return tb - ta;
+      });
+    for (const r of sorted) {
+      const url = pickAsset(r.assets, "win");
+      if (url) return { tag: r.tag_name, url };
+    }
+    return { tag: "v0.2.35", url: FALLBACK_WIN };
   }
 
   function setDownloads(tag, dmgUrl, zipUrl) {
@@ -377,6 +414,13 @@
       const el = document.getElementById(id);
       if (el) el.href = zip;
     });
+  }
+
+  function setWindowsDownload(tag, url) {
+    const label = document.getElementById("windows-release-label");
+    if (label) label.textContent = tag ? `${tag} Windows x64 preview` : "Windows x64 preview";
+    const el = document.getElementById("download-windows");
+    if (el) el.href = url || FALLBACK_WIN;
   }
 
   function escapeHtml(s) {
@@ -533,12 +577,14 @@
         const ta = Date.parse(a.published_at || a.created_at || 0) || 0;
         return tb - ta;
       });
-    const latest = sorted[0];
-    if (latest) {
-      setDownloads(latest.tag_name || FALLBACK_TAG, pickAsset(latest.assets, "dmg"), pickAsset(latest.assets, "zip"));
+    const mac = pickMacRelease(list);
+    if (mac) {
+      setDownloads(mac.tag_name || FALLBACK_TAG, pickAsset(mac.assets, "dmg"), pickAsset(mac.assets, "zip"));
     } else {
       setDownloads(FALLBACK_TAG, FALLBACK_DMG, FALLBACK_ZIP);
     }
+    const win = pickWindowsSetup(list);
+    setWindowsDownload(win.tag, win.url);
     renderChangelog(sorted);
   }
 
@@ -564,6 +610,7 @@
     } catch {
       if (!cached) {
         setDownloads(FALLBACK_TAG, FALLBACK_DMG, FALLBACK_ZIP);
+        setWindowsDownload("v0.2.35", FALLBACK_WIN);
         renderChangelog([
           {
             tag_name: FALLBACK_TAG,

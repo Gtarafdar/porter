@@ -657,6 +657,33 @@
               </p>
             </div>
           </div>
+
+          <h2 style="margin-top: 2.5rem">Download for Windows</h2>
+          <div class="download-panel glass glass-strong">
+            <p class="chip">Windows x64 preview</p>
+            <p class="ver" id="windows-release-label">Porter Setup EXE</p>
+            <div class="btn-row" style="justify-content: center">
+              <a
+                class="btn btn-primary"
+                id="download-windows"
+                href="https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe"
+              >
+                Download Setup EXE
+              </a>
+              <a class="btn btn-ghost" href="WINDOWS.md">Windows guide</a>
+            </div>
+            <div class="gate-steps">
+              <strong>Install notes</strong>
+              <ol>
+                <li>Run Setup → allow UAC → installs to <code>C:\Program Files\Porter</code>.</li>
+                <li>Same Tailscale account + pair token as your Macs.</li>
+                <li>If SmartScreen appears: More info → Run anyway (unsigned preview).</li>
+              </ol>
+              <p style="margin-top: 10px">
+                Mac Latest stays on the Apple Silicon DMG. Windows is a separate Setup EXE and does not replace Mac Travel Ready.
+              </p>
+            </div>
+          </div>
         </section>
 
         
@@ -830,9 +857,10 @@
             <p>No. Same LAN works with the pair token and LAN address. Tailscale is required for reliable travel and unattended home access.</p>
           </details>
           <details class="glass">
-            <summary>Intel Macs? iPhone?</summary>
+            <summary>Intel Macs? Windows? iPhone?</summary>
             <p>
-              Current builds target Apple Silicon. Intel may exist in older releases. There is no iPhone or iPad app in this version.
+              Current Mac builds target Apple Silicon. A Windows x64 Setup EXE preview is available (separate from the Mac DMG).
+              There is no iPhone or iPad app in this version.
             </p>
           </details>
           <details class="glass">

@@ -1,5 +1,7 @@
 # Windows smoke checklist (L3)
 
+**Status:** awaiting a Windows PC/VM run. Build/CI and release packaging are done — see [WINDOWS-STATUS.md](WINDOWS-STATUS.md).
+
 Use after installing [Porter-Setup-0.2.35-windows-x64.exe](https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe).
 
 ## Install

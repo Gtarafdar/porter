@@ -237,13 +237,14 @@ The IDE does **not** magically see home Desktop. It only sees what you shared an
 
 ## 10. Limitations (say these clearly)
 
-- **No iPhone / iPad app** (Mac + AI IDEs for this version)  
+- **No iPhone / iPad app** (computers + AI IDEs for this version)  
+- **Windows x64 Setup EXE is preview** — separate from Mac DMG; home Travel Ready stays Mac-focused ([WINDOWS.md](WINDOWS.md))  
 - **No Apple ID / iCloud auto-discovery** — same iCloud ≠ linked in Porter  
 - **No two-way sync with conflict UI** — copy and one-way sync instead  
 - **Not notarized / not Mac App Store** — first open needs right-click → Open (see below)  
-- **Apple Silicon** builds in current release line (Intel = older builds if any)  
+- **Apple Silicon** builds in current Mac release line (Intel = older builds if any)  
 - **Tailscale** required for reliable travel (not bundled)  
-- Chrome extension flow: **Default** profile, manual copy, quit Chrome — not live sync  
+- Chrome extension flow: **Default** profile, manual copy, quit Chrome — not live sync (macOS helpers)  
 - Full remote desktop / TeamViewer-style control: **out of scope**
 
 ---
