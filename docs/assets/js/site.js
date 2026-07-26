@@ -1,9 +1,9 @@
 (() => {
   const REPO = "Gtarafdar/porter";
   const API = `https://api.github.com/repos/${REPO}`;
-  const FALLBACK_TAG = "v0.2.34";
-  const FALLBACK_DMG = `https://github.com/${REPO}/releases/latest/download/Porter-0.2.34-mac-arm64.dmg`;
-  const FALLBACK_ZIP = `https://github.com/${REPO}/releases/latest/download/Porter-0.2.34-mac-arm64.zip`;
+  const FALLBACK_TAG = "v0.2.36";
+  const FALLBACK_DMG = `https://github.com/${REPO}/releases/latest/download/Porter-0.2.36-mac-arm64.dmg`;
+  const FALLBACK_ZIP = `https://github.com/${REPO}/releases/latest/download/Porter-0.2.36-mac-arm64.zip`;
   const FALLBACK_WIN =
     `https://github.com/${REPO}/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe`;
 

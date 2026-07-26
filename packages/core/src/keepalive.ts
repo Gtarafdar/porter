@@ -82,7 +82,9 @@ export function isKeepAliveInstalled(): boolean {
 }
 
 /** Bump when start-porter.sh semantics change (forces LaunchAgent rewrite). */
-export const PORTER_KEEPALIVE_REV = 2;
+export const PORTER_KEEPALIVE_REV = 3;
+/** Bump when HTTP API surface changes so keepalive can restart a stuck old core (same semver). */
+export const PORTER_CORE_REV = 1;
 
 /** Write start-porter.sh contents (shared by Travel Ready + updater). */
 export function writeStartPorterScript(opts?: {
@@ -128,6 +130,7 @@ ${process.env.PORTER_UI_DIR ? `export PORTER_UI_DIR="${toPosixPath(process.env.P
 LOG="${logEmb}"
 PORT="${port}"
 WANT_VER="${version}"
+WANT_CORE="${PORTER_CORE_REV}"
 WANT_RES="${resources}"
 mkdir -p "$(dirname "$LOG")" "${supportEmb}"
 
@@ -147,14 +150,23 @@ clear_stale() {
 
 JSON="$(health_json)"
 if [[ -n "$JSON" ]]; then
-  # Healthy — but take over if this bundle is newer or paths drifted (stuck old core).
+  # Healthy — but take over if this bundle is newer, coreRev drifted, or critical routes 404 (stuck old core).
   CUR_VER="$(printf '%s' "$JSON" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' | head -1)"
+  CUR_CORE="$(printf '%s' "$JSON" | sed -n 's/.*"coreRev"[[:space:]]*:[[:space:]]*\\([0-9][0-9]*\\).*/\\1/p' | head -1)"
   NEED_TAKEOVER=0
   if [[ -n "$WANT_VER" && -n "$CUR_VER" && "$WANT_VER" != "$CUR_VER" ]]; then
     NEED_TAKEOVER=1
   fi
+  if [[ -z "$CUR_CORE" || "$CUR_CORE" != "$WANT_CORE" ]]; then
+    NEED_TAKEOVER=1
+  fi
+  # Same version string can still be a pre-route core (DMG replaced files without process restart).
+  ROUTE_CODE="$(curl -s -o /dev/null -w '%{http_code}' -m 3 --connect-timeout 2 -X POST -H 'Content-Type: application/json' -d '{}' "http://127.0.0.1:\${PORT}/api/away/open-tailscale-app" 2>/dev/null || echo 000)"
+  if [[ "$ROUTE_CODE" = "404" ]]; then
+    NEED_TAKEOVER=1
+  fi
   if [[ "$NEED_TAKEOVER" = "1" ]]; then
-    echo "[porter-keepalive] version mismatch have=\${CUR_VER:-?} want=\${WANT_VER} — taking over" >>"$LOG"
+    echo "[porter-keepalive] takeover have_ver=\${CUR_VER:-?} want_ver=\${WANT_VER} have_core=\${CUR_CORE:-missing} want_core=\${WANT_CORE} route_app=\${ROUTE_CODE}" >>"$LOG"
     clear_stale
   else
     exit 0
@@ -167,8 +179,10 @@ if lsof -nP -iTCP:"\${PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
   JSON="$(health_json)"
   if [[ -n "$JSON" ]]; then
     CUR_VER="$(printf '%s' "$JSON" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' | head -1)"
-    if [[ -n "$WANT_VER" && -n "$CUR_VER" && "$WANT_VER" != "$CUR_VER" ]]; then
-      echo "[porter-keepalive] version mismatch after grace have=\${CUR_VER} want=\${WANT_VER}" >>"$LOG"
+    CUR_CORE="$(printf '%s' "$JSON" | sed -n 's/.*"coreRev"[[:space:]]*:[[:space:]]*\\([0-9][0-9]*\\).*/\\1/p' | head -1)"
+    ROUTE_CODE="$(curl -s -o /dev/null -w '%{http_code}' -m 3 --connect-timeout 2 -X POST -H 'Content-Type: application/json' -d '{}' "http://127.0.0.1:\${PORT}/api/away/open-tailscale-app" 2>/dev/null || echo 000)"
+    if [[ -n "$WANT_VER" && -n "$CUR_VER" && "$WANT_VER" != "$CUR_VER" ]] || [[ -z "$CUR_CORE" || "$CUR_CORE" != "$WANT_CORE" ]] || [[ "$ROUTE_CODE" = "404" ]]; then
+      echo "[porter-keepalive] takeover after grace have_ver=\${CUR_VER:-?} want_ver=\${WANT_VER} have_core=\${CUR_CORE:-missing} route_app=\${ROUTE_CODE}" >>"$LOG"
       clear_stale
     else
       exit 0

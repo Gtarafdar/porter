@@ -12,7 +12,7 @@ Separate Windows product. **Does not change** the Mac DMG / Porter.app install p
 4. Open Porter from Start Menu
 5. Optional: allow firewall rule for private networks (TCP 47831)
 
-Mac users: keep [v0.2.34](https://github.com/Gtarafdar/porter/releases/tag/v0.2.34) DMG — this Windows tag is not a Mac release.
+Mac users: keep [v0.2.36](https://github.com/Gtarafdar/porter/releases/tag/v0.2.36) DMG — this Windows tag is not a Mac release.
 
 ## First use
 
@@ -42,7 +42,7 @@ See [WINDOWS-SMOKE.md](WINDOWS-SMOKE.md), [TRAVEL-MATRIX.md](TRAVEL-MATRIX.md), 
 4. Open Porter from Start Menu
 5. Optional: allow firewall rule for private networks (TCP 47831)
 
-Mac users: keep [v0.2.34](https://github.com/Gtarafdar/porter/releases/tag/v0.2.34) DMG — this Windows tag is not a Mac release.
+Mac users: keep [v0.2.36](https://github.com/Gtarafdar/porter/releases/tag/v0.2.36) DMG — this Windows tag is not a Mac release.
 
 ## First use
 

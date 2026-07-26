@@ -71,7 +71,7 @@ import {
   stopCloudflareTunnel,
   maybeAutoStartTunnel,
 } from "./tunnel.js";
-import { installKeepAlive, maybeStartPreventSleep, maybeRepairKeepAlivePaths } from "./keepalive.js";
+import { installKeepAlive, maybeStartPreventSleep, maybeRepairKeepAlivePaths, PORTER_CORE_REV } from "./keepalive.js";
 import { chromeExtensionsStatus, revealChromeFolder, shareChromeExtensions } from "./chrome.js";
 import { applyUpdate, checkForUpdate, currentVersion, githubTokenStatus, saveGithubToken, clearGithubToken } from "./update.js";
 import {
@@ -161,6 +161,7 @@ export async function startServer(opts?: {
       deviceName: c.deviceName,
       sleeping: c.sleeping,
       version: currentVersion(),
+      coreRev: PORTER_CORE_REV,
       platform: process.platform === "win32" ? "win32" : process.platform === "darwin" ? "darwin" : "linux",
       // Do not leak LAN details to remote/tunnel clients
       ...(local ? { lan: localLanHint() } : {}),

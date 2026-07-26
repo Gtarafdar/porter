@@ -20,9 +20,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.34-mac-arm64.dmg"><strong>⬇ Mac DMG</strong></a>
+  <a href="https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.36-mac-arm64.dmg"><strong>⬇ Mac DMG</strong></a>
   ·
-  <a href="https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.34-mac-arm64.zip"><strong>Mac Zip</strong></a>
+  <a href="https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.36-mac-arm64.zip"><strong>Mac Zip</strong></a>
   ·
   <a href="https://github.com/Gtarafdar/porter/releases/download/v0.2.35/Porter-Setup-0.2.35-windows-x64.exe"><strong>Windows Setup</strong></a>
   ·
@@ -57,7 +57,7 @@ Your projects live on one Mac. You (and your AI IDE) work on another. Cloud driv
 
 Prefer the **DMG** (drag Porter → Applications). Zip is for in-app updates.
 
-> **Apple Silicon (M1/M2/M3/M4):** [Porter DMG](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.34-mac-arm64.dmg) · [Zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.34-mac-arm64.zip)  
+> **Apple Silicon (M1/M2/M3/M4):** [Porter DMG](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.36-mac-arm64.dmg) · [Zip](https://github.com/Gtarafdar/porter/releases/latest/download/Porter-0.2.36-mac-arm64.zip)  
 > **All releases:** https://github.com/Gtarafdar/porter/releases  
 > **Product site** (Mac + Windows chooser): https://gtarafdar.github.io/porter/#download
 

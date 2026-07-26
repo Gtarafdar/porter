@@ -11,7 +11,7 @@ Living todo for the Windows peer product. Mac DMG / Travel Ready stay protected.
 - [x] `Porter.exe` launcher + Setup EXE → `C:\Program Files\Porter`
 - [x] Private firewall rule (TCP 47831) in installer
 - [x] GitHub Actions Mac + Windows CI green
-- [x] Pre-release **v0.2.35** with Setup EXE (Mac **Latest** remains **v0.2.34**)
+- [x] Pre-release **v0.2.35** with Setup EXE (Mac **Latest** is **v0.2.36**)
 - [x] README + docs/WINDOWS.md + WINDOWS-SMOKE + TRAVEL-MATRIX
 - [x] Site download section for Windows (Mac buttons use Mac DMG release only)
 - [x] Windows Task Scheduler login keep-alive (Set & forget on win32; Mac LaunchAgent unchanged)
